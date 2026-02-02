@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  godsend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: godsend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persist Ready folder (converted games)
+      - ./data/Ready:/app/Ready
+      # Persist Temp folder (temporary files during processing)
+      - ./data/Temp:/app/Temp
+    environment:
+      # Optional: Set timezone
+      - TZ=UTC
+    # Increase shared memory for large file operations
+    shm_size: 256mb
+    # Resource limits (adjust based on your system)
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/debug"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

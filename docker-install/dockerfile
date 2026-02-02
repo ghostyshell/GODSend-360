@@ -1,0 +1,56 @@
+# GODSend Docker Image
+# Multi-stage build for smaller final image
+
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /build
+
+# Copy source code
+COPY source-control/main.go .
+
+# Build the Go binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o godsend main.go
+
+# Final image
+FROM alpine:3.19
+
+LABEL maintainer="GODSend"
+LABEL description="GODSend Xbox 360 Game Server"
+LABEL version="4.2"
+
+# Install required packages
+RUN apk add --no-cache \
+    ca-certificates \
+    wget \
+    p7zip
+
+WORKDIR /app
+
+# Download iso2god-rs for Linux x86_64
+RUN wget -q -O /app/iso2god \
+    "https://github.com/iliazeus/iso2god-rs/releases/download/v1.8.1/iso2god-x86_64-linux" && \
+    chmod +x /app/iso2god
+
+# Create symlink for 7zz (p7zip provides 7z, we need 7zz)
+RUN ln -s /usr/bin/7z /app/7zz
+
+# Copy built binary from builder stage
+COPY --from=builder /build/godsend /app/godsend
+
+# Create required directories
+RUN mkdir -p /app/Ready /app/Temp
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget -q --spider http://localhost:8080/debug || exit 1
+
+# Run as non-root user for security
+RUN adduser -D -u 1000 godsend && \
+    chown -R godsend:godsend /app
+USER godsend
+
+# Start the server
+CMD ["/app/godsend"]

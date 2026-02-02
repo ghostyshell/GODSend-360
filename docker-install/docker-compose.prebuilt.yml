@@ -1,0 +1,61 @@
+version: "3.8"
+
+# This version uses the pre-built binary from the repository
+# instead of building from source
+
+services:
+  godsend:
+    image: alpine:3.19
+    container_name: godsend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount the pre-built binary (from source-control folder)
+      - ./source-control/godsend_linux:/app/godsend:ro
+      # Persist Ready folder (converted games)
+      - ./data/Ready:/app/Ready
+      # Persist Temp folder (temporary files during processing)
+      - ./data/Temp:/app/Temp
+    environment:
+      - TZ=UTC
+    working_dir: /app
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # Install dependencies
+        apk add --no-cache ca-certificates wget p7zip > /dev/null 2>&1
+        
+        # Download iso2god if not present
+        if [ ! -f /app/iso2god ]; then
+          wget -q -O /app/iso2god "https://github.com/iliazeus/iso2god-rs/releases/download/v1.8.1/iso2god-x86_64-linux"
+          chmod +x /app/iso2god
+        fi
+        
+        # Create symlink for 7zz
+        ln -sf /usr/bin/7z /app/7zz
+        
+        # Create directories
+        mkdir -p /app/Ready /app/Temp
+        
+        # Make binary executable and run
+        chmod +x /app/godsend
+        exec /app/godsend
+    shm_size: 256mb
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/debug"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
