@@ -28,17 +28,19 @@ import (
 // ==========================================
 const (
 	Port            = "8080"
-	MaxPartSize     = 1800000000        // 1.8GB Safe limit (FAT32 max is 2GB)
-	MaxDLCSizeBytes = 349 * 1024 * 1024 // 349MB Limit
+	MaxPartSize     = 1800000000
+	MaxDLCSizeBytes = 349 * 1024 * 1024
+	CopyBufferSize  = 4 * 1024 * 1024
+	ServeBufferSize = 128 * 1024  // 128KB - tuned for Xbox 360 TCP window
+	FTPPort         = 21
+	FTPTimeout      = 30 * time.Second
+	FTPBufferSize   = 1 * 1024 * 1024
+	FTPMaxRetries   = 3
+	FTPRetryDelay   = 2 * time.Second
 
-	// Buffer sizes for optimized I/O
-	CopyBufferSize  = 4 * 1024 * 1024 // 4MB buffer for file copies
-	ServeBufferSize = 256 * 1024      // 256KB buffer for HTTP serving
-
-	// FTP Configuration
-	FTPPort       = 21
-	FTPTimeout    = 30 * time.Second
-	FTPBufferSize = 1 * 1024 * 1024 // 1MB buffer for FTP transfers
+	// TCP tuning
+	TCPSendBuffer = 512 * 1024 // SO_SNDBUF - kernel send buffer per connection
+	TCPKeepAlive  = 30 * time.Second
 
 	Myrient360Base     = "https://myrient.erista.me/files/Redump/Microsoft%20-%20Xbox%20360/"
 	MyrientOrigBase    = "https://myrient.erista.me/files/Redump/Microsoft%20-%20Xbox/"
@@ -47,19 +49,16 @@ const (
 )
 
 var (
-	toolsDir     string
-	sevenZipBin  string
-	isoGodBin    string
-	jobQueue     sync.Map
-	serverIP     string
-	gamePartsMap sync.Map
-	copyBuffer   []byte
-
-	// Track Xbox IPs for FTP connections
+	toolsDir        string
+	sevenZipBin     string
+	isoGodBin       string
+	jobQueue        sync.Map
+	serverIP        string
+	gamePartsMap    sync.Map
+	copyBuffer      []byte
 	xboxConnections sync.Map
 )
 
-// XboxConnection stores info about a connected Xbox for FTP transfers
 type XboxConnection struct {
 	IP        string `json:"ip"`
 	Drive     string `json:"drive"`
@@ -68,12 +67,10 @@ type XboxConnection struct {
 	Mode      string `json:"mode"`
 	Timestamp time.Time
 }
-
 type GameStatus struct {
 	State   string `json:"state"`
 	Message string `json:"message"`
 }
-
 type ProgressWriter struct {
 	Total     int64
 	Written   int64
@@ -85,18 +82,13 @@ type ProgressWriter struct {
 func (pw *ProgressWriter) Write(p []byte) (int, error) {
 	n := len(p)
 	pw.Written += int64(n)
-
 	if time.Since(pw.LastLog) > 500*time.Millisecond || pw.Written == pw.Total {
 		percent := float64(pw.Written) / float64(pw.Total) * 100
 		elapsed := time.Since(pw.StartTime).Seconds()
-		if elapsed < 1 {
-			elapsed = 1
-		}
+		if elapsed < 1 { elapsed = 1 }
 		speed := float64(pw.Written) / elapsed / 1048576
-
 		fmt.Printf("\r[%s] Download: %.1f%% (%.1f/%.1f MB) @ %.1f MB/s   ",
 			time.Now().Format("15:04:05"), percent, float64(pw.Written)/1048576, float64(pw.Total)/1048576, speed)
-
 		logStatus(pw.GameName, "Processing", fmt.Sprintf("Downloading: %.0f%%", percent))
 		pw.LastLog = time.Now()
 	}
@@ -104,59 +96,120 @@ func (pw *ProgressWriter) Write(p []byte) (int, error) {
 }
 
 // ==========================================
+// ERROR / LOGGING HELPERS
+// ==========================================
+
+func jsonError(w http.ResponseWriter, code int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"state": "Error", "message": message})
+}
+func jsonSuccess(w http.ResponseWriter, data map[string]string) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+func recoverMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				logf("PANIC: %s %s: %v", r.Method, r.URL.Path, err)
+				buf := make([]byte, 4096)
+				n := runtime.Stack(buf, false)
+				logf("STACK: %s", string(buf[:n]))
+				jsonError(w, 500, "Internal server error")
+			}
+		}()
+		next(w, r)
+	}
+}
+func logf(format string, args ...interface{}) {
+	fmt.Printf("[%s] "+format+"\n", append([]interface{}{time.Now().Format("15:04:05")}, args...)...)
+}
+func logStatus(game, state, msg string) {
+	jobQueue.Store(game, GameStatus{State: state, Message: msg})
+}
+
+// ==========================================
 // MAIN & SETUP
 // ==========================================
-func main() {
-	setupPaths()
-	serverIP = getOutboundIP()
 
+func main() {
+	if err := setupPaths(); err != nil {
+		fmt.Printf("[FATAL] Setup failed: %v\n", err)
+		os.Exit(1)
+	}
+	serverIP = getOutboundIP()
+	if serverIP == "" {
+		serverIP = "0.0.0.0"
+	}
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔════════════════════════════════════════╗")
-	fmt.Println("║      GODSend Backend Server v5.1       ║")
+	fmt.Println("║      GODSend Backend Server v5.2       ║")
 	fmt.Println("║   (HTTP + FTP with DLC/XBLA Support)   ║")
 	fmt.Println("╚════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
-	fmt.Printf("[INFO] Copy Buffer: %d MB\n", CopyBufferSize/1024/1024)
-	fmt.Printf("[INFO] Serve Buffer: %d KB\n", ServeBufferSize/1024)
-	fmt.Printf("[INFO] FTP Transfer Buffer: %d MB\n", FTPBufferSize/1024/1024)
+	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
+		CopyBufferSize/1024/1024, ServeBufferSize/1024, FTPBufferSize/1024/1024)
+	fmt.Printf("[INFO] TCP: NODELAY=on SNDBUF=%dKB KeepAlive=%s\n",
+		TCPSendBuffer/1024, TCPKeepAlive)
+	fmt.Printf("[INFO] File serving: sendfile() zero-copy via http.ServeContent\n")
+	verifyTools()
 
-	http.HandleFunc("/browse", handleBrowse)
-	http.HandleFunc("/trigger", handleTrigger)
-	http.HandleFunc("/status", handleStatus)
-	http.HandleFunc("/debug", handleDebug)
-	http.HandleFunc("/register", handleRegister)
-	http.HandleFunc("/files/", handleFileServe)
+	http.HandleFunc("/browse", recoverMiddleware(handleBrowse))
+	http.HandleFunc("/trigger", recoverMiddleware(handleTrigger))
+	http.HandleFunc("/status", recoverMiddleware(handleStatus))
+	http.HandleFunc("/debug", recoverMiddleware(handleDebug))
+	http.HandleFunc("/register", recoverMiddleware(handleRegister))
+	http.HandleFunc("/files/", recoverMiddleware(handleFileServe))
 
 	server := &http.Server{
-		Addr:              ":" + Port,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       0,
-		WriteTimeout:      0,
-		IdleTimeout:       120 * time.Second,
-		MaxHeaderBytes:    1 << 20,
+		Addr: ":" + Port, ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout: 0, WriteTimeout: 0, IdleTimeout: 120 * time.Second, MaxHeaderBytes: 1 << 20,
+		ConnState: func(conn net.Conn, state http.ConnState) {
+			if state == http.StateNew {
+				if tc, ok := conn.(*net.TCPConn); ok {
+					tc.SetNoDelay(true)          // TCP_NODELAY - disable Nagle's algorithm
+					tc.SetKeepAlive(true)         // Enable keepalive
+					tc.SetKeepAlivePeriod(TCPKeepAlive)
+					tc.SetWriteBuffer(TCPSendBuffer) // SO_SNDBUF
+					tc.SetReadBuffer(TCPSendBuffer)  // SO_RCVBUF
+				}
+			}
+		},
 	}
-
-	fmt.Printf("[SERVER] Starting on port %s...\n", Port)
+	logf("Starting server on port %s... Server started. Please start the script on the xbox", Port)
 	if err := server.ListenAndServe(); err != nil {
-		fmt.Printf("ERROR: %v\n", err)
+		fmt.Printf("[FATAL] %v\n", err)
+		os.Exit(1)
 	}
 }
 
-func setupPaths() {
-	ex, _ := os.Executable()
+func setupPaths() error {
+	ex, err := os.Executable()
+	if err != nil { return fmt.Errorf("executable path: %w", err) }
 	toolsDir = filepath.Dir(ex)
-
 	if runtime.GOOS == "windows" {
-		sevenZipBin = "7za.exe"
-		isoGodBin = "iso2god.exe"
+		sevenZipBin = "7za.exe"; isoGodBin = "iso2god.exe"
 	} else {
-		sevenZipBin = "7zz"
-		isoGodBin = "iso2god"
+		sevenZipBin = "7zz"; isoGodBin = "iso2god"
 	}
+	if err := os.MkdirAll(filepath.Join(toolsDir, "Ready"), 0755); err != nil { return err }
+	if err := os.MkdirAll(filepath.Join(toolsDir, "Temp"), 0755); err != nil { return err }
+	return nil
+}
 
-	os.MkdirAll(filepath.Join(toolsDir, "Ready"), 0755)
-	os.MkdirAll(filepath.Join(toolsDir, "Temp"), 0755)
+func verifyTools() {
+	for _, t := range []struct{ n, p string }{
+		{"7-Zip", filepath.Join(toolsDir, sevenZipBin)},
+		{"iso2god", filepath.Join(toolsDir, isoGodBin)},
+	} {
+		if _, err := os.Stat(t.p); os.IsNotExist(err) {
+			logf("WARNING: %s not found at %s", t.n, t.p)
+		} else {
+			logf("%s found: %s", t.n, t.p)
+		}
+	}
 }
 
 // ==========================================
@@ -167,41 +220,41 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 	platform := r.URL.Query().Get("platform")
 	qType := r.URL.Query().Get("type")
 	targetURL := Myrient360Base
-
-	if qType == "dlc" {
-		targetURL = MyrientDLCBase
-		fmt.Println("\n[BROWSE] Browsing DLC/Digital Repository...")
-	} else if platform == "xbox" {
-		targetURL = MyrientOrigBase
-		fmt.Println("\n[BROWSE] Browsing Original Xbox Library...")
-	} else if platform == "digital" {
-		targetURL = MyrientDigitalBase
-		fmt.Println("\n[BROWSE] Browsing Digital Library...")
-	} else {
-		fmt.Println("\n[BROWSE] Browsing Xbox 360 Library...")
-	}
+	if qType == "dlc" { targetURL = MyrientDLCBase
+	} else if platform == "xbox" { targetURL = MyrientOrigBase
+	} else if platform == "digital" { targetURL = MyrientDigitalBase }
+	logf("BROWSE: platform=%s", platform)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(targetURL)
 	if err != nil {
-		http.Error(w, "Myrient Unreachable", 500)
+		logf("BROWSE ERROR: %v", err)
+		jsonError(w, 502, "Myrient unreachable - check server internet")
 		return
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-
+	if resp.StatusCode != 200 {
+		jsonError(w, 502, fmt.Sprintf("Myrient returned HTTP %d", resp.StatusCode))
+		return
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		jsonError(w, 502, "Failed to read Myrient response")
+		return
+	}
 	var games []string
-	lines := strings.Split(string(body), "<a href=\"")
-	for _, line := range lines[1:] {
+	for _, line := range strings.Split(string(body), "<a href=\"")[1:] {
 		if end := strings.Index(line, "\""); end != -1 {
-			rawName := line[:end]
-			if strings.HasSuffix(rawName, ".zip") {
-				cleanName, _ := url.QueryUnescape(rawName)
-				cleanName = strings.TrimSuffix(cleanName, ".zip")
-				games = append(games, cleanName)
+			raw := line[:end]
+			if strings.HasSuffix(raw, ".zip") {
+				if clean, err := url.QueryUnescape(raw); err == nil {
+					games = append(games, strings.TrimSuffix(clean, ".zip"))
+				}
 			}
 		}
 	}
+	logf("BROWSE: Found %d games", len(games))
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Write([]byte(strings.Join(games, "|")))
 }
 
@@ -211,443 +264,298 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	drive := r.URL.Query().Get("drive")
 	platform := r.URL.Query().Get("platform")
 	mode := r.URL.Query().Get("mode")
-
 	if gameName == "" || xboxIP == "" {
-		http.Error(w, "Missing game or ip parameter", 400)
-		return
+		jsonError(w, 400, "Missing game or ip parameter"); return
 	}
-
-	if drive == "" {
-		drive = "Hdd1:"
+	if net.ParseIP(xboxIP) == nil {
+		jsonError(w, 400, "Invalid IP address format"); return
 	}
-	if mode == "" {
-		mode = "http"
-	}
-	if platform == "" {
-		platform = "xbox360"
-	}
+	if drive == "" { drive = "Hdd1:" }
+	if mode == "" { mode = "http" }
+	if platform == "" { platform = "xbox360" }
 
-	conn := XboxConnection{
-		IP:        xboxIP,
-		Drive:     drive,
-		GameName:  gameName,
-		Platform:  platform,
-		Mode:      mode,
-		Timestamp: time.Now(),
-	}
-
-	xboxConnections.Store(gameName, conn)
-
-	fmt.Printf("[REGISTER] Xbox %s registered for %s (mode: %s, drive: %s)\n",
-		xboxIP, gameName, mode, drive)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "registered",
-		"mode":   mode,
-		"ip":     xboxIP,
-		"drive":  drive,
+	xboxConnections.Store(gameName, XboxConnection{
+		IP: xboxIP, Drive: drive, GameName: gameName, Platform: platform, Mode: mode, Timestamp: time.Now(),
 	})
+	logf("REGISTER: Xbox %s for %s (mode=%s drive=%s)", xboxIP, gameName, mode, drive)
+	jsonSuccess(w, map[string]string{"status": "registered", "mode": mode, "ip": xboxIP, "drive": drive})
 }
 
 func handleTrigger(w http.ResponseWriter, r *http.Request) {
 	gameName := r.URL.Query().Get("game")
 	platform := r.URL.Query().Get("platform")
-
-	if gameName == "" {
-		http.Error(w, "Missing game parameter", 400)
-		return
-	}
+	if gameName == "" { jsonError(w, 400, "Missing game parameter"); return }
+	if platform == "" { platform = "xbox360" }
 
 	if status, exists := jobQueue.Load(gameName); exists {
-		if status.(GameStatus).State == "Ready" {
-			w.Write([]byte(`{"status":"already_ready"}`))
-			return
-		}
+		gs := status.(GameStatus)
+		if gs.State == "Ready" { jsonSuccess(w, map[string]string{"status": "already_ready"}); return }
+		if gs.State == "Processing" { jsonSuccess(w, map[string]string{"status": "already_processing"}); return }
+	}
+
+	launcher := func(fn func()) {
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logf("PANIC processing %s: %v", gameName, r)
+					buf := make([]byte, 4096)
+					n := runtime.Stack(buf, false)
+					logf("STACK: %s", string(buf[:n]))
+					logStatus(gameName, "Error", "Server crashed during processing - check server logs")
+				}
+			}()
+			fn()
+		}()
 	}
 
 	if platform == "digital" {
-		go processDigital(gameName)
+		launcher(func() { processDigital(gameName) })
 	} else {
-		go processGame(gameName, platform)
+		launcher(func() { processGame(gameName, platform) })
 	}
-
-	w.Write([]byte(`{"status":"triggered"}`))
+	jsonSuccess(w, map[string]string{"status": "triggered"})
 }
 
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	gameName := r.URL.Query().Get("game")
-	if gameName == "" {
-		http.Error(w, "Missing game parameter", 400)
-		return
-	}
+	if gameName == "" { jsonError(w, 400, "Missing game parameter"); return }
 	status := GameStatus{State: "Missing", Message: "Not Found"}
-	if s, exists := jobQueue.Load(gameName); exists {
-		status = s.(GameStatus)
-	}
+	if s, exists := jobQueue.Load(gameName); exists { status = s.(GameStatus) }
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
 }
 
 func handleDebug(w http.ResponseWriter, r *http.Request) {
-	readyDir := filepath.Join(toolsDir, "Ready")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, "<h2>GODSend Debug</h2>")
-	fmt.Fprintf(w, "<h3>Ready Games (Subfolders):</h3><ul>")
-	files, _ := os.ReadDir(readyDir)
-	for _, f := range files {
-		if f.IsDir() {
-			fmt.Fprintf(w, "<li>%s</li>", f.Name())
-		}
+	fmt.Fprintf(w, "<h2>GODSend Debug v5.2</h2><p>Server: %s:%s</p>", serverIP, Port)
+	fmt.Fprintf(w, "<h3>Ready Games:</h3><ul>")
+	if files, err := os.ReadDir(filepath.Join(toolsDir, "Ready")); err == nil {
+		for _, f := range files { if f.IsDir() { fmt.Fprintf(w, "<li>%s</li>", f.Name()) } }
 	}
-	fmt.Fprintf(w, "</ul>")
-
-	fmt.Fprintf(w, "<h3>Registered Xbox Connections:</h3><ul>")
-	xboxConnections.Range(func(key, value interface{}) bool {
-		conn := value.(XboxConnection)
-		fmt.Fprintf(w, "<li>%s: IP=%s, Mode=%s, Drive=%s</li>",
-			conn.GameName, conn.IP, conn.Mode, conn.Drive)
+	fmt.Fprintf(w, "</ul><h3>Active Jobs:</h3><ul>")
+	jobQueue.Range(func(k, v interface{}) bool {
+		gs := v.(GameStatus); fmt.Fprintf(w, "<li>%s: [%s] %s</li>", k, gs.State, gs.Message); return true
+	})
+	fmt.Fprintf(w, "</ul><h3>Xbox Connections:</h3><ul>")
+	xboxConnections.Range(func(k, v interface{}) bool {
+		c := v.(XboxConnection)
+		fmt.Fprintf(w, "<li>%s: IP=%s Mode=%s Drive=%s (%s ago)</li>",
+			c.GameName, c.IP, c.Mode, c.Drive, time.Since(c.Timestamp).Round(time.Second))
 		return true
 	})
 	fmt.Fprintf(w, "</ul>")
 }
 
+// ==========================================
+// FILE SERVING (FIXED RANGE HANDLING)
+// ==========================================
+
 func handleFileServe(w http.ResponseWriter, r *http.Request) {
 	relPath := strings.TrimPrefix(r.URL.Path, "/files/")
-	if relPath == "" {
-		http.Error(w, "Not Found", 404)
-		return
-	}
+	if relPath == "" { jsonError(w, 404, "No file path specified"); return }
 
 	decodedPath, err := url.QueryUnescape(relPath)
 	if err != nil {
-		http.Error(w, "Invalid Path", 400)
-		return
+		logf("FILE ERROR: Bad encoding: %s", relPath)
+		jsonError(w, 400, "Invalid file path encoding"); return
 	}
-
 	fullPath := filepath.Join(toolsDir, "Ready", decodedPath)
 
 	absReady, _ := filepath.Abs(filepath.Join(toolsDir, "Ready"))
 	absPath, _ := filepath.Abs(fullPath)
 	if !strings.HasPrefix(absPath, absReady) {
-		http.Error(w, "Forbidden", 403)
-		return
+		logf("FILE BLOCKED: Path traversal: %s", decodedPath)
+		jsonError(w, 403, "Access denied"); return
 	}
 
 	info, err := os.Stat(fullPath)
 	if os.IsNotExist(err) {
-		http.Error(w, "Not Found", 404)
-		return
+		logf("FILE 404: %s", decodedPath)
+		jsonError(w, 404, fmt.Sprintf("File not found: %s", filepath.Base(decodedPath))); return
+	}
+	if err != nil {
+		jsonError(w, 500, "Cannot access file"); return
 	}
 
 	if info.IsDir() {
-		entries, _ := os.ReadDir(fullPath)
+		entries, err := os.ReadDir(fullPath)
+		if err != nil { jsonError(w, 500, "Cannot list directory"); return }
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(w, "<html><body><h2>Index of /%s</h2><ul>", relPath)
-		for _, entry := range entries {
-			name := entry.Name()
-			if entry.IsDir() {
-				name += "/"
-			}
+		for _, e := range entries {
+			name := e.Name(); if e.IsDir() { name += "/" }
 			fmt.Fprintf(w, "<li><a href=\"%s\">%s</a></li>", url.PathEscape(name), name)
 		}
-		fmt.Fprintf(w, "</ul></body></html>")
-		return
+		fmt.Fprintf(w, "</ul></body></html>"); return
 	}
 
 	file, err := os.Open(fullPath)
-	if err != nil {
-		http.Error(w, "Cannot Open File", 500)
-		return
-	}
+	if err != nil { jsonError(w, 500, "Cannot open file"); return }
 	defer file.Close()
 
+	fileSize := info.Size()
+	fileName := filepath.Base(fullPath)
+
+	// Hint the OS to read sequentially (Linux only, ignored on Windows)
+	adviseFadvise(file, fileSize)
+
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 
-	rangeHeader := r.Header.Get("Range")
-	if rangeHeader != "" {
-		var start, end int64
-		if _, err := fmt.Sscanf(rangeHeader, "bytes=%d-%d", &start, &end); err != nil {
-			if _, err := fmt.Sscanf(rangeHeader, "bytes=%d-", &start); err == nil {
-				end = info.Size() - 1
-			} else {
-				http.Error(w, "Invalid Range", 416)
-				return
-			}
+	// Range request handling
+	if rh := r.Header.Get("Range"); rh != "" {
+		start, end, err := parseRangeHeader(rh, fileSize)
+		if err != nil {
+			logf("FILE WARN: Bad range '%s' for %s: %v", rh, fileName, err)
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", fileSize))
+			w.WriteHeader(http.StatusRequestedRangeNotSatisfiable); return
 		}
-		if end == 0 {
-			end = info.Size() - 1
+		cl := end - start + 1
+		if _, err := file.Seek(start, 0); err != nil {
+			logf("FILE ERROR: Seek %s: %v", fileName, err)
+			jsonError(w, 500, "File seek error"); return
 		}
-
-		file.Seek(start, 0)
-		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, info.Size()))
-		w.Header().Set("Content-Length", strconv.FormatInt(end-start+1, 10))
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+		w.Header().Set("Content-Length", strconv.FormatInt(cl, 10))
 		w.WriteHeader(http.StatusPartialContent)
-		io.CopyN(w, file, end-start+1)
+
+		// Buffered range transfer with speed tracking
+		startTime := time.Now()
+		bw := bufio.NewWriterSize(w, ServeBufferSize)
+		written, err := io.CopyN(bw, file, cl)
+		if flushErr := bw.Flush(); flushErr != nil && err == nil { err = flushErr }
+		elapsed := time.Since(startTime).Seconds()
+		if elapsed < 0.001 { elapsed = 0.001 }
+		speed := float64(written) / elapsed / 1048576
+
+		if err != nil {
+			logf("FILE WARN: Range xfer interrupted %s after %.2f MB (%.1f MB/s): %v", fileName, float64(written)/1048576, speed, err)
+		} else {
+			logf("FILE: Range %s %.2f MB @ %.1f MB/s", fileName, float64(written)/1048576, speed)
+		}
 		return
 	}
 
-	bufWriter := bufio.NewWriterSize(w, ServeBufferSize)
-	io.CopyBuffer(bufWriter, file, make([]byte, ServeBufferSize))
-	bufWriter.Flush()
+	// Full file transfer - use http.ServeContent for sendfile() zero-copy on Linux
+	logf("FILE: Sending %s (%.2f MB)", fileName, float64(fileSize)/1048576)
+	startTime := time.Now()
+
+	// ServeContent handles Content-Length, Last-Modified, and uses sendfile() syscall
+	// on Linux for zero-copy kernel→network transfer (bypasses userspace entirely)
+	http.ServeContent(w, r, fileName, info.ModTime(), file)
+
+	elapsed := time.Since(startTime).Seconds()
+	if elapsed < 0.001 { elapsed = 0.001 }
+	speed := float64(fileSize) / elapsed / 1048576
+	logf("FILE: Done %s (%.2f MB) in %.1fs @ %.1f MB/s", fileName, float64(fileSize)/1048576, elapsed, speed)
+}
+
+func parseRangeHeader(header string, fileSize int64) (int64, int64, error) {
+	if !strings.HasPrefix(header, "bytes=") {
+		return 0, 0, fmt.Errorf("not a byte range: %s", header)
+	}
+	spec := strings.TrimPrefix(header, "bytes=")
+	// Suffix: "bytes=-500"
+	if strings.HasPrefix(spec, "-") {
+		s, err := strconv.ParseInt(spec[1:], 10, 64)
+		if err != nil || s <= 0 { return 0, 0, fmt.Errorf("bad suffix: %s", spec) }
+		start := fileSize - s
+		if start < 0 { start = 0 }
+		return start, fileSize - 1, nil
+	}
+	parts := strings.SplitN(spec, "-", 2)
+	if len(parts) != 2 { return 0, 0, fmt.Errorf("bad format: %s", spec) }
+	start, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil { return 0, 0, fmt.Errorf("bad start: %s", parts[0]) }
+	var end int64
+	if parts[1] == "" {
+		end = fileSize - 1
+	} else {
+		end, err = strconv.ParseInt(parts[1], 10, 64)
+		if err != nil { return 0, 0, fmt.Errorf("bad end: %s", parts[1]) }
+	}
+	if start < 0 || start >= fileSize { return 0, 0, fmt.Errorf("start %d out of range (size %d)", start, fileSize) }
+	if end < start { return 0, 0, fmt.Errorf("end %d < start %d", end, start) }
+	if end >= fileSize { end = fileSize - 1 }
+	return start, end, nil
+}
+
+// adviseFadvise is a placeholder for POSIX_FADV_SEQUENTIAL + POSIX_FADV_WILLNEED
+// On Linux, the kernel already does adaptive read-ahead for sequential reads.
+// The real perf wins come from http.ServeContent (sendfile syscall) and TCP tuning.
+// If you need this on Linux-only builds, use golang.org/x/sys/unix.Fadvise()
+func adviseFadvise(f *os.File, size int64) {
+	// no-op: avoids syscall import that breaks Windows cross-compilation
 }
 
 // ==========================================
-// FTP CONNECTION HELPER
+// FTP HELPERS
 // ==========================================
 
 func connectToXboxFTP(ip string) (*ftp.ServerConn, error) {
-	fmt.Printf("[FTP] Connecting to Xbox at %s:%d...\n", ip, FTPPort)
-
-	// Connect with EPSV disabled (Xbox doesn't support it)
-	ftpConn, err := ftp.Dial(fmt.Sprintf("%s:%d", ip, FTPPort),
-		ftp.DialWithTimeout(FTPTimeout),
-		ftp.DialWithDisabledEPSV(true),
-		ftp.DialWithDisabledUTF8(true)) // Disable UTF8 - Xbox FTP doesn't support OPTS UTF8
-	if err != nil {
-		return nil, fmt.Errorf("FTP connection failed: %v", err)
+	logf("FTP: Connecting to %s:%d...", ip, FTPPort)
+	c, err := ftp.Dial(fmt.Sprintf("%s:%d", ip, FTPPort),
+		ftp.DialWithTimeout(FTPTimeout), ftp.DialWithDisabledEPSV(true), ftp.DialWithDisabledUTF8(true))
+	if err != nil { return nil, fmt.Errorf("FTP connect to %s failed - ensure Aurora FTP enabled: %v", ip, err) }
+	if err = c.Login("xboxftp", "xboxftp"); err != nil {
+		c.Quit(); return nil, fmt.Errorf("FTP login failed - check credentials: %v", err)
 	}
-
-	fmt.Printf("[FTP] Connected! Attempting authentication...\n")
-
-	// Login with Aurora's default credentials
-	err = ftpConn.Login("xboxftp", "xboxftp")
-	if err != nil {
-		fmt.Printf("[FTP] Login failed: %v\n", err)
-		ftpConn.Quit()
-		return nil, fmt.Errorf("FTP login failed: %v", err)
-	}
-
-	fmt.Printf("[FTP] Login successful!\n")
-	return ftpConn, nil
+	logf("FTP: Connected to %s", ip)
+	return c, nil
 }
 
-// ==========================================
-// STANDARD GAME PROCESSING
-// ==========================================
-
-func processGame(gameName, platform string) {
-	fmt.Printf("\n[%s] === Processing Game: %s ===\n", time.Now().Format("15:04:05"), gameName)
-	safeName := sanitizeFilename(gameName)
-
-	var xboxConn *XboxConnection
-	if conn, exists := xboxConnections.Load(gameName); exists {
-		c := conn.(XboxConnection)
-		xboxConn = &c
-		fmt.Printf("[%s] Transfer mode: %s to %s (drive: %s)\n",
-			time.Now().Format("15:04:05"), xboxConn.Mode, xboxConn.IP, xboxConn.Drive)
+func connectWithRetry(ip string) (*ftp.ServerConn, error) {
+	var last error
+	for i := 1; i <= FTPMaxRetries; i++ {
+		c, err := connectToXboxFTP(ip)
+		if err == nil { return c, nil }
+		last = err
+		if i < FTPMaxRetries { logf("FTP: Attempt %d/%d failed, retry...", i, FTPMaxRetries); time.Sleep(FTPRetryDelay) }
 	}
-
-	gameDir := filepath.Join(toolsDir, "Ready", safeName)
-	os.MkdirAll(gameDir, 0755)
-
-	baseURL := Myrient360Base
-	if platform == "xbox" {
-		baseURL = MyrientOrigBase
-	}
-
-	logStatus(gameName, "Processing", "Searching...")
-	searchURL := baseURL + "?search=" + url.QueryEscape(gameName)
-	zipURL, err := findZip(searchURL, gameName, baseURL)
-	if err != nil {
-		logStatus(gameName, "Error", err.Error())
-		return
-	}
-
-	zipPath := filepath.Join(toolsDir, "Temp", safeName+".zip")
-	if cached, _ := checkZipCache(zipURL, zipPath, baseURL); cached {
-		logStatus(gameName, "Processing", "Using cached download")
-	} else {
-		logStatus(gameName, "Processing", "Downloading from Myrient...")
-		if err := downloadWithProgress(zipURL, zipPath, gameName, baseURL); err != nil {
-			logStatus(gameName, "Error", err.Error())
-			return
-		}
-	}
-
-	logStatus(gameName, "Processing", "Extracting ISO...")
-	isoPath, err := extractISO(zipPath, safeName)
-	if err != nil {
-		logStatus(gameName, "Error", fmt.Sprintf("Extract failed: %v", err))
-		return
-	}
-
-	logStatus(gameName, "Processing", "Converting to GOD...")
-	godTempDir := filepath.Join(toolsDir, "Temp", safeName+"_GOD")
-	os.MkdirAll(godTempDir, 0755)
-	if err := runIso2God(isoPath, godTempDir); err != nil {
-		logStatus(gameName, "Error", fmt.Sprintf("GOD Convert failed: %v", err))
-		return
-	}
-	os.Remove(isoPath)
-
-	titleID, mediaID, err := detectGodStructure(godTempDir)
-	if err != nil {
-		logStatus(gameName, "Error", fmt.Sprintf("GOD structure detection failed: %v", err))
-		return
-	}
-
-	if xboxConn != nil && xboxConn.Mode == "ftp" {
-		logStatus(gameName, "Processing", "FTP Transfer starting...")
-		if err := ftpTransferGame(godTempDir, xboxConn, gameName, titleID, mediaID); err != nil {
-			logStatus(gameName, "Error", fmt.Sprintf("FTP Transfer failed: %v", err))
-			os.RemoveAll(godTempDir)
-			return
-		}
-
-		if platform == "xbox360" {
-			logStatus(gameName, "Processing", "Checking for DLC...")
-			ftpProcessDLCs(gameName, titleID, xboxConn)
-		}
-
-		os.RemoveAll(godTempDir)
-		logStatus(gameName, "Ready", "FTP Transfer Complete!")
-		fmt.Printf("[%s] === FTP Transfer Complete ===\n\n", time.Now().Format("15:04:05"))
-	} else {
-		logStatus(gameName, "Processing", "Archiving...")
-		titleID, mediaID, err = bucketAndZip(godTempDir, gameDir, gameName, safeName)
-		if err != nil {
-			logStatus(gameName, "Error", err.Error())
-			return
-		}
-		os.RemoveAll(godTempDir)
-
-		var dlcList []string
-		if platform == "xbox360" {
-			logStatus(gameName, "Processing", "Checking for DLC...")
-			dlcList = processDLCs(gameName, gameDir)
-			if len(dlcList) > 0 {
-				logStatus(gameName, "Processing", fmt.Sprintf("Paired %d DLCs", len(dlcList)))
-			}
-		}
-
-		updateGameINI_Parts(gameDir, gameName, titleID, mediaID, dlcList)
-		logStatus(gameName, "Ready", "Ready to Install")
-		fmt.Printf("[%s] === Complete ===\n\n", time.Now().Format("15:04:05"))
-	}
-}
-
-// ==========================================
-// FTP TRANSFER FUNCTIONS
-// ==========================================
-
-func ftpTransferGame(godDir string, conn *XboxConnection, gameName, titleID, mediaID string) error {
-	ftpConn, err := connectToXboxFTP(conn.IP)
-	if err != nil {
-		return err
-	}
-	defer ftpConn.Quit()
-
-	driveName := strings.TrimSuffix(conn.Drive, ":")
-	basePath := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", driveName, titleID, mediaID)
-
-	fmt.Printf("[FTP] Destination: %s\n", basePath)
-
-	if err := ftpMkdirAll(ftpConn, basePath); err != nil {
-		return fmt.Errorf("failed to create directory structure: %v", err)
-	}
-
-	contentDir := filepath.Join(godDir, titleID, mediaID)
-
-	var totalFiles int
-	var totalSize int64
-	filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
-		if err == nil && !info.IsDir() {
-			totalFiles++
-			totalSize += info.Size()
-		}
-		return nil
-	})
-
-	fmt.Printf("[FTP] Transferring %d files (%.2f GB)...\n", totalFiles, float64(totalSize)/1073741824)
-
-	var transferred int
-	var transferredSize int64
-
-	err = filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-
-		rel, _ := filepath.Rel(contentDir, path)
-		rel = strings.ReplaceAll(rel, "\\", "/")
-		remotePath := basePath + "/" + rel
-
-		if info.IsDir() {
-			ftpConn.MakeDir(remotePath)
-			return nil
-		}
-
-		transferred++
-		percent := float64(transferredSize) / float64(totalSize) * 100
-
-		logStatus(gameName, "Processing",
-			fmt.Sprintf("FTP: %d/%d files (%.1f%%)", transferred, totalFiles, percent))
-
-		if err := ftpUploadFile(ftpConn, path, remotePath, gameName, &transferredSize, totalSize); err != nil {
-			fmt.Printf("[FTP] Warning: Failed to upload %s: %v\n", rel, err)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("\n[FTP] Transfer complete: %d files, %.2f GB\n", transferred, float64(transferredSize)/1073741824)
-	return nil
+	return nil, fmt.Errorf("FTP failed after %d attempts: %v", FTPMaxRetries, last)
 }
 
 func ftpMkdirAll(conn *ftp.ServerConn, path string) error {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	currentPath := ""
-
-	for _, part := range parts {
-		currentPath += "/" + part
-		conn.MakeDir(currentPath)
+	cur := ""
+	for _, p := range strings.Split(strings.Trim(path, "/"), "/") {
+		cur += "/" + p; conn.MakeDir(cur)
 	}
-
 	return nil
 }
 
 func ftpUploadFile(conn *ftp.ServerConn, localPath, remotePath, gameName string, transferred *int64, totalSize int64) error {
-	file, err := os.Open(localPath)
-	if err != nil {
-		return err
+	f, err := os.Open(localPath)
+	if err != nil { return fmt.Errorf("open %s: %v", filepath.Base(localPath), err) }
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil { return fmt.Errorf("stat %s: %v", filepath.Base(localPath), err) }
+	r := &ftpProgressReader{reader: f, total: info.Size(), gameName: gameName,
+		fileName: filepath.Base(localPath), transferred: transferred, totalSize: totalSize}
+	if err = conn.Stor(remotePath, r); err != nil {
+		return fmt.Errorf("STOR %s: %v", filepath.Base(localPath), err)
 	}
-	defer file.Close()
-
-	info, _ := file.Stat()
-	fileSize := info.Size()
-
-	reader := &ftpProgressReader{
-		reader:      file,
-		total:       fileSize,
-		gameName:    gameName,
-		fileName:    filepath.Base(localPath),
-		transferred: transferred,
-		totalSize:   totalSize,
-	}
-
-	err = conn.Stor(remotePath, reader)
-	if err != nil {
-		return err
-	}
-
-	*transferred += fileSize
+	*transferred += info.Size()
 	return nil
+}
+
+func ftpUploadWithRetry(conn *ftp.ServerConn, xboxIP, localPath, remotePath, gameName string, transferred *int64, totalSize int64) error {
+	if err := ftpUploadFile(conn, localPath, remotePath, gameName, transferred, totalSize); err == nil {
+		return nil
+	}
+	logf("FTP: Upload failed, reconnecting for %s", filepath.Base(localPath))
+	nc, err := connectToXboxFTP(xboxIP)
+	if err != nil { return fmt.Errorf("reconnect failed: %v", err) }
+	defer nc.Quit()
+	return ftpUploadFile(nc, localPath, remotePath, gameName, transferred, totalSize)
 }
 
 type ftpProgressReader struct {
 	reader      io.Reader
-	total       int64
-	written     int64
-	gameName    string
-	fileName    string
+	total, written int64
+	gameName, fileName string
 	lastLog     time.Time
 	transferred *int64
 	totalSize   int64
@@ -656,330 +564,338 @@ type ftpProgressReader struct {
 func (r *ftpProgressReader) Read(p []byte) (int, error) {
 	n, err := r.reader.Read(p)
 	r.written += int64(n)
-
 	if time.Since(r.lastLog) > 500*time.Millisecond {
-		filePercent := float64(r.written) / float64(r.total) * 100
-		totalPercent := float64(*r.transferred+r.written) / float64(r.totalSize) * 100
-
-		fmt.Printf("\r[FTP] %s: %.1f%% | Overall: %.1f%%   ",
-			r.fileName, filePercent, totalPercent)
-
+		fp := float64(r.written) / float64(r.total) * 100
+		tp := float64(*r.transferred+r.written) / float64(r.totalSize) * 100
+		fmt.Printf("\r[FTP] %s: %.1f%% | Overall: %.1f%%   ", r.fileName, fp, tp)
 		r.lastLog = time.Now()
 	}
-
 	return n, err
 }
 
 // ==========================================
-// FTP DLC PROCESSING
+// GAME PROCESSING
 // ==========================================
 
-func ftpProcessDLCs(gameName, titleID string, conn *XboxConnection) {
-	searchURL := MyrientDLCBase + "?search=" + url.QueryEscape(gameName)
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, _ := http.NewRequest("GET", searchURL, nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0")
-	resp, err := client.Do(req)
-	if err != nil {
-		return
+func processGame(gameName, platform string) {
+	logf("=== Processing: %s (platform=%s) ===", gameName, platform)
+	safeName := sanitizeFilename(gameName)
+	if safeName == "" { logStatus(gameName, "Error", "Invalid game name"); return }
+
+	var xboxConn *XboxConnection
+	if c, ok := xboxConnections.Load(gameName); ok {
+		cc := c.(XboxConnection); xboxConn = &cc
+		logf("Mode: %s to %s (drive: %s)", xboxConn.Mode, xboxConn.IP, xboxConn.Drive)
 	}
-	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
-	re := regexp.MustCompile(`href="([^"]+\.zip)"`)
-	matches := re.FindAllStringSubmatch(string(body), -1)
+	gameDir := filepath.Join(toolsDir, "Ready", safeName)
+	if err := os.MkdirAll(gameDir, 0755); err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Cannot create directory: %v", err)); return
+	}
 
-	gameNameLower := strings.ToLower(gameName)
-	dlcCount := 0
+	baseURL := Myrient360Base
+	if platform == "xbox" { baseURL = MyrientOrigBase }
 
-	for _, match := range matches {
-		link := match[1]
-		decoded, _ := url.QueryUnescape(link)
-		lower := strings.ToLower(decoded)
+	logStatus(gameName, "Processing", "Searching...")
+	zipURL, err := findZip(baseURL+"?search="+url.QueryEscape(gameName), gameName, baseURL)
+	if err != nil { logStatus(gameName, "Error", fmt.Sprintf("Not found on Myrient: %v", err)); return }
 
-		if strings.Contains(lower, gameNameLower) && strings.Contains(lower, "dlc") {
-			dlUrl := link
-			if !strings.HasPrefix(link, "http") {
-				dlUrl = MyrientDLCBase + link
-			}
-
-			dlcCount++
-			logStatus(gameName, "Processing", fmt.Sprintf("Downloading DLC %d...", dlcCount))
-
-			dlZipPath := filepath.Join(toolsDir, "Temp", "dlc_temp.zip")
-			if err := downloadWithProgress(dlUrl, dlZipPath, gameName+" DLC", MyrientDLCBase); err != nil {
-				continue
-			}
-
-			extDir := filepath.Join(toolsDir, "Temp", "dlc_ext")
-			os.RemoveAll(extDir)
-
-			cmd := exec.Command(filepath.Join(toolsDir, sevenZipBin), "x", dlZipPath, "-o"+extDir, "-y")
-			cmd.Run()
-
-			filepath.Walk(extDir, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil
-				}
-				if !info.IsDir() && info.Size() > 1024*1024 {
-					ext := strings.ToLower(filepath.Ext(path))
-					if ext != ".txt" && ext != ".nfo" && ext != ".jpg" {
-						if info.Size() > MaxDLCSizeBytes {
-							return nil
-						}
-
-						dlcTitleID, contentType := parseXboxHeader(path)
-						if dlcTitleID == "" {
-							dlcTitleID = titleID
-						}
-						typeDir := fmt.Sprintf("%08X", contentType)
-						if contentType == 0 {
-							typeDir = "00000002"
-						}
-
-						logStatus(gameName, "Processing", fmt.Sprintf("FTP: Transferring DLC %d...", dlcCount))
-						ftpTransferSingleFile(path, conn, dlcTitleID, typeDir, filepath.Base(path))
-					}
-				}
-				return nil
-			})
-
-			os.Remove(dlZipPath)
-			os.RemoveAll(extDir)
+	zipPath := filepath.Join(toolsDir, "Temp", safeName+".zip")
+	if cached, _ := checkZipCache(zipURL, zipPath, baseURL); cached {
+		logStatus(gameName, "Processing", "Using cached download")
+	} else {
+		logStatus(gameName, "Processing", "Downloading from Myrient...")
+		if err := downloadWithProgress(zipURL, zipPath, gameName, baseURL); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("Download failed: %v", err)); return
+		}
+		if info, err := os.Stat(zipPath); err != nil || info.Size() < 1000 {
+			logStatus(gameName, "Error", "Download incomplete or corrupt"); os.Remove(zipPath); return
 		}
 	}
 
-	if dlcCount > 0 {
-		fmt.Printf("[FTP] Transferred %d DLC(s)\n", dlcCount)
+	logStatus(gameName, "Processing", "Extracting ISO...")
+	isoPath, err := extractISO(zipPath, safeName)
+	if err != nil { logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err)); return }
+
+	logStatus(gameName, "Processing", "Converting to GOD...")
+	godDir := filepath.Join(toolsDir, "Temp", safeName+"_GOD")
+	os.MkdirAll(godDir, 0755)
+	if err := runIso2God(isoPath, godDir); err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err)); os.Remove(isoPath); os.RemoveAll(godDir); return
 	}
+	os.Remove(isoPath)
+
+	titleID, mediaID, err := detectGodStructure(godDir)
+	if err != nil { logStatus(gameName, "Error", fmt.Sprintf("GOD detect: %v", err)); os.RemoveAll(godDir); return }
+	logf("Detected: TitleID=%s MediaID=%s", titleID, mediaID)
+
+	if xboxConn != nil && xboxConn.Mode == "ftp" {
+		logStatus(gameName, "Processing", "FTP Transfer starting...")
+		if err := ftpTransferGame(godDir, xboxConn, gameName, titleID, mediaID); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err)); os.RemoveAll(godDir); return
+		}
+		if platform == "xbox360" {
+			logStatus(gameName, "Processing", "Checking for DLC...")
+			ftpProcessDLCs(gameName, titleID, xboxConn)
+		}
+		os.RemoveAll(godDir)
+		logStatus(gameName, "Ready", "FTP Transfer Complete!")
+	} else {
+		logStatus(gameName, "Processing", "Archiving...")
+		titleID, mediaID, err = bucketAndZip(godDir, gameDir, gameName, safeName)
+		if err != nil { logStatus(gameName, "Error", fmt.Sprintf("Archive: %v", err)); os.RemoveAll(godDir); return }
+		os.RemoveAll(godDir)
+		var dlcList []string
+		if platform == "xbox360" {
+			logStatus(gameName, "Processing", "Checking for DLC...")
+			dlcList = processDLCs(gameName, gameDir)
+			if len(dlcList) > 0 { logStatus(gameName, "Processing", fmt.Sprintf("Paired %d DLCs", len(dlcList))) }
+		}
+		updateGameINI_Parts(gameDir, gameName, titleID, mediaID, dlcList)
+		logStatus(gameName, "Ready", "Ready to Install")
+	}
+	logf("=== Complete: %s ===", gameName)
+}
+
+// ==========================================
+// FTP TRANSFER
+// ==========================================
+
+func ftpTransferGame(godDir string, conn *XboxConnection, gameName, titleID, mediaID string) error {
+	fc, err := connectWithRetry(conn.IP)
+	if err != nil { return err }
+	defer fc.Quit()
+
+	drive := strings.TrimSuffix(conn.Drive, ":")
+	base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, mediaID)
+	logf("FTP Dest: %s", base)
+	ftpMkdirAll(fc, base)
+
+	contentDir := filepath.Join(godDir, titleID, mediaID)
+	if _, err := os.Stat(contentDir); os.IsNotExist(err) {
+		return fmt.Errorf("GOD content not found: %s", contentDir)
+	}
+
+	var totalFiles int; var totalSize int64
+	filepath.Walk(contentDir, func(p string, i os.FileInfo, e error) error {
+		if e == nil && !i.IsDir() { totalFiles++; totalSize += i.Size() }; return nil
+	})
+	if totalFiles == 0 { return fmt.Errorf("no files in GOD content") }
+	logf("FTP: %d files (%.2f GB)", totalFiles, float64(totalSize)/1073741824)
+
+	var xferred int; var xferSize int64
+	return filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil { return nil }
+		rel, _ := filepath.Rel(contentDir, path)
+		rel = strings.ReplaceAll(rel, "\\", "/")
+		remote := base + "/" + rel
+		if info.IsDir() { fc.MakeDir(remote); return nil }
+		xferred++
+		pct := float64(xferSize) / float64(totalSize) * 100
+		logStatus(gameName, "Processing", fmt.Sprintf("FTP: %d/%d files (%.1f%%)", xferred, totalFiles, pct))
+		if err := ftpUploadWithRetry(fc, conn.IP, path, remote, gameName, &xferSize, totalSize); err != nil {
+			logf("FTP WARN: %s: %v", rel, err)
+		}
+		return nil
+	})
 }
 
 func ftpTransferSingleFile(localPath string, conn *XboxConnection, titleID, typeDir, fileName string) error {
-	ftpConn, err := connectToXboxFTP(conn.IP)
-	if err != nil {
+	fc, err := connectWithRetry(conn.IP)
+	if err != nil { return err }
+	defer fc.Quit()
+	drive := strings.TrimSuffix(conn.Drive, ":")
+	base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, typeDir)
+	ftpMkdirAll(fc, base)
+	info, err := os.Stat(localPath)
+	if err != nil { return err }
+	var xfer int64
+	if err := ftpUploadFile(fc, localPath, base+"/"+fileName, fileName, &xfer, info.Size()); err != nil {
 		return err
 	}
-	defer ftpConn.Quit()
-
-	driveName := strings.TrimSuffix(conn.Drive, ":")
-	basePath := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", driveName, titleID, typeDir)
-	remotePath := basePath + "/" + fileName
-
-	fmt.Printf("[FTP] DLC Destination: %s\n", remotePath)
-
-	if err := ftpMkdirAll(ftpConn, basePath); err != nil {
-		return fmt.Errorf("failed to create directory structure: %v", err)
-	}
-
-	info, _ := os.Stat(localPath)
-	var transferred int64
-
-	if err := ftpUploadFile(ftpConn, localPath, remotePath, fileName, &transferred, info.Size()); err != nil {
-		return fmt.Errorf("failed to upload file: %v", err)
-	}
-
-	fmt.Printf("\n[FTP] DLC transfer complete: %.2f MB\n", float64(info.Size())/1048576)
+	logf("FTP DLC done: %.2f MB", float64(info.Size())/1048576)
 	return nil
 }
 
+func ftpProcessDLCs(gameName, titleID string, conn *XboxConnection) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", MyrientDLCBase+"?search="+url.QueryEscape(gameName), nil)
+	if err != nil { return }
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := client.Do(req)
+	if err != nil { logf("FTP DLC: search failed: %v", err); return }
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	re := regexp.MustCompile(`href="([^"]+\.zip)"`)
+	matches := re.FindAllStringSubmatch(string(body), -1)
+	gnl := strings.ToLower(gameName)
+	count := 0
+
+	for _, m := range matches {
+		link := m[1]
+		dec, _ := url.QueryUnescape(link)
+		low := strings.ToLower(dec)
+		if !strings.Contains(low, gnl) || !strings.Contains(low, "dlc") { continue }
+		dl := link; if !strings.HasPrefix(link, "http") { dl = MyrientDLCBase + link }
+		count++
+		logStatus(gameName, "Processing", fmt.Sprintf("Downloading DLC %d...", count))
+		zp := filepath.Join(toolsDir, "Temp", "dlc_temp.zip")
+		if err := downloadWithProgress(dl, zp, gameName+" DLC", MyrientDLCBase); err != nil {
+			logf("FTP DLC: dl failed %d: %v", count, err); continue
+		}
+		ed := filepath.Join(toolsDir, "Temp", "dlc_ext"); os.RemoveAll(ed)
+		cmd := exec.Command(filepath.Join(toolsDir, sevenZipBin), "x", zp, "-o"+ed, "-y")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			logf("FTP DLC: extract %d: %v | %s", count, err, string(out)); os.Remove(zp); continue
+		}
+		filepath.Walk(ed, func(p string, i os.FileInfo, e error) error {
+			if e != nil || i.IsDir() || i.Size() <= 1024*1024 { return nil }
+			ext := strings.ToLower(filepath.Ext(p))
+			if ext == ".txt" || ext == ".nfo" || ext == ".jpg" { return nil }
+			if i.Size() > MaxDLCSizeBytes { logf("FTP DLC: skip oversized %s", filepath.Base(p)); return nil }
+			tid, ct := parseXboxHeader(p)
+			if tid == "" { tid = titleID }
+			td := fmt.Sprintf("%08X", ct); if ct == 0 { td = "00000002" }
+			logStatus(gameName, "Processing", fmt.Sprintf("FTP: DLC %d transfer...", count))
+			if err := ftpTransferSingleFile(p, conn, tid, td, filepath.Base(p)); err != nil {
+				logf("FTP DLC: xfer %s: %v", filepath.Base(p), err)
+			}
+			return nil
+		})
+		os.Remove(zp); os.RemoveAll(ed)
+	}
+	if count > 0 { logf("FTP: %d DLC(s) processed", count) }
+}
+
 // ==========================================
-// DIGITAL PROCESSING (XBLA/XBLIG)
+// DIGITAL PROCESSING
 // ==========================================
 
 func processDigital(gameName string) {
-	fmt.Printf("\n[%s] === Processing Digital: %s ===\n", time.Now().Format("15:04:05"), gameName)
+	logf("=== Processing Digital: %s ===", gameName)
 	safeName := sanitizeFilename(gameName)
+	if safeName == "" { logStatus(gameName, "Error", "Invalid game name"); return }
 
 	var xboxConn *XboxConnection
-	if conn, exists := xboxConnections.Load(gameName); exists {
-		c := conn.(XboxConnection)
-		xboxConn = &c
-		fmt.Printf("[%s] Transfer mode: %s to %s (drive: %s)\n",
-			time.Now().Format("15:04:05"), xboxConn.Mode, xboxConn.IP, xboxConn.Drive)
-	}
+	if c, ok := xboxConnections.Load(gameName); ok { cc := c.(XboxConnection); xboxConn = &cc }
 
 	gameDir := filepath.Join(toolsDir, "Ready", safeName)
 	os.MkdirAll(gameDir, 0755)
 
 	logStatus(gameName, "Processing", "Searching Digital Repo...")
-	searchURL := MyrientDigitalBase + "?search=" + url.QueryEscape(gameName)
-	zipURL, err := findZip(searchURL, gameName, MyrientDigitalBase)
-	if err != nil {
-		logStatus(gameName, "Error", err.Error())
-		return
-	}
+	zipURL, err := findZip(MyrientDigitalBase+"?search="+url.QueryEscape(gameName), gameName, MyrientDigitalBase)
+	if err != nil { logStatus(gameName, "Error", fmt.Sprintf("Not found: %v", err)); return }
 
 	zipPath := filepath.Join(toolsDir, "Temp", safeName+"_digi.zip")
 	if err := downloadWithProgress(zipURL, zipPath, gameName, MyrientDigitalBase); err != nil {
-		logStatus(gameName, "Error", err.Error())
-		return
+		logStatus(gameName, "Error", fmt.Sprintf("Download: %v", err)); return
+	}
+	if info, err := os.Stat(zipPath); err != nil || info.Size() < 1000 {
+		logStatus(gameName, "Error", "Download incomplete"); os.Remove(zipPath); return
 	}
 
 	logStatus(gameName, "Processing", "Extracting...")
-	extDir := filepath.Join(toolsDir, "Temp", safeName+"_ext")
-	os.RemoveAll(extDir)
-
+	extDir := filepath.Join(toolsDir, "Temp", safeName+"_ext"); os.RemoveAll(extDir)
 	cmd := exec.Command(filepath.Join(toolsDir, sevenZipBin), "x", zipPath, "-o"+extDir, "-y")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		fmt.Printf("[ERROR] 7z: %s\n", string(out))
-		logStatus(gameName, "Error", "Extraction Failed")
-		return
+		logf("ERROR 7z: %s", string(out)); logStatus(gameName, "Error", "Extraction failed"); os.Remove(zipPath); return
 	}
 
 	var contentFile, titleID, typeDir string
-	filepath.Walk(extDir, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() && info.Size() > 1024*1024 {
-			ext := strings.ToLower(filepath.Ext(path))
-			if ext != ".txt" && ext != ".nfo" && ext != ".jpg" {
-				tid, ctype := parseXboxHeader(path)
-				if tid != "" {
-					contentFile = path
-					titleID = tid
-					typeDir = fmt.Sprintf("%08X", ctype)
-					return io.EOF
-				}
-			}
-		}
+	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
+		if e != nil || i.IsDir() || i.Size() <= 1024*1024 { return nil }
+		ext := strings.ToLower(filepath.Ext(p))
+		if ext == ".txt" || ext == ".nfo" || ext == ".jpg" { return nil }
+		tid, ct := parseXboxHeader(p)
+		if tid != "" { contentFile = p; titleID = tid; typeDir = fmt.Sprintf("%08X", ct); return io.EOF }
 		return nil
 	})
-
-	if contentFile == "" {
-		logStatus(gameName, "Error", "No valid Xbox content found")
-		return
-	}
-
+	if contentFile == "" { logStatus(gameName, "Error", "No valid Xbox content found"); os.Remove(zipPath); os.RemoveAll(extDir); return }
+	logf("Detected: TitleID=%s Type=%s", titleID, typeDir)
 	finalName := filepath.Base(contentFile)
 
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
-		logStatus(gameName, "Processing", "FTP Transfer starting...")
+		logStatus(gameName, "Processing", "FTP Transfer...")
 		if err := ftpTransferDigital(contentFile, xboxConn, gameName, titleID, typeDir, finalName); err != nil {
-			logStatus(gameName, "Error", fmt.Sprintf("FTP Transfer failed: %v", err))
-			return
+			logStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
+		} else {
+			logStatus(gameName, "Ready", "FTP Transfer Complete!")
 		}
-		logStatus(gameName, "Ready", "FTP Transfer Complete!")
 	} else {
-		destPath := filepath.Join(gameDir, finalName)
-		copyFileBuffered(contentFile, destPath)
-
-		fmt.Printf("[%s] Detected: TitleID=%s, Type=%s\n", time.Now().Format("15:04:05"), titleID, typeDir)
-
-		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", titleID, typeDir)
-		updateGameINI_Raw(gameDir, gameName, finalName, relPath)
-		logStatus(gameName, "Ready", "Ready to Install")
+		if err := copyFileBuffered(contentFile, filepath.Join(gameDir, finalName)); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("Copy: %v", err))
+		} else {
+			updateGameINI_Raw(gameDir, gameName, finalName, fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", titleID, typeDir))
+			logStatus(gameName, "Ready", "Ready to Install")
+		}
 	}
-
-	os.Remove(zipPath)
-	os.RemoveAll(extDir)
-
-	fmt.Printf("[%s] === Complete ===\n\n", time.Now().Format("15:04:05"))
+	os.Remove(zipPath); os.RemoveAll(extDir)
+	logf("=== Complete: %s ===", gameName)
 }
 
 func ftpTransferDigital(contentFile string, conn *XboxConnection, gameName, titleID, typeDir, fileName string) error {
-	ftpConn, err := connectToXboxFTP(conn.IP)
-	if err != nil {
-		return err
-	}
-	defer ftpConn.Quit()
-
-	driveName := strings.TrimSuffix(conn.Drive, ":")
-	basePath := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", driveName, titleID, typeDir)
-	remotePath := basePath + "/" + fileName
-
-	fmt.Printf("[FTP] Destination: %s\n", remotePath)
-
-	if err := ftpMkdirAll(ftpConn, basePath); err != nil {
-		return fmt.Errorf("failed to create directory structure: %v", err)
-	}
-
-	info, _ := os.Stat(contentFile)
-	var transferred int64
-
-	if err := ftpUploadFile(ftpConn, contentFile, remotePath, gameName, &transferred, info.Size()); err != nil {
-		return fmt.Errorf("failed to upload file: %v", err)
-	}
-
-	fmt.Printf("\n[FTP] Transfer complete: %.2f MB\n", float64(info.Size())/1048576)
-	return nil
+	fc, err := connectWithRetry(conn.IP)
+	if err != nil { return err }
+	defer fc.Quit()
+	drive := strings.TrimSuffix(conn.Drive, ":")
+	base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, typeDir)
+	ftpMkdirAll(fc, base)
+	info, err := os.Stat(contentFile)
+	if err != nil { return err }
+	var xfer int64
+	return ftpUploadFile(fc, contentFile, base+"/"+fileName, gameName, &xfer, info.Size())
 }
 
 // ==========================================
-// DLC PROCESSING (HTTP MODE)
+// DLC PROCESSING (HTTP)
 // ==========================================
 
-func processDLCs(gameName string, gameDir string) []string {
-	searchURL := MyrientDLCBase + "?search=" + url.QueryEscape(gameName)
+func processDLCs(gameName, gameDir string) []string {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, _ := http.NewRequest("GET", searchURL, nil)
+	req, err := http.NewRequest("GET", MyrientDLCBase+"?search="+url.QueryEscape(gameName), nil)
+	if err != nil { return nil }
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	resp, err := client.Do(req)
-	if err != nil {
-		return nil
-	}
+	if err != nil { logf("DLC: search failed: %v", err); return nil }
 	defer resp.Body.Close()
-
 	body, _ := io.ReadAll(resp.Body)
 	re := regexp.MustCompile(`href="([^"]+\.zip)"`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
+	var result []string
+	gnl := strings.ToLower(gameName)
 
-	var processedDLCs []string
-	gameNameLower := strings.ToLower(gameName)
-
-	for _, match := range matches {
-		link := match[1]
-		decoded, _ := url.QueryUnescape(link)
-		lower := strings.ToLower(decoded)
-
-		if strings.Contains(lower, gameNameLower) && strings.Contains(lower, "dlc") {
-			dlUrl := link
-			if !strings.HasPrefix(link, "http") {
-				dlUrl = MyrientDLCBase + link
-			}
-
-			dlZipPath := filepath.Join(toolsDir, "Temp", "dlc_temp.zip")
-			if err := downloadWithProgress(dlUrl, dlZipPath, gameName+" DLC", MyrientDLCBase); err != nil {
-				continue
-			}
-
-			extDir := filepath.Join(toolsDir, "Temp", "dlc_ext")
-			os.RemoveAll(extDir)
-
-			cmd := exec.Command(filepath.Join(toolsDir, sevenZipBin), "x", dlZipPath, "-o"+extDir, "-y")
-			cmd.Run()
-
-			var dlcFile string
-			filepath.Walk(extDir, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil
-				}
-				if !info.IsDir() && info.Size() > 1024*1024 {
-					ext := strings.ToLower(filepath.Ext(path))
-					if ext != ".txt" && ext != ".nfo" && ext != ".jpg" {
-						if info.Size() > MaxDLCSizeBytes {
-							return nil
-						}
-						dlcFile = path
-					}
-				}
-				return nil
-			})
-
-			if dlcFile != "" {
-				finalZipName := filepath.Base(dlcFile) + ".7z"
-				destPath := filepath.Join(gameDir, finalZipName)
-				stage := filepath.Join(toolsDir, "Temp", "dlc_stage")
-				os.MkdirAll(stage, 0755)
-				copyFileBuffered(dlcFile, filepath.Join(stage, filepath.Base(dlcFile)))
-
-				if err := createZipFromDir(stage, destPath); err == nil {
-					processedDLCs = append(processedDLCs, finalZipName)
-				}
-				os.RemoveAll(stage)
-			}
-			os.Remove(dlZipPath)
-			os.RemoveAll(extDir)
+	for _, m := range matches {
+		link := m[1]
+		dec, _ := url.QueryUnescape(link)
+		low := strings.ToLower(dec)
+		if !strings.Contains(low, gnl) || !strings.Contains(low, "dlc") { continue }
+		dl := link; if !strings.HasPrefix(link, "http") { dl = MyrientDLCBase + link }
+		zp := filepath.Join(toolsDir, "Temp", "dlc_temp.zip")
+		if err := downloadWithProgress(dl, zp, gameName+" DLC", MyrientDLCBase); err != nil { continue }
+		ed := filepath.Join(toolsDir, "Temp", "dlc_ext"); os.RemoveAll(ed)
+		cmd := exec.Command(filepath.Join(toolsDir, sevenZipBin), "x", zp, "-o"+ed, "-y")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			logf("DLC: 7z: %v | %s", err, string(out)); os.Remove(zp); continue
 		}
+		var dlcFile string
+		filepath.Walk(ed, func(p string, i os.FileInfo, e error) error {
+			if e != nil || i.IsDir() || i.Size() <= 1024*1024 { return nil }
+			ext := strings.ToLower(filepath.Ext(p))
+			if ext == ".txt" || ext == ".nfo" || ext == ".jpg" || i.Size() > MaxDLCSizeBytes { return nil }
+			dlcFile = p; return nil
+		})
+		if dlcFile != "" {
+			zn := filepath.Base(dlcFile) + ".7z"
+			dp := filepath.Join(gameDir, zn)
+			stage := filepath.Join(toolsDir, "Temp", "dlc_stage"); os.MkdirAll(stage, 0755)
+			if err := copyFileBuffered(dlcFile, filepath.Join(stage, filepath.Base(dlcFile))); err == nil {
+				if err := createZipFromDir(stage, dp); err == nil { result = append(result, zn) }
+			}
+			os.RemoveAll(stage)
+		}
+		os.Remove(zp); os.RemoveAll(ed)
 	}
-	return processedDLCs
+	return result
 }
 
 // ==========================================
@@ -987,47 +903,29 @@ func processDLCs(gameName string, gameDir string) []string {
 // ==========================================
 
 func updateGameINI_Parts(gameDir, gameName, titleID, mediaID string, dlcList []string) {
-	iniPath := filepath.Join(gameDir, "godsend.ini")
-	f, _ := os.Create(iniPath)
+	f, err := os.Create(filepath.Join(gameDir, "godsend.ini"))
+	if err != nil { logf("INI ERROR: %v", err); return }
 	defer f.Close()
 	w := bufio.NewWriter(f)
-
-	encode := func(s string) string {
-		s = strings.ReplaceAll(s, " ", "%20")
-		s = strings.ReplaceAll(s, "(", "%28")
-		s = strings.ReplaceAll(s, ")", "%29")
-		return s
+	enc := func(s string) string {
+		s = strings.ReplaceAll(s, " ", "%20"); s = strings.ReplaceAll(s, "(", "%28"); s = strings.ReplaceAll(s, ")", "%29"); return s
 	}
-
-	partsRaw, _ := gamePartsMap.Load(gameName)
-	parts := partsRaw.([]string)
-
-	fmt.Fprintf(w, "[%s]\n", gameName)
-	fmt.Fprintf(w, "type=god\n")
-	fmt.Fprintf(w, "titleid=%s\n", titleID)
-	fmt.Fprintf(w, "mediaid=%s\n", mediaID)
-	if len(parts) > 0 {
-		fmt.Fprintf(w, "dataurl=%s\n", encode(parts[0]))
-	}
-	for i := 1; i < len(parts); i++ {
-		fmt.Fprintf(w, "dataurlpart%d=%s\n", i+1, encode(parts[i]))
-	}
-	for i, dlc := range dlcList {
-		fmt.Fprintf(w, "dlc_%d=%s\n", i+1, encode(dlc))
-	}
+	raw, ok := gamePartsMap.Load(gameName)
+	if !ok { logf("INI ERROR: no parts for %s", gameName); return }
+	parts := raw.([]string)
+	fmt.Fprintf(w, "[%s]\ntype=god\ntitleid=%s\nmediaid=%s\n", gameName, titleID, mediaID)
+	if len(parts) > 0 { fmt.Fprintf(w, "dataurl=%s\n", enc(parts[0])) }
+	for i := 1; i < len(parts); i++ { fmt.Fprintf(w, "dataurlpart%d=%s\n", i+1, enc(parts[i])) }
+	for i, d := range dlcList { fmt.Fprintf(w, "dlc_%d=%s\n", i+1, enc(d)) }
 	w.Flush()
 }
 
 func updateGameINI_Raw(gameDir, gameName, fileName, relPath string) {
-	iniPath := filepath.Join(gameDir, "godsend.ini")
-	f, _ := os.Create(iniPath)
+	f, err := os.Create(filepath.Join(gameDir, "godsend.ini"))
+	if err != nil { logf("INI ERROR: %v", err); return }
 	defer f.Close()
 	w := bufio.NewWriter(f)
-
-	fmt.Fprintf(w, "[%s]\n", gameName)
-	fmt.Fprintf(w, "type=raw\n")
-	fmt.Fprintf(w, "filename=%s\n", fileName)
-	fmt.Fprintf(w, "path=%s\n", relPath)
+	fmt.Fprintf(w, "[%s]\ntype=raw\nfilename=%s\npath=%s\n", gameName, fileName, relPath)
 	w.Flush()
 }
 
@@ -1037,243 +935,160 @@ func updateGameINI_Raw(gameDir, gameName, fileName, relPath string) {
 
 func bucketAndZip(src, dest, gameName, safeName string) (string, string, error) {
 	titleID, mediaID, err := detectGodStructure(src)
-	if err != nil {
-		return "", "", err
-	}
-
-	stagingBase := filepath.Join(toolsDir, "Temp", safeName+"_staging")
-	os.RemoveAll(stagingBase)
-	os.MkdirAll(stagingBase, 0755)
-
-	var parts []string
-	var currentSize int64
-	partNum := 1
-	currentPartDir := filepath.Join(stagingBase, fmt.Sprintf("%s_Part%d", safeName, partNum))
-	os.MkdirAll(currentPartDir, 0755)
-
+	if err != nil { return "", "", err }
+	staging := filepath.Join(toolsDir, "Temp", safeName+"_staging")
+	os.RemoveAll(staging); os.MkdirAll(staging, 0755)
+	var parts []string; var curSize int64; pn := 1
+	cpd := filepath.Join(staging, fmt.Sprintf("%s_Part%d", safeName, pn)); os.MkdirAll(cpd, 0755)
 	contentDir := filepath.Join(src, titleID, mediaID)
-
-	filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return nil
-		}
+	err = filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() { return nil }
 		rel, _ := filepath.Rel(contentDir, path)
-
-		if currentSize+info.Size() > MaxPartSize && currentSize > 0 {
-			partName := fmt.Sprintf("%s_Part%d.7z", safeName, partNum)
-			if err := createZipFromDir(currentPartDir, filepath.Join(dest, partName)); err != nil {
-				return err
-			}
-			parts = append(parts, partName)
-
-			partNum++
-			currentSize = 0
-			currentPartDir = filepath.Join(stagingBase, fmt.Sprintf("%s_Part%d", safeName, partNum))
-			os.MkdirAll(currentPartDir, 0755)
+		if curSize+info.Size() > MaxPartSize && curSize > 0 {
+			pname := fmt.Sprintf("%s_Part%d.7z", safeName, pn)
+			if err := createZipFromDir(cpd, filepath.Join(dest, pname)); err != nil { return err }
+			parts = append(parts, pname); pn++; curSize = 0
+			cpd = filepath.Join(staging, fmt.Sprintf("%s_Part%d", safeName, pn)); os.MkdirAll(cpd, 0755)
 		}
-
-		destPath := filepath.Join(currentPartDir, rel)
-		os.MkdirAll(filepath.Dir(destPath), 0755)
-		copyFileBuffered(path, destPath)
-		currentSize += info.Size()
-		return nil
+		dp := filepath.Join(cpd, rel); os.MkdirAll(filepath.Dir(dp), 0755)
+		if err := copyFileBuffered(path, dp); err != nil { return err }
+		curSize += info.Size(); return nil
 	})
-
-	if currentSize > 0 {
-		partName := fmt.Sprintf("%s_Part%d.7z", safeName, partNum)
-		createZipFromDir(currentPartDir, filepath.Join(dest, partName))
-		parts = append(parts, partName)
+	if err != nil { os.RemoveAll(staging); return "", "", err }
+	if curSize > 0 {
+		pname := fmt.Sprintf("%s_Part%d.7z", safeName, pn)
+		if err := createZipFromDir(cpd, filepath.Join(dest, pname)); err != nil { os.RemoveAll(staging); return "", "", err }
+		parts = append(parts, pname)
 	}
-
-	os.RemoveAll(stagingBase)
-	gamePartsMap.Store(gameName, parts)
+	os.RemoveAll(staging); gamePartsMap.Store(gameName, parts)
 	return titleID, mediaID, nil
 }
 
 func detectGodStructure(godDir string) (string, string, error) {
 	entries, err := os.ReadDir(godDir)
-	if err != nil {
-		return "", "", err
-	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			titleID := entry.Name()
-			titlePath := filepath.Join(godDir, titleID)
-			mediaEntries, err := os.ReadDir(titlePath)
-			if err != nil {
-				continue
-			}
-			for _, mEntry := range mediaEntries {
-				if mEntry.IsDir() {
-					return titleID, mEntry.Name(), nil
-				}
-			}
-		}
+	if err != nil { return "", "", err }
+	for _, e := range entries {
+		if !e.IsDir() { continue }
+		subs, err := os.ReadDir(filepath.Join(godDir, e.Name()))
+		if err != nil { continue }
+		for _, s := range subs { if s.IsDir() { return e.Name(), s.Name(), nil } }
 	}
 	return "", "", fmt.Errorf("GOD structure not found")
 }
 
 func parseXboxHeader(path string) (string, uint32) {
 	f, err := os.Open(path)
-	if err != nil {
-		return "", 0
-	}
+	if err != nil { return "", 0 }
 	defer f.Close()
-	header := make([]byte, 1024)
-	if _, err := f.Read(header); err != nil {
-		return "", 0
-	}
-
-	magic := string(header[0:4])
-	if magic != "LIVE" && magic != "PIRS" && magic != "CON " {
-		return "", 0
-	}
-
-	tid := hex.EncodeToString(header[0x360:0x364])
-	ctype := binary.BigEndian.Uint32(header[0x344:0x348])
-	return strings.ToUpper(tid), ctype
+	h := make([]byte, 1024)
+	n, err := f.Read(h)
+	if err != nil || n < 0x368 { return "", 0 }
+	magic := string(h[0:4])
+	if magic != "LIVE" && magic != "PIRS" && magic != "CON " { return "", 0 }
+	return strings.ToUpper(hex.EncodeToString(h[0x360:0x364])), binary.BigEndian.Uint32(h[0x344:0x348])
 }
 
 func findZip(searchURL, gameName, baseURL string) (string, error) {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", searchURL, nil)
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", searchURL, nil)
+	if err != nil { return "", err }
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
+	if err != nil { return "", fmt.Errorf("search failed: %w", err) }
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 { return "", fmt.Errorf("HTTP %d", resp.StatusCode) }
 	body, _ := io.ReadAll(resp.Body)
-
-	re := regexp.MustCompile(`href="([^"]+\.zip)"`)
-	matches := re.FindAllStringSubmatch(string(body), -1)
-
-	for _, match := range matches {
-		link := match[1]
-		decoded, _ := url.QueryUnescape(link)
-		if strings.Contains(strings.ToLower(decoded), strings.ToLower(gameName)) {
-			if strings.HasPrefix(link, "http") {
-				return link, nil
-			}
-			return baseURL + link, nil
+	for _, m := range regexp.MustCompile(`href="([^"]+\.zip)"`).FindAllStringSubmatch(string(body), -1) {
+		dec, _ := url.QueryUnescape(m[1])
+		if strings.Contains(strings.ToLower(dec), strings.ToLower(gameName)) {
+			if strings.HasPrefix(m[1], "http") { return m[1], nil }
+			return baseURL + m[1], nil
 		}
 	}
-	return "", fmt.Errorf("not found")
+	return "", fmt.Errorf("no match for '%s'", gameName)
 }
 
 func checkZipCache(urlStr, localPath, referrer string) (bool, error) {
 	info, err := os.Stat(localPath)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
+	if err != nil { return false, nil }
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, _ := http.NewRequest("HEAD", urlStr, nil)
 	req.Header.Set("Referer", referrer)
 	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		return false, err
-	}
-	if info.Size() == resp.ContentLength && resp.ContentLength > 1000 {
-		return true, nil
-	}
-	return false, nil
+	if err != nil || resp.StatusCode != 200 { return false, err }
+	return info.Size() == resp.ContentLength && resp.ContentLength > 1000, nil
 }
 
 func downloadWithProgress(urlStr, dest, name, ref string) error {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", urlStr, nil)
-	req.Header.Set("Referer", ref)
+	client := &http.Client{Timeout: 0}
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil { return err }
+	req.Header.Set("Referer", ref); req.Header.Set("User-Agent", "Mozilla/5.0")
 	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
+	if err != nil { return fmt.Errorf("request failed: %w", err) }
 	defer resp.Body.Close()
-	out, _ := os.Create(dest)
+	if resp.StatusCode != 200 { return fmt.Errorf("HTTP %d", resp.StatusCode) }
+	out, err := os.Create(dest)
+	if err != nil { return fmt.Errorf("create file: %w", err) }
 	defer out.Close()
-
-	bufOut := bufio.NewWriterSize(out, CopyBufferSize)
+	bw := bufio.NewWriterSize(out, CopyBufferSize)
 	pw := &ProgressWriter{Total: resp.ContentLength, GameName: name, LastLog: time.Now(), StartTime: time.Now()}
-	_, err = io.Copy(bufOut, io.TeeReader(resp.Body, pw))
-	bufOut.Flush()
-	fmt.Println()
-	return err
+	written, err := io.Copy(bw, io.TeeReader(resp.Body, pw))
+	if err != nil { return fmt.Errorf("interrupted after %.2f MB: %w", float64(written)/1048576, err) }
+	bw.Flush(); fmt.Println()
+	if resp.ContentLength > 0 && written != resp.ContentLength {
+		logf("WARN: Size mismatch %s: expected %d got %d", name, resp.ContentLength, written)
+	}
+	return nil
 }
 
 func extractISO(zipPath, safeName string) (string, error) {
-	dest := filepath.Join(toolsDir, "Temp", safeName+"_extracted")
-	os.RemoveAll(dest)
-	cmd := exec.Command(filepath.Join(toolsDir, sevenZipBin), "x", zipPath, "-o"+dest, "*.iso", "-r", "-y")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("7z error: %v | %s", err, string(output))
-	}
-
+	dest := filepath.Join(toolsDir, "Temp", safeName+"_extracted"); os.RemoveAll(dest)
+	out, err := exec.Command(filepath.Join(toolsDir, sevenZipBin), "x", zipPath, "-o"+dest, "*.iso", "-r", "-y").CombinedOutput()
+	if err != nil { return "", fmt.Errorf("7z: %v | %s", err, string(out)) }
 	var iso string
 	filepath.Walk(dest, func(p string, i os.FileInfo, e error) error {
-		if strings.HasSuffix(p, ".iso") {
-			iso = p
-		}
-		return nil
+		if e == nil && strings.HasSuffix(strings.ToLower(p), ".iso") { iso = p }; return nil
 	})
-	if iso == "" {
-		return "", fmt.Errorf("no iso")
-	}
+	if iso == "" { return "", fmt.Errorf("no ISO in archive") }
 	return iso, nil
 }
 
 func runIso2God(iso, out string) error {
-	cmd := exec.Command(filepath.Join(toolsDir, isoGodBin), iso, out)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("iso2god error: %v | %s", err, string(output))
-	}
+	o, err := exec.Command(filepath.Join(toolsDir, isoGodBin), iso, out).CombinedOutput()
+	if err != nil { return fmt.Errorf("iso2god: %v | %s", err, string(o)) }
 	return nil
 }
 
 func createZipFromDir(dir, out string) error {
 	cmd := exec.Command(filepath.Join(toolsDir, sevenZipBin), "a", "-t7z", "-mx0", out, "*")
 	cmd.Dir = dir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("zip error: %v | %s", err, string(output))
-	}
+	o, err := cmd.CombinedOutput()
+	if err != nil { return fmt.Errorf("7z: %v | %s", err, string(o)) }
 	return nil
 }
 
 func copyFileBuffered(src, dst string) error {
 	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	defer in.Close()
-
 	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	defer out.Close()
-
-	bufIn := bufio.NewReaderSize(in, CopyBufferSize)
-	bufOut := bufio.NewWriterSize(out, CopyBufferSize)
-
-	_, err = io.Copy(bufOut, bufIn)
-	if err != nil {
-		return err
-	}
-
-	return bufOut.Flush()
+	bw := bufio.NewWriterSize(out, CopyBufferSize)
+	if _, err = io.Copy(bw, bufio.NewReaderSize(in, CopyBufferSize)); err != nil { return err }
+	return bw.Flush()
 }
 
 func getOutboundIP() string {
-	conn, _ := net.Dial("udp", "8.8.8.8:80")
-	defer conn.Close()
-	return conn.LocalAddr().(*net.UDPAddr).IP.String()
+	c, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil { return "" }
+	defer c.Close()
+	if a, ok := c.LocalAddr().(*net.UDPAddr); ok { return a.IP.String() }
+	return ""
 }
 
 func sanitizeFilename(n string) string {
+	if n == "" { return "" }
 	return regexp.MustCompile(`[<>:"/\\|?*]`).ReplaceAllString(n, " -")
-}
-
-func logStatus(game, state, msg string) {
-	jobQueue.Store(game, GameStatus{State: state, Message: msg})
 }
