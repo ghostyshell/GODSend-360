@@ -37,7 +37,7 @@ Go to the [GODsend 360 v2.0.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/
    [Config]
    ip=192.168.1.x
    ```
-3. Copy the entire extracted `aurora-scripts/` folder to the Xbox at:
+3. Copy the contents of the `aurora-scripts/` folder to the Xbox at:
    ```
    HDD1:\Aurora\User\Scripts\Utilities\GODsend\
    ```
