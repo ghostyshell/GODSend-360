@@ -1,0 +1,27 @@
+{
+  "games": [
+    "Aldynes - The Misson Code for Rage Crisis (Japan)",
+    "Battle Ace (Japan)",
+    "Daimakaimura (Japan)",
+    "Madou King Granzort (Japan)"
+  ],
+  "game_entries": {
+    "aldynes - the misson code for rage crisis (japan)": {
+      "collection_id": "sgx",
+      "filename": "https://edgeemu.net/download/nec-pc-engine-supergrafx/Aldynes%20-%20The%20Misson%20Code%20for%20Rage%20Crisis%20%28Japan%29.zip"
+    },
+    "battle ace (japan)": {
+      "collection_id": "sgx",
+      "filename": "https://edgeemu.net/download/nec-pc-engine-supergrafx/Battle%20Ace%20%28Japan%29.zip"
+    },
+    "daimakaimura (japan)": {
+      "collection_id": "sgx",
+      "filename": "https://edgeemu.net/download/nec-pc-engine-supergrafx/Daimakaimura%20%28Japan%29.zip"
+    },
+    "madou king granzort (japan)": {
+      "collection_id": "sgx",
+      "filename": "https://edgeemu.net/download/nec-pc-engine-supergrafx/Madou%20King%20Granzort%20%28Japan%29.zip"
+    }
+  },
+  "build_time": "2026-04-04T08:38:54.4668517+11:00"
+}

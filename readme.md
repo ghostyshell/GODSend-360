@@ -12,14 +12,14 @@ GODsend 360 is a local-network game management system for Xbox 360 consoles runn
 
 ### 1. Download the files
 
-Go to the [GODsend 360 v2.0.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/snippets/2658) and download both files:
+Go to the [GODsend 360 v2.1.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/snippets/2658) and download both files:
 
-- **`godsend-Setup-2.0.0.exe`** — Windows installer for the Electron tray app + backend
-- **`aurora-scripts-v2.0.0.zip`** — Aurora Lua scripts to install on the Xbox
+- **`godsend-Setup-2.1.0.exe`** — Windows installer for the Electron tray app + backend
+- **`aurora-scripts-2.1.0.zip`** — Aurora Lua scripts to install on the Xbox
 
 ### 2. Install the Electron app
 
-1. Run `godsend-Setup-2.0.0.exe` and follow the installer prompts.
+1. Run `godsend-Setup-2.1.0.exe` and follow the installer prompts.
 2. Launch **GODsend** from the Start Menu — the tray icon appears in the system tray.
 
 ### 3. Configure Internet Archive (IA) in the app
@@ -31,7 +31,7 @@ Go to the [GODsend 360 v2.0.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/
 
 ### 4. Install Aurora scripts on the Xbox
 
-1. Extract `aurora-scripts-v2.0.0.zip`.
+1. Extract `aurora-scripts-2.1.0.zip`.
 2. Edit `GODSend.ini` inside the extracted folder — set `ip=` to your PC's local IPv4 address:
    ```ini
    [Config]
@@ -45,6 +45,82 @@ Go to the [GODsend 360 v2.0.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/
 5. Launch **GODsend** from Aurora → Scripts.
 
 The Xbox will now connect to the backend running on your PC. You can browse games, trigger downloads, and track progress directly from Aurora.
+
+### Features (what you can do)
+
+Each item is a **high-level capability**, **how you use it**, and **how it works** under the hood.
+
+#### Windows tray app (Electron) + backend
+
+- **What:** Run the Go HTTP server from your PC with a small UI, live log output, and settings.
+- **How:** Open GODsend from the Start Menu; use the tray icon for the window. Restart the backend from the home screen; optional **Start with Windows** in Settings.
+- **How it works:** Electron spawns `godsend` with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings.
+
+#### Internet Archive account & parallel downloads
+
+- **What:** Authenticated downloads from archive.org collections used for the built-in libraries.
+- **How:** Settings → **Internet Archive account** → **Log in**; adjust **Parallel download connections** (1–7).
+- **How it works:** The app stores session cookies locally (not your password), passes them to the backend, which fetches items with multiple range-request workers for faster ISO/archive retrieval.
+
+#### Local Transfer folder (your own ISOs)
+
+- **What:** Install disc games from `.iso` files you already have, without re-downloading from IA.
+- **How:** Settings → set **Local Transfer folder** (or use the default runtime `Transfer` folder). Drop ISOs there. On the Xbox, open **Local Library** or trigger a title that matches a filename in that folder.
+- **How it works:** For Xbox 360 / original Xbox / `local` browse, the backend prefers a matching ISO under `Transfer` over Internet Archive and runs the same conversion pipeline locally.
+
+#### Library metadata caches
+
+- **What:** Faster startup after the first run; optional forced refresh when collections change.
+- **How:** First launch may take a minute while lists build. In Settings, **Refresh Cache** rebuilds IA/ROM indexes in the background. On the console, **Server Queue & Status** shows aggregate cache readiness and per-platform detail.
+- **How it works:** The server persists lists under `cache/` and serves `/browse` from memory; `/cache-refresh` and the Electron button trigger rebuilds without blocking the HTTP server indefinitely.
+
+#### Server queue, status, and job cleanup
+
+- **What:** See everything the PC is processing or has finished; clear stuck or old jobs.
+- **How:** Aurora → **Server Queue & Status** — refresh the list, open **Cache** for build state, **Clear ALL server jobs** or remove one job from its submenu.
+- **How it works:** The script polls `/queue` and `/cache-status`. Removals call `/queue/remove` (GET/POST), which deletes entries and suppresses stray status updates for cleared games.
+
+#### Browse & install: Xbox 360 / original Xbox disc libraries (Internet Archive)
+
+- **What:** Redump-style ISO libraries converted for Aurora.
+- **How:** Main menu → **Xbox 360 Redump ISOs** or **Original Xbox Redump ISOs** → letter folder → title → destination drive → HTTP or FTP → confirm download/processing → install when **Ready**.
+- **How it works:** Backend downloads the ISO (or uses your local copy), runs `iso2god.exe` for GOD packages (or the appropriate path for that platform), stages under `Ready/`, then either serves files over HTTP for the script to pull or pushes them over FTP to the paths you registered.
+
+#### Browse & install: XBLA, digital (No-Intro), DLC, Xbox Live Indie Games, 360 game archives
+
+- **What:** Non-disc content (arcade packages, digital titles, DLC, indie games, pre-packed game archives) from curated Internet Archive collections.
+- **How:** Choose the matching main-menu entry → same browse flow; **DLC** skips drive pick and targets **Hdd1:** as required for that content.
+- **How it works:** Backend downloads and unpacks with `7z` where needed, writes a small `godsend.ini` manifest and payloads the script understands. Install type may be **GOD** (multi-part `.7z`), **raw** (single file into a content path), or **xex** as defined by the manifest.
+
+#### HTTP vs FTP transfer mode
+
+- **What:** Two ways to move prepared content from the PC to the Xbox.
+- **How:** After picking a game, choose **HTTP (Download & Extract)** or **FTP (Direct Transfer - More Reliable)**.
+- **How it works:** **HTTP:** the console downloads from `/files/...` and Aurora’s script extracts/places files (ZIP/7z handling on-console where applicable). **FTP:** you register the console IP with `/register`; the server uploads directly to Aurora’s FTP server to the drive you selected, so the script only waits for completion.
+
+#### Install layouts: GOD, XEX folder, raw content, ROMs
+
+- **What:** Different on-disk layouts depending on title type.
+- **How:** You do not pick the layout manually — it comes from the server-generated manifest. Follow the script prompts until it reports success, then **Settings → Content → Scan** in Aurora (or launch RetroArch for ROMs).
+- **How it works:** **GOD:** script downloads manifest + `.7z` parts into `Games on Demand` layout. **XEX:** extracts an archive under `[drive]\XEX\...`. **Raw:** downloads a `.bin`/package into the path from the manifest (DLC often forces **Hdd1:**). **ROM:** extracts under a configurable retro root (see below).
+
+#### Retro ROMs (EdgeEmu, many systems)
+
+- **What:** Browse and install classic ROM sets scraped from EdgeEmu-compatible metadata (dozens of consoles/handhelds).
+- **How:** **Retro ROMs** → pick system → folder → title → drive → HTTP or FTP → same wait/install flow as other libraries.
+- **How it works:** Backend fetches/builds per-system ROM lists (`rom_*` platforms), downloads archives when triggered, and emits a **rom**-type manifest with a drive-relative `rompath`. The script extracts under `[drive]\<ROM root>\<system folder>\`, where **ROM install path** in Settings sets the root (default `Emulators\RetroArch\roms`, passed to the backend as `GODSEND_ROM_PATH`).
+
+#### Developer / diagnostics
+
+- **What:** Quick HTML snapshot of cache, transfer folder, ready games, and jobs.
+- **How:** From a browser on the PC, open `http://<pc-ip>:8080/debug` while the backend is running.
+- **How it works:** The server renders live in-memory and filesystem state for troubleshooting.
+
+#### Headless backend (Docker / manual `godsend.exe`)
+
+- **What:** Run only the Go server on Windows or Linux without the tray app.
+- **How:** See **Setup options** and [scripts/installation/docker/README-Docker.md](scripts/installation/docker/README-Docker.md); set the same `GODSEND_*` variables as documented.
+- **How it works:** Identical HTTP API and processing logic; Aurora and any IA/Transfer configuration must still reach this instance over the network.
 
 ---
 
@@ -210,13 +286,15 @@ The backend listens on port 8080. Endpoints used by the Lua script:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/browse?platform=<p>&game=<name>` | Search game library; `platform` = `xbox360`, `xbox`, `xbla`, `digital`, `dlc`, `xblig`, `local` |
-| GET | `/status?game=<name>` | Poll job state: `Idle`, `Processing`, `Ready`, `Error` |
+| GET | `/browse?platform=<p>` | Game list (pipe-separated); `platform` includes `xbox360`, `xbox`, `xbla`, `digital`, `dlc`, `xblig`, `games`, `local`, `rom_<sysid>` |
+| GET | `/status?game=<name>` | Poll job state: `Idle`, `Processing`, `Ready`, `Error`, `Missing` |
 | GET | `/queue` | List all active and completed jobs |
-| POST | `/trigger?game=<name>&platform=<p>` | Start processing a game |
-| POST | `/register?ip=<xbox-ip>` | Register the Xbox IP for FTP transfer |
+| GET | `/trigger?game=<name>&platform=<p>` | Start processing a game (Aurora uses GET) |
+| GET | `/register?game=<name>&ip=<xbox-ip>&drive=...&platform=...&mode=...` | Register the console for FTP transfer (`mode` = `http` or `ftp`) |
 | GET | `/files/<name>/...` | Serve finished GOD/archive files to the Xbox over HTTP |
-| DELETE | `/queue/<name>` | Remove a completed job from the queue |
+| GET/POST | `/queue/remove?game=<name>` | Remove one job (`game` omitted clears all); Aurora uses GET |
+| GET | `/cache-status` | Per-platform cache build state and counts |
+| GET | `/cache-refresh?platform=<p>` | Trigger cache rebuild (`all`, an IA platform, or `rom_<sysid>`); Electron uses GET |
 
 ---
 

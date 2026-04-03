@@ -2,19 +2,34 @@ const { app, nativeImage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
+/**
+ * Monorepo root (directory containing `cache/`, `dist/`, `tools/`).
+ * In dev this must match electron-builder `extraFiles` paths (`../../cache` from
+ * `src/electron-app`), otherwise ROM caches land in `src/cache/` and are never
+ * bundled into the installer.
+ */
+function getRepoRoot() {
+  return path.resolve(__dirname, "../../..");
+}
+
 /** Install root: next to the .exe on Windows (extraFiles land here, not under resources). */
 function getBundledRoot() {
   return app.isPackaged
     ? path.dirname(process.execPath)
-    : path.resolve(__dirname, "../..");
+    : getRepoRoot();
 }
 
 /** Go binary: packaged as godsend-backend.exe so it never overwrites GODsend.exe on case-insensitive Windows. */
 function getGodsendExePath() {
-  const root = getBundledRoot();
-  return app.isPackaged
-    ? path.join(root, "godsend-backend.exe")
-    : path.join(root, "godsend.exe");
+  if (app.isPackaged) {
+    return path.join(path.dirname(process.execPath), "godsend-backend.exe");
+  }
+  const repo = getRepoRoot();
+  const distExe = path.join(repo, "dist", "godsend.exe");
+  if (fs.existsSync(distExe)) {
+    return distExe;
+  }
+  return path.join(repo, "godsend.exe");
 }
 
 function getWritableRuntimeRoot() {
@@ -63,11 +78,31 @@ function prepareWritableRuntime() {
     path.join(writableRoot, "cache")
   );
 
-  for (const fileName of ["iso2god.exe", "7z.exe", "7z.dll"]) {
-    copyFileIfMissing(
-      path.join(bundledRoot, fileName),
-      path.join(writableRoot, fileName)
+  // Older dev builds used GODSEND_HOME under src/; pull any ROM caches forward once.
+  if (!app.isPackaged) {
+    const legacyCache = path.join(getRepoRoot(), "src", "cache");
+    copyDirectoryContentsIfMissing(
+      legacyCache,
+      path.join(writableRoot, "cache")
     );
+  }
+
+  const toolNames = ["iso2god.exe", "7z.exe", "7z.dll"];
+  if (app.isPackaged) {
+    for (const fileName of toolNames) {
+      copyFileIfMissing(
+        path.join(bundledRoot, fileName),
+        path.join(writableRoot, fileName)
+      );
+    }
+  } else {
+    const toolsDir = path.join(getRepoRoot(), "tools");
+    for (const fileName of toolNames) {
+      copyFileIfMissing(
+        path.join(toolsDir, fileName),
+        path.join(writableRoot, fileName)
+      );
+    }
   }
 
   return writableRoot;
@@ -99,6 +134,7 @@ function getFirstValidIconPath() {
 }
 
 module.exports = {
+  getRepoRoot,
   getBundledRoot,
   getGodsendExePath,
   getWritableRuntimeRoot,

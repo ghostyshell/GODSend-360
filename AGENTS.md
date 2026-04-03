@@ -1,6 +1,6 @@
 ## Project overview
 
-GODsend is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It has three main components:
+GODsend-360 is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It has three main components:
 
 - **Go backend (`src/server/`)**: HTTP server running on a PC, talking to Internet Archive and the local filesystem, converting ISOs to GOD / content packages, and coordinating queue state.
 - **Electron desktop app (`src/electron-app/`)**: Windows tray UI that manages the backend process, exposes configuration (transfer folder, IA auth, concurrency), and ships an installer.
@@ -13,6 +13,8 @@ High-level data flow:
 - Electron app ⇄ **child process & IPC** ⇄ Go backend and local config
 
 External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts** – refactors must preserve them unless explicitly requested otherwise.
+
+**Aurora Lua host (agents):** When editing `aurora-scripts/`, read [`docs/aurora-reference.md`](docs/aurora-reference.md) for supported APIs, path rules (relative vs absolute), known limits (Zip extraction, large downloads), and patterns that avoid crashes on-console.
 
 ---
 
@@ -163,6 +165,7 @@ When making changes to Electron or the backend, prefer:
 
 ### Lua (Aurora scripts)
 
+- Consult [`docs/aurora-reference.md`](docs/aurora-reference.md) for Aurora-specific Lua APIs, filesystem/HTTP quirks, and pre-deployment checks beyond this summary.
 - The scripting environment is Lua 5.1 with limited libraries:
   - Avoid heavy allocations or deep recursion in hot paths.
   - Use `pcall` around operations that can throw from the host (e.g. `Http.*`, `IniFile`, `FileSystem`, `ZipFile`, `Script` UI calls).
