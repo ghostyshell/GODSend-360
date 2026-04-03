@@ -28,7 +28,7 @@
     "productName": "GODsend",
     "executableName": "GODsend",
       "directories": {
-      "output": "../dist"
+      "output": "../../dist"
     },
     "files": [
       "**/*",
@@ -55,7 +55,7 @@
         ]
       },
       {
-        "from": "../dist/godsend.exe",
+        "from": "../../dist/godsend.exe",
         "to": "godsend-backend.exe"
       },
       {
