@@ -69,7 +69,7 @@ Once running, the server is accessible at `http://your-server-ip:8080`
 Copy the files from `aurora-scripts/` to your Xbox's Aurora Scripts folder:
 - `GODSend.ini`
 - `main.lua`
-- `MenuSystem.lua`
+- `menu_system.lua`
 - `Icon/` folder
 
 Edit `GODSend.ini` to point to your server's IP address.

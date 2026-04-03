@@ -290,7 +290,11 @@ if (Test-Path -LiteralPath $GodsendExe) {
     try {
         Write-Info "Installing GODSend backend from repository..."
         
-        $GodsendSrc = Join-Path $RepoCloneDir "src\godsend.exe"
+        # Prefer the new root dist location, but fall back to older layouts for compatibility
+        $GodsendSrc = Join-Path $RepoCloneDir "dist\godsend.exe"
+        if (-not (Test-Path -LiteralPath $GodsendSrc)) {
+            $GodsendSrc = Join-Path $RepoCloneDir "src\godsend.exe"
+        }
         if (-not (Test-Path -LiteralPath $GodsendSrc)) {
             $GodsendSrc = Join-Path $RepoCloneDir "src\server\godsend_windows.exe"
         }
@@ -299,7 +303,7 @@ if (Test-Path -LiteralPath $GodsendExe) {
             Copy-Item -LiteralPath $GodsendSrc -Destination $GodsendExe -Force
             Write-Ok "GODSend backend installed successfully."
         } else {
-            throw "GODSend binary not found (build with: npm run build:server from repo root, or go build -C src/server -o ../godsend.exe .)"
+            throw "GODSend binary not found (build with: npm run build:server from repo root, or go build -C src/server -o ../../dist/godsend.exe .)"
         }
     } catch {
         Write-Fail "GODSend backend installation failed: $($_.Exception.Message)"

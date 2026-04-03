@@ -1,11 +1,11 @@
 {
   "name": "godsend",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "description": "GODsend — Go backend + Electron desktop app",
   "scripts": {
     "postinstall": "npm install --prefix src/electron-app",
-    "build:server": "go build -C src/server -o ../godsend.exe .",
+    "build:server": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\" && go build -C src/server -o ../../dist/godsend.exe .",
     "build:electron": "npm run build:win --prefix src/electron-app",
     "build": "npm run build:server && npm run build:electron",
     "build:win": "npm run build",

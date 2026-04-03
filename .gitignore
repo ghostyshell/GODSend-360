@@ -6,6 +6,12 @@
 src/godsend_*
 src/godsend.exe
 
+# Build artifacts
+dist/
+
+# Local tools (external binaries, not tracked)
+tools/
+
 # Electron / Node
 node_modules/
 src/electron-app/node_modules/

@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Minimal Electron UI for running and monitoring godsend.exe",
   "main": "main.js",
   "scripts": {
@@ -12,7 +12,7 @@
     "tray",
     "startup"
   ],
-  "author": "",
+  "author": "Nesquin and ghosty99",
   "license": "MIT",
   "devDependencies": {
     "electron": "^37.2.0",
@@ -22,13 +22,13 @@
     "rcedit": "^5.0.2",
     "sharp": "^0.34.5"
   },
-  "build": {
+    "build": {
     "afterPack": "./scripts/after-pack-win-icon.js",
     "appId": "com.abbu.godsend",
     "productName": "GODsend",
     "executableName": "GODsend",
-    "directories": {
-      "output": "dist"
+      "directories": {
+      "output": "../dist"
     },
     "files": [
       "**/*",
@@ -55,23 +55,23 @@
         ]
       },
       {
-        "from": "../godsend.exe",
+        "from": "../dist/godsend.exe",
         "to": "godsend-backend.exe"
       },
       {
-        "from": "../7za.dll",
+        "from": "../tools/7za.dll",
         "to": "7za.dll"
       },
       {
-        "from": "../7za.exe",
+        "from": "../tools/7za.exe",
         "to": "7za.exe"
       },
       {
-        "from": "../7zxa.dll",
+        "from": "../tools/7zxa.dll",
         "to": "7zxa.dll"
       },
       {
-        "from": "../iso2god.exe",
+        "from": "../tools/iso2god.exe",
         "to": "iso2god.exe"
       }
     ],

@@ -318,7 +318,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v6.3-IA        ║")
+	fmt.Println("║    GODSend Backend Server v7.0-IA        ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + IA Cache       ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
@@ -1174,7 +1174,7 @@ func handleQueueRemove(w http.ResponseWriter, r *http.Request) {
 
 func handleDebug(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, "<h2>GODSend Debug v6.3-IA</h2><p>Server: %s:%s</p>", serverIP, Port)
+	fmt.Fprintf(w, "<h2>GODSend Debug v7.0-IA</h2><p>Server: %s:%s</p>", serverIP, Port)
 	fmt.Fprintf(w, "<h3>Cache Status:</h3><ul>")
 	buildStatesMu.Lock()
 	for p, s := range buildStates {

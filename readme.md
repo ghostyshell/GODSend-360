@@ -30,9 +30,33 @@ GODsend is a local-network game management system for Xbox 360 consoles running 
 
 ```
 package.json             Root npm scripts: `npm install`, `npm run build` (Go + Windows installer)
-src/server/              Go backend (main.go, go.mod, go.sum)
-src/electron-app/        Electron Windows UI (source — no node_modules or dist)
+dist/                    Build artifacts (godsend.exe, Windows installer, etc.) — created by npm run build
+tools/                   Local-only helper binaries (iso2god.exe, 7za.exe, etc.) — ignored by git
+
+src/server/              Go backend
+  main.go                  Entry point: HTTP server wiring & startup banner
+  models/                  Pure domain types and repository interfaces (Game, Platform, JobStatus…)
+  services/                Application-layer service interfaces (GameService)
+  infrastructure/          Infrastructure helpers (config loading, path resolution)
+  interfaces/http/         HTTP router factory
+
+src/electron-app/        Electron Windows UI
+  main.js                  Entry point (requires app/bootstrap)
+  app/bootstrap.js         App lifecycle, window creation, IPC handler registration
+  services/
+    settingsService.js     Config file read/write and all setting accessors
+    backendClient.js       Backend process lifecycle, IA login, output buffer
+  infrastructure/
+    fileSystem.js          Path resolution, directory/file helpers, runtime preparation
+    electronTray.js        System-tray icon and context menu
+
 aurora-scripts/          Aurora Lua script + icons installed on the Xbox
+  main.lua                 Entry point: script metadata, module loading, main() loop
+  state.lua                Connection settings and mutable operation globals
+  http_client.lua          HTTP helpers, error catalogue, progress callback
+  services.lua             Server communication, wait loop, game installation
+  menu.lua                 Queue viewer and library browser UI
+
 scripts/installation/automated/   Helper installer scripts (Linux/Windows)
 scripts/installation/docker/      Docker compose + Dockerfile for headless Linux deployment
 ```
@@ -50,18 +74,18 @@ npm install
 npm run build
 ```
 
-`npm install` pulls in Electron app dependencies (`postinstall` runs `npm install` under `src/electron-app`). `npm run build` compiles the server to `src/godsend.exe`, then runs the NSIS target; the installer appears under `src/electron-app/dist/`.
+`npm install` pulls in Electron app dependencies (`postinstall` runs `npm install` under `src/electron-app`). `npm run build` compiles the server to `dist/godsend.exe`, then runs the NSIS target; all build artifacts (including the installer) appear under the root `dist/` folder.
 
-Place these third-party tools in `src/` before `npm run build` if you want them included in the installer (they are not shipped in this repo):
+Place these third-party tools in a `tools/` folder at the repository root before `npm run build` if you want them included in the installer (they are not shipped in this repo and `tools/` is ignored by git):
 
 | File | Source |
 |------|--------|
-| `iso2god.exe` | iso2god by r-e-d |
-| `7za.exe` | 7-Zip standalone console |
-| `7za.dll` | 7-Zip standalone console |
-| `7zxa.dll` | 7-Zip standalone console |
+| `iso2god.exe` | [Iso2God by r4dius (Windows GUI)](https://github.com/r4dius/Iso2God/releases) — download latest `Iso2God.exe` and rename/copy as needed |
+| `7za.exe` | [7-Zip official downloads](https://www.7-zip.org/) — install 7-Zip and copy `7za.exe` from the installation folder into `tools/` |
+| `7za.dll` | [7-Zip official downloads](https://www.7-zip.org/) — from the same installation folder as `7za.exe` |
+| `7zxa.dll` | [7-Zip official downloads](https://www.7-zip.org/) — from the same installation folder as `7za.exe` |
 
-Backend only (no installer): `go build -C src/server -o ../godsend.exe .`
+Backend only (no installer): `go build -C src/server -o ../../dist/godsend.exe .`
 
 ---
 
@@ -91,7 +115,7 @@ If the IP changes after installation, edit `godsend_config.ini` in the script di
 
 ## Installing on the Xbox
 
-1. Copy the entire `aurora-scripts/` folder to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\` (or any Aurora scripts path)
+1. Copy the entire `aurora-scripts/` folder to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\` (or any Aurora scripts path). The script is now split into multiple `.lua` files; all of them must be present in the same directory alongside `main.lua`
 2. Edit `GODSend.ini` — set `ip=` to your PC's local IP address
 3. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
 4. Launch GODsend from Aurora → Scripts
