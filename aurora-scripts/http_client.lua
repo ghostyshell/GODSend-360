@@ -251,22 +251,31 @@ function HttpProgressRoutine(dwTotalFileSize, dwTotalBytesTransferred, dwReason)
             local downloadedStr = formatSize(transferred)
             local elapsedStr = formatDuration(elapsed)
 
-            local etaStr = ""
+            local etaStr = nil
             if totalSize > 0 and speedBytes > 0 and percent < 100 then
                 local remaining = (totalSize - transferred) / speedBytes
-                etaStr = " | ~" .. formatDuration(remaining) .. " left"
+                etaStr = "~" .. formatDuration(remaining) .. " left"
             end
 
-            local status = ""
-            if gTotalParts > 1 then
-                status = string.format("Part %d/%d: %d%% | %s\n%s | %s%s",
-                    gCurrentPart, gTotalParts, percent, downloadedStr, speedStr, elapsedStr, etaStr)
-            else
-                status = string.format("Downloading: %d%% | %s\n%s | %s%s",
-                    percent, downloadedStr, speedStr, elapsedStr, etaStr)
+            -- Build a single-line status string, ordered by importance:
+            -- ETA (if known) → percent → part info/files → remaining details.
+            local parts = {}
+
+            if etaStr then
+                table.insert(parts, "ETA " .. etaStr)
             end
 
-            Script.SetStatus(status)
+            table.insert(parts, string.format("%d%%", percent))
+
+            if gTotalParts and gTotalParts > 1 and gCurrentPart and gCurrentPart > 0 then
+                table.insert(parts, string.format("Part %d/%d", gCurrentPart, gTotalParts))
+            end
+
+            table.insert(parts, downloadedStr)
+            table.insert(parts, speedStr)
+            table.insert(parts, "elapsed " .. elapsedStr)
+
+            Script.SetStatus(table.concat(parts, " | "))
             gLastProgressUpdate = now
         end
         return 0
