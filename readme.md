@@ -60,7 +60,7 @@ The Xbox will now connect to the backend running on your PC. You can browse game
 1. The Aurora script on the Xbox browses game libraries sourced from Internet Archive metadata
 2. The user selects a title; the script sends a trigger request to the Go backend
 3. The backend downloads the ISO from Internet Archive using parallel range requests (5 workers by default, 1–7 configurable), or picks it up from the local Transfer folder if already present
-4. For disc ISOs the backend runs `iso2god.exe` to convert to Games on Demand format; XBLA/digital titles are extracted with `7za.exe`
+4. For disc ISOs the backend runs `iso2god.exe` to convert to Games on Demand format; XBLA/digital titles are extracted with `7z.exe`
 5. The finished game files are transferred to the Xbox over FTP using Aurora's built-in FTP server
 6. The Aurora script polls the backend for status and shows a live progress display; the game appears in Aurora when the transfer completes
 
@@ -71,7 +71,7 @@ The Xbox will now connect to the backend running on your PC. You can browse game
 ```
 package.json             Root npm scripts: `npm install`, `npm run build` (Go + Windows installer)
 dist/                    Build artifacts (godsend.exe, Windows installer, etc.) — created by npm run build
-tools/                   Local-only helper binaries (iso2god.exe, 7za.exe, etc.) — ignored by git
+tools/                   Local-only helper binaries (iso2god.exe, 7z.exe, etc.) — ignored by git
 
 src/server/              Go backend
   main.go                  Entry point: HTTP server wiring & startup banner
@@ -122,9 +122,7 @@ Place these third-party tools in a `tools/` folder at the repository root before
 | File | Source |
 |------|--------|
 | `iso2god.exe` | [Iso2God by r4dius (Windows GUI)](https://github.com/r4dius/Iso2God/releases) — download latest `Iso2God.exe` and rename/copy as needed |
-| `7za.exe` | [7-Zip official downloads](https://www.7-zip.org/) — install 7-Zip and copy `7za.exe` from the installation folder into `tools/` |
-| `7za.dll` | [7-Zip official downloads](https://www.7-zip.org/) — from the same installation folder as `7za.exe` |
-| `7zxa.dll` | [7-Zip official downloads](https://www.7-zip.org/) — from the same installation folder as `7za.exe` |
+| `7z.exe` | [7-Zip official downloads](https://www.7-zip.org/) — install 7-Zip and copy `7z.exe` from the installation folder into `tools/` |
 
 Backend only (no installer): `go build -C src/server -o ../../dist/godsend.exe .`
 

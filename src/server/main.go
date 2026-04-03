@@ -407,7 +407,7 @@ func setupPaths() error {
 		toolsDir = exDir
 	}
 	if runtime.GOOS == "windows" {
-		sevenZipBin = "7za.exe"
+		sevenZipBin = "7z.exe"
 		isoGodBin = "iso2god.exe"
 	} else {
 		sevenZipBin = "7zz"
