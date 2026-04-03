@@ -63,7 +63,7 @@ function prepareWritableRuntime() {
     path.join(writableRoot, "cache")
   );
 
-  for (const fileName of ["iso2god.exe", "7za.exe", "7za.dll", "7zxa.dll"]) {
+  for (const fileName of ["iso2god.exe", "7z.exe"]) {
     copyFileIfMissing(
       path.join(bundledRoot, fileName),
       path.join(writableRoot, fileName)

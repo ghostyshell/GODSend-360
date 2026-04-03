@@ -59,16 +59,8 @@
         "to": "godsend-backend.exe"
       },
       {
-        "from": "../tools/7za.dll",
-        "to": "7za.dll"
-      },
-      {
-        "from": "../tools/7za.exe",
-        "to": "7za.exe"
-      },
-      {
-        "from": "../tools/7zxa.dll",
-        "to": "7zxa.dll"
+        "from": "../tools/7z.exe",
+        "to": "7z.exe"
       },
       {
         "from": "../tools/iso2god.exe",
