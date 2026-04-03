@@ -56,6 +56,7 @@ aurora-scripts/          Aurora Lua script + icons installed on the Xbox
   http_client.lua          HTTP helpers, error catalogue, progress callback
   services.lua             Server communication, wait loop, game installation
   menu.lua                 Queue viewer and library browser UI
+  menu_system.lua          Simple menu helper used by main.lua/menu.lua
 
 scripts/installation/automated/   Helper installer scripts (Linux/Windows)
 scripts/installation/docker/      Docker compose + Dockerfile for headless Linux deployment
@@ -89,6 +90,42 @@ Backend only (no installer): `go build -C src/server -o ../../dist/godsend.exe .
 
 ---
 
+## Setup options
+
+You can run GODsend in two main ways:
+
+- **Full desktop experience (recommended)** — Electron tray app + bundled backend
+  - Ensure `Go` and `Node.js` are installed.
+  - From the repository root:
+    - `npm install`
+    - `npm run build`
+  - Run the generated Windows installer from the `dist/` folder and launch GODsend from the Start Menu.
+  - The Electron app:
+    - Starts the backend with a writable runtime (`runtime/Temp`, `runtime/Transfer`, `runtime/Ready`, `runtime/cache`).
+    - Sets `GODSEND_HOME`, `GODSEND_TRANSFER`, and `GODSEND_IA_*` environment variables based on the Settings UI.
+    - Shows live backend logs and lets you control startup at login.
+
+- **Backend-only (no Electron)**
+  - Build the server:
+    - `go build -C src/server -o ../../dist/godsend.exe .`
+  - Run it from the project root (or wherever you place the binary):
+    - `dist\godsend.exe`
+  - Optionally set the same environment variables the Electron app would:
+    - `GODSEND_HOME` – base directory for `Transfer/`, `Ready/`, `Temp/`, `cache/`.
+    - `GODSEND_TRANSFER` – override the Transfer folder if you keep ISOs elsewhere.
+    - `GODSEND_IA_COOKIE` / `GODSEND_IA_AUTHORIZATION` / `GODSEND_IA_CONCURRENCY` – Internet Archive auth and concurrency (see table below).
+
+    Example (PowerShell, one line):
+
+    ```powershell
+    $env:GODSEND_HOME="C:\godsend"; $env:GODSEND_TRANSFER="C:\godsend\Transfer"; $env:GODSEND_IA_CONCURRENCY="5"; .\dist\godsend.exe
+    ```
+  - Make sure the backend is reachable at `http://<your-pc-ip>:8080` and that the Aurora script’s `GODSend.ini` `ip=` value matches this host.
+
+In both modes, the Aurora script setup is the same: copy `aurora-scripts/` to the Xbox, point `ip=` in `GODSend.ini` at the PC running `godsend.exe`, and enable Aurora’s FTP server.
+
+---
+
 ## Configuration
 
 ### Electron app settings
@@ -115,7 +152,7 @@ If the IP changes after installation, edit `godsend_config.ini` in the script di
 
 ## Installing on the Xbox
 
-1. Copy the entire `aurora-scripts/` folder to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\` (or any Aurora scripts path). The script is now split into multiple `.lua` files; all of them must be present in the same directory alongside `main.lua`
+1. Copy all the contents of the `aurora-scripts/` folder to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\` (or any Aurora scripts path)
 2. Edit `GODSend.ini` — set `ip=` to your PC's local IP address
 3. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
 4. Launch GODsend from Aurora → Scripts
@@ -171,7 +208,49 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 
 ## Requirements
 
-- Windows PC (backend + Electron app)
-- Xbox 360 running Aurora with FTP server enabled
-- Both devices on the same local network
+- Windows 10/11 64‑bit recommended (backend + Electron app)
+- At least 500MB free for the app, plus **15–25GB** recommended for temp + ready game data
+- Xbox 360 running Aurora (or another compatible dashboard) with FTP server enabled
+- Both PC and Xbox on the same local network
 - Free archive.org account for Internet Archive downloads
+
+---
+
+## Additional documentation & troubleshooting
+
+### Legacy Windows installer docs
+Older Windows installers and guides (for example, “GODSend Homelab Edition – Windows Installation Guide”) are still useful as historical context and screenshots.
+
+- A summary of how the legacy layout maps to this repo lives in `docs/legacy-installers-and-layout.md`.
+- The original PDF guide is expected at `docs/godsend-windows-install-guide.pdf` (copy your local PDF there) and can be opened directly for the full walkthrough.
+
+Useful external references (for additional background and prebuilt installers):
+
+- Main repo (original): `https://gitgud.io/Nesquin/godsend-homelab-edition`
+- Windows installer repo: `https://github.com/my573ry/GODSendEXE/releases`
+- GitGud releases: `https://gitgud.io/Nesquin/godsend-homelab-edition/-/releases`
+
+### Common issues (quick checklist)
+
+- **Lua script not visible in Aurora**
+  - Verify path: `Hdd1:\Aurora\User\Scripts\Utility\godsend\`
+  - Ensure `main.lua`, `GODSend.ini`, `menu_system.lua`, and `Icon/` are all present.
+  - Restart Aurora.
+
+- **Xbox cannot reach backend**
+  - Confirm backend is listening on `http://<pc-ip>:8080` (open in a browser from the PC).
+  - Make sure `ip=` in `GODSend.ini` matches your PC’s IPv4 address (not the Xbox IP).
+  - Confirm PC firewall allows inbound connections on port `8080`.
+  - Ensure PC and Xbox are on the same subnet.
+
+- **FTP transfer problems**
+  - Enable FTP in Aurora settings and note the Xbox IP.
+  - Use an FTP client (FileZilla/WinSCP) to test connection to port 21.
+  - Check router/firewall rules that might block FTP.
+
+- **Conversions/downloads fail or “Ready” is empty**
+  - Verify there is enough free disk space (at least 2–3× the ISO size).
+  - Check console logs from the backend (Electron window or terminal) for Myrient / IA errors.
+  - If using your own ISOs, ensure they are in the Transfer folder and the backend is configured for local mode.
+
+For deeper background on how earlier installers worked (and additional screenshots and FAQs), consult the legacy PDF guide or the original GitGud documentation linked above.
