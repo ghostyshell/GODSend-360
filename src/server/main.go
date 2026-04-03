@@ -1878,7 +1878,7 @@ func ftpTransferXEX(xexFolder, folderName string, conn *XboxConnection, gameName
 // ==========================================
 
 // processDigital handles digital content: XBLA, DLC, XBLIG (and the original No-Intro digital set).
-// DLC/XBLA always land on Hdd1 regardless of user drive selection.
+// DLC/XBLIG always land on Hdd1; XBLA respects the user's drive selection.
 func processDigital(gameName, platform string) {
 	logf("=== Digital: %s (%s) ===", gameName, platform)
 	safeName := sanitizeFilename(gameName)
@@ -1944,10 +1944,10 @@ func processDigital(gameName, platform string) {
 	logf("Digital: TitleID=%s Type=%s", titleID, typeDir)
 	finalName := filepath.Base(contentFile)
 
-	// DLC/XBLA/XBLIG always go to Hdd1
+	// DLC/XBLIG always go to Hdd1; XBLA respects the user's drive selection.
 	forcedDrive := ""
 	switch platform {
-	case "xbla", "dlc", "xblig":
+	case "dlc", "xblig":
 		forcedDrive = "Hdd1"
 	}
 

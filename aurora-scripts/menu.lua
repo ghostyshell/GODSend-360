@@ -300,16 +300,24 @@ function browseLibrary(platform)
                 local cleanName = gamesInBucket[g.Selected.Key]
                 if not cleanName then break end
 
-                local drives = {
-                    "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
-                    "UsbMu0:", "UsbMu1:"
-                }
+                -- DLC always installs to Hdd1 — skip the drive picker for DLC only
+                local driveReady = false
+                if platform == "dlc" then
+                    gInstallDrive = "Hdd1:"
+                    driveReady = true
+                else
+                    local drives = {
+                        "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
+                        "UsbMu0:", "UsbMu1:"
+                    }
+                    local dr = Script.ShowPopupList("Install to:", "", drives)
+                    if dr and not dr.Canceled then
+                        gInstallDrive = drives[dr.Selected.Key]
+                        driveReady = true
+                    end
+                end
 
-                local dr = Script.ShowPopupList("Install to:", "", drives)
-
-                if dr and not dr.Canceled then
-                    gInstallDrive = drives[dr.Selected.Key]
-
+                if driveReady then
                     local transferModes = {
                         "HTTP (Download & Extract)",
                         "FTP (Direct Transfer - More Reliable)"

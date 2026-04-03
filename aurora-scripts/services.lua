@@ -404,7 +404,7 @@ function installGame(gameName)
             return
         end
 
-        local dlcDrive = (forcedDrive ~= "") and forcedDrive or "Hdd1:"
+        local dlcDrive = (forcedDrive ~= "") and forcedDrive or gInstallDrive
         local currentPath = dlcDrive .. "\\"
         for folder in relPath:gmatch("[^\\]+") do
             currentPath = currentPath .. folder .. "\\"
