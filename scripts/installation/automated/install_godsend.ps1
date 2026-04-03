@@ -290,13 +290,16 @@ if (Test-Path -LiteralPath $GodsendExe) {
     try {
         Write-Info "Installing GODSend backend from repository..."
         
-        $GodsendSrc = Join-Path $RepoCloneDir "source-control\godsend_windows.exe"
+        $GodsendSrc = Join-Path $RepoCloneDir "src\godsend.exe"
+        if (-not (Test-Path -LiteralPath $GodsendSrc)) {
+            $GodsendSrc = Join-Path $RepoCloneDir "src\server\godsend_windows.exe"
+        }
         
         if (Test-Path -LiteralPath $GodsendSrc) {
             Copy-Item -LiteralPath $GodsendSrc -Destination $GodsendExe -Force
             Write-Ok "GODSend backend installed successfully."
         } else {
-            throw "GODSend binary not found: $GodsendSrc"
+            throw "GODSend binary not found (build with: cd src/server; go build -o ../godsend.exe .)"
         }
     } catch {
         Write-Fail "GODSend backend installation failed: $($_.Exception.Message)"
@@ -312,7 +315,7 @@ Write-Host ""
 Write-Host "[4/4] Xbox Client Files Installation" -ForegroundColor Yellow
 Write-Host "----------------------------------------" -ForegroundColor DarkGray
 
-$ClientScriptsDir = Join-Path $RepoCloneDir "client-scripts"
+$ClientScriptsDir = Join-Path $RepoCloneDir "aurora-scripts"
 
 if (Test-Path -LiteralPath $ClientScriptsDir) {
     Write-Info "Copying Xbox client files..."
@@ -324,7 +327,7 @@ if (Test-Path -LiteralPath $ClientScriptsDir) {
         $installErrors += "Xbox Client Files"
     }
 } else {
-    Write-Fail "client-scripts directory not found: $ClientScriptsDir"
+    Write-Fail "aurora-scripts directory not found: $ClientScriptsDir"
     $installErrors += "Xbox Client Files"
 }
 

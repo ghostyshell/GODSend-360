@@ -5,11 +5,11 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /build
 
-# Copy source code
-COPY source-control/main.go .
+# Copy Go module + source (build context = repository root)
+COPY src/server/ ./
 
 # Build the Go binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o godsend main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o godsend .
 
 # Final image
 FROM alpine:3.19

@@ -29,11 +29,11 @@ GODsend is a local-network game management system for Xbox 360 consoles running 
 ## Repository structure
 
 ```
-source-control/          Go backend source (main.go, go.mod, go.sum)
-electron-app/            Electron Windows UI (source — no node_modules or dist)
-client-scripts/          Aurora Lua script + icons installed on the Xbox
-automated-installation/  Helper installer scripts (Linux/Windows)
-docker-install/          Docker compose files for headless Linux deployment
+src/server/              Go backend (main.go, go.mod, go.sum)
+src/electron-app/        Electron Windows UI (source — no node_modules or dist)
+aurora-scripts/          Aurora Lua script + icons installed on the Xbox
+scripts/installation/automated/   Helper installer scripts (Linux/Windows)
+scripts/installation/docker/      Docker compose + Dockerfile for headless Linux deployment
 ```
 
 ---
@@ -45,12 +45,14 @@ docker-install/          Docker compose files for headless Linux deployment
 Requires Go 1.21+. Dependency: `github.com/jlaffaye/ftp`.
 
 ```
-cd source-control
+cd src/server
 go mod download
-go build -o godsend.exe .
+go build -o ../godsend.exe .
 ```
 
-The binary expects these third-party tools alongside it at runtime (not included in this repo — obtain separately):
+On Linux or macOS, use `../godsend_linux` or `../godsend_mac` (or any name you prefer) instead of `../godsend.exe`.
+
+The binary expects these third-party tools alongside it at runtime (not included in this repo — obtain separately). For a Windows + Electron workflow, place them in `src/` next to `godsend.exe` so the Electron packager can pick them up (see below).
 
 | File | Source |
 |------|--------|
@@ -63,13 +65,15 @@ The binary expects these third-party tools alongside it at runtime (not included
 
 Requires Node.js 18+.
 
+Build the Go binary first (see above) so `src/godsend.exe` exists. Copy the tool binaries into `src/` as well if you want them bundled.
+
 ```
-cd electron-app
+cd src/electron-app
 npm install
 npm run build:win        # produces dist/godsend-Setup-x.x.x.exe
 ```
 
-The installer bundles `godsend.exe` (built separately above) as `godsend-backend.exe` along with the tool binaries, and installs them to a user-chosen directory. The backend launches automatically when the app starts and runs hidden in the background.
+The installer bundles `../godsend.exe` (relative to `src/electron-app`) as `godsend-backend.exe` along with the tool binaries, and installs them to a user-chosen directory. The backend launches automatically when the app starts and runs hidden in the background.
 
 ---
 
@@ -84,7 +88,7 @@ Open the settings page (⚙ button) to configure:
 - **Internet Archive account** — log in with your archive.org credentials; session cookies are stored locally, your password is never saved
 - **Parallel download connections** — concurrent range-request workers per IA download (1–7, default 5)
 
-### Aurora script (`client-scripts/GODSend.ini`)
+### Aurora script (`aurora-scripts/GODSend.ini`)
 
 Edit before copying to the Xbox:
 
@@ -99,10 +103,16 @@ If the IP changes after installation, edit `godsend_config.ini` in the script di
 
 ## Installing on the Xbox
 
-1. Copy the entire `client-scripts/` folder to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\` (or any Aurora scripts path)
+1. Copy the entire `aurora-scripts/` folder to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\` (or any Aurora scripts path)
 2. Edit `GODSend.ini` — set `ip=` to your PC's local IP address
 3. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
 4. Launch GODsend from Aurora → Scripts
+
+---
+
+## Docker (headless Linux)
+
+See [scripts/installation/docker/README-Docker.md](scripts/installation/docker/README-Docker.md). Run Compose from `scripts/installation/docker/` so build context and volume paths resolve correctly.
 
 ---
 

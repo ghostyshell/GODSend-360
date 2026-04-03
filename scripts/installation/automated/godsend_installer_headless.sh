@@ -304,8 +304,8 @@ if [[ -f "$GODSEND_EXE" ]]; then
     INSTALLED+=("GODSend")
 else
     case "$OS" in
-        linux)  GODSEND_SRC="${REPO_CLONE_DIR}/source-control/godsend_linux" ;;
-        macos)  GODSEND_SRC="${REPO_CLONE_DIR}/source-control/godsend_mac" ;;
+        linux)  GODSEND_SRC="${REPO_CLONE_DIR}/src/server/godsend_linux" ;;
+        macos)  GODSEND_SRC="${REPO_CLONE_DIR}/src/server/godsend_mac" ;;
         *)      GODSEND_SRC="" ;;
     esac
     
@@ -325,7 +325,7 @@ fi
 # ----------------------------
 log_info "Installing Xbox client files..."
 
-CLIENT_SCRIPTS_DIR="${REPO_CLONE_DIR}/client-scripts"
+CLIENT_SCRIPTS_DIR="${REPO_CLONE_DIR}/aurora-scripts"
 
 if [[ -d "$CLIENT_SCRIPTS_DIR" ]]; then
     if cp -r "${CLIENT_SCRIPTS_DIR}/"* "$XBOX_DIR/" 2>/dev/null; then
@@ -336,7 +336,7 @@ if [[ -d "$CLIENT_SCRIPTS_DIR" ]]; then
         FAILED+=("Xbox Client Files")
     fi
 else
-    log_warn "client-scripts directory not found: $CLIENT_SCRIPTS_DIR"
+    log_warn "aurora-scripts directory not found: $CLIENT_SCRIPTS_DIR"
     FAILED+=("Xbox Client Files")
 fi
 

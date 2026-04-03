@@ -2,12 +2,13 @@
 *.exe
 *.dll
 
-# Go build output
-source-control/godsend_*
+# Go build output (default layout: binary next to electron-app under src/)
+src/godsend_*
+src/godsend.exe
 
 # Electron / Node
-electron-app/node_modules/
-electron-app/dist/
+src/electron-app/node_modules/
+src/electron-app/dist/
 
 # Runtime data dirs (created by the backend at runtime)
 Ready/
@@ -16,5 +17,5 @@ Transfer/
 cache/
 
 # Electron builder temp artefacts
-electron-app/.webpack/
-electron-app/out/
+src/electron-app/.webpack/
+src/electron-app/out/

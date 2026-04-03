@@ -9,7 +9,7 @@ Run the GODSend Xbox 360 Game Server in a Docker container.
 ```bash
 # Clone the repository
 git clone https://gitgud.io/Nesquin/godsend-homelab-edition.git
-cd godsend-homelab-edition
+cd godsend-homelab-edition/scripts/installation/docker
 
 # Build and run
 docker-compose up -d
@@ -23,9 +23,9 @@ docker-compose logs -f
 ```bash
 # Clone the repository
 git clone https://gitgud.io/Nesquin/godsend-homelab-edition.git
-cd godsend-homelab-edition
+cd godsend-homelab-edition/scripts/installation/docker
 
-# Run with pre-built binary
+# Run with pre-built binary (place godsend_linux under src/server/ first)
 docker-compose -f docker-compose.prebuilt.yml up -d
 ```
 
@@ -66,7 +66,7 @@ Once running, the server is accessible at `http://your-server-ip:8080`
 
 ### Xbox Client Setup
 
-Copy the files from `client-scripts/` to your Xbox's Aurora Scripts folder:
+Copy the files from `aurora-scripts/` to your Xbox's Aurora Scripts folder:
 - `GODSend.ini`
 - `main.lua`
 - `MenuSystem.lua`

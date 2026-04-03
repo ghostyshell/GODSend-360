@@ -352,8 +352,8 @@ else
     write_info "Installing GODSend backend from repository..."
     
     case "$OS" in
-        linux)  GODSEND_SRC="${REPO_CLONE_DIR}/source-control/godsend_linux" ;;
-        macos)  GODSEND_SRC="${REPO_CLONE_DIR}/source-control/godsend_mac" ;;
+        linux)  GODSEND_SRC="${REPO_CLONE_DIR}/src/server/godsend_linux" ;;
+        macos)  GODSEND_SRC="${REPO_CLONE_DIR}/src/server/godsend_mac" ;;
         *)      GODSEND_SRC="" ;;
     esac
     
@@ -375,7 +375,7 @@ echo ""
 echo -e "${YELLOW}[4/4] Xbox Client Files Installation${NC}"
 echo -e "${GRAY}----------------------------------------${NC}"
 
-CLIENT_SCRIPTS_DIR="${REPO_CLONE_DIR}/client-scripts"
+CLIENT_SCRIPTS_DIR="${REPO_CLONE_DIR}/aurora-scripts"
 
 if [[ -d "$CLIENT_SCRIPTS_DIR" ]]; then
     write_info "Copying Xbox client files..."
@@ -386,7 +386,7 @@ if [[ -d "$CLIENT_SCRIPTS_DIR" ]]; then
         INSTALL_ERRORS+=("Xbox Client Files")
     fi
 else
-    write_fail "client-scripts directory not found: $CLIENT_SCRIPTS_DIR"
+    write_fail "aurora-scripts directory not found: $CLIENT_SCRIPTS_DIR"
     INSTALL_ERRORS+=("Xbox Client Files")
 fi
 

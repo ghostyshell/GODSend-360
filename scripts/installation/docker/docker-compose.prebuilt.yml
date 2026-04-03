@@ -11,8 +11,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Mount the pre-built binary (from source-control folder)
-      - ./source-control/godsend_linux:/app/godsend:ro
+      # Mount the pre-built binary (build in src/server: GOOS=linux go build -o godsend_linux .)
+      - ../../../src/server/godsend_linux:/app/godsend:ro
       # Persist Ready folder (converted games)
       - ./data/Ready:/app/Ready
       # Persist Temp folder (temporary files during processing)
