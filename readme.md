@@ -1,6 +1,6 @@
-# GODsend
+# GODsend 360
 
-GODsend is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It consists of three parts:
+GODsend 360 is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It consists of three parts:
 
 - **Go backend** — HTTP server running on your PC that fetches games from Internet Archive, converts ISOs to GOD format, and transfers them to the Xbox via FTP
 - **Electron app** — Windows desktop tray application wrapping the backend with a live terminal and settings UI
