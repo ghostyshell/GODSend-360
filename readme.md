@@ -8,6 +8,46 @@ GODsend is a local-network game management system for Xbox 360 consoles running 
 
 ---
 
+## Quick Installation
+
+### 1. Download the files
+
+Go to the [GODsend 360 v2.0.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/snippets/2658) and download both files:
+
+- **`godsend-Setup-2.0.0.exe`** — Windows installer for the Electron tray app + backend
+- **`aurora-scripts-v2.0.0.zip`** — Aurora Lua scripts to install on the Xbox
+
+### 2. Install the Electron app
+
+1. Run `godsend-Setup-2.0.0.exe` and follow the installer prompts.
+2. Launch **GODsend** from the Start Menu — the tray icon appears in the system tray.
+
+### 3. Configure Internet Archive (IA) in the app
+
+1. Click the tray icon and open the app window, then click the **⚙ Settings** button.
+2. Under **Internet Archive account**, click **Log in** and enter your [archive.org](https://archive.org) credentials. Your session cookie is stored locally — your password is never saved.
+3. Set **Parallel download connections** to your preferred value (default **5**, range 1–7).
+4. Optionally set a **Local Transfer folder** if you want to use pre-downloaded ISOs instead of fetching from IA.
+
+### 4. Install Aurora scripts on the Xbox
+
+1. Extract `aurora-scripts-v2.0.0.zip`.
+2. Edit `GODSend.ini` inside the extracted folder — set `ip=` to your PC's local IPv4 address:
+   ```ini
+   [Config]
+   ip=192.168.1.x
+   ```
+3. Copy the entire extracted `aurora-scripts/` folder to the Xbox at:
+   ```
+   HDD1:\Aurora\User\Scripts\Utilities\GODsend\
+   ```
+4. Enable Aurora's FTP server: **Aurora → Settings → Network → Enable FTP**.
+5. Launch **GODsend** from Aurora → Scripts.
+
+The Xbox will now connect to the backend running on your PC. You can browse games, trigger downloads, and track progress directly from Aurora.
+
+---
+
 ## How it works
 
 ```
