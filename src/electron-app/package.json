@@ -63,6 +63,10 @@
         "to": "7z.exe"
       },
       {
+        "from": "../tools/7z.dll",
+        "to": "7z.dll"
+      },
+      {
         "from": "../tools/iso2god.exe",
         "to": "iso2god.exe"
       }

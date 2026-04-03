@@ -123,6 +123,7 @@ Place these third-party tools in a `tools/` folder at the repository root before
 |------|--------|
 | `iso2god.exe` | [Iso2God by r4dius (Windows GUI)](https://github.com/r4dius/Iso2God/releases) — download latest `Iso2God.exe` and rename/copy as needed |
 | `7z.exe` | [7-Zip official downloads](https://www.7-zip.org/) — install 7-Zip and copy `7z.exe` from the installation folder into `tools/` |
+| `7z.dll` | Same 7-Zip installation folder — required by `7z.exe` at runtime |
 
 Backend only (no installer): `go build -C src/server -o ../../dist/godsend.exe .`
 
