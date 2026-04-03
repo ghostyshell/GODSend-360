@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GODsend</title>
+    <link rel="icon" href="./assets/tray.ico" type="image/x-icon" />
+    <link rel="icon" href="./assets/tray.png" type="image/png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+
+      <!-- ── HOME PAGE ── -->
+      <div id="page-home" class="page active">
+        <header class="topbar">
+          <button id="restartBtn" class="icon-btn" title="Restart backend">&#x21BB;</button>
+          <button id="settingsBtn" class="icon-btn" title="Settings">&#x2699;</button>
+        </header>
+        <pre id="output"></pre>
+      </div>
+
+      <!-- ── SETTINGS PAGE ── -->
+      <div id="page-settings" class="page">
+        <header class="settings-header">
+          <button id="backBtn" class="icon-btn" title="Back to terminal">&#x2190;</button>
+          <span class="settings-title">Settings</span>
+        </header>
+        <div class="settings-body">
+
+          <div class="setting-section">
+            <label class="startup-toggle">
+              <input id="startupCheckbox" type="checkbox" />
+              Start GODsend when Windows starts
+            </label>
+          </div>
+
+          <div class="setting-section">
+            <span class="setting-label">Local Transfer folder (ISOs)</span>
+            <div class="transfer-row">
+              <input id="transferPath" type="text" readonly placeholder="Default: data folder / Transfer" />
+              <button id="transferBrowseBtn" type="button">Browse&#x2026;</button>
+              <button id="transferResetBtn" type="button">Use default</button>
+            </div>
+            <p class="setting-hint">Changing this restarts the backend. The Xbox script uses this folder for "Local Library".</p>
+          </div>
+
+          <div class="setting-section">
+            <span class="setting-label">Internet Archive account</span>
+            <p id="iaSessionStatus" class="ia-session-status" aria-live="polite"></p>
+            <label class="ia-field-label" for="iaEmail">Email</label>
+            <input
+              id="iaEmail"
+              type="email"
+              class="setting-input"
+              spellcheck="false"
+              autocomplete="username"
+              placeholder="Your archive.org email"
+            />
+            <label class="ia-field-label" for="iaPassword">Password</label>
+            <input
+              id="iaPassword"
+              type="password"
+              class="setting-input"
+              spellcheck="false"
+              autocomplete="current-password"
+              placeholder="Not stored — only used to sign in"
+            />
+            <div class="ia-auth-row">
+              <button id="iaLoginBtn" type="button">Log in &amp; restart backend</button>
+              <button id="iaLogoutBtn" type="button">Sign out</button>
+            </div>
+            <p class="setting-hint">Uses archive.org's official login API. Session cookies are saved locally; your password is never stored.</p>
+          </div>
+
+          <div class="setting-section">
+            <label class="ia-field-label" for="iaConcurrency">
+              Parallel download connections: <span id="iaConcurrencyVal">4</span>
+            </label>
+            <input
+              id="iaConcurrency"
+              type="range"
+              min="1"
+              max="7"
+              step="1"
+              value="5"
+              class="ia-concurrency-slider"
+            />
+            <p class="setting-hint">Simultaneous range-request workers per IA download (1–7). Higher is faster but puts more load on archive.org. Restarts the backend when changed.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

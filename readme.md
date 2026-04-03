@@ -1,33 +1,155 @@
-GODSend
+# GODsend
 
-GODSend is a network-based content management and installation bridge for Xbox 360 consoles running the Aurora dashboard. It consists of a Go-based backend (PC) and a Lua frontend (Xbox) to automate the processing, conversion, and transfer of backup files over a local network.
-Features
+GODsend is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It consists of three parts:
 
-    Automated Conversion: Automatically converts standard ISO disc backups into the Games on Demand (GOD) format required by the console.
+- **Go backend** — HTTP server running on your PC that fetches games from Internet Archive, converts ISOs to GOD format, and transfers them to the Xbox via FTP
+- **Electron app** — Windows desktop tray application wrapping the backend with a live terminal and settings UI
+- **Aurora Lua script** — runs on the Xbox and talks to the backend to browse, trigger downloads, and track progress
 
-    Direct Network Installation: Bypasses the need for USB drives by serving content directly via HTTP.
+---
 
-    Format Support: Handles standard Disc images, Digital/XBLA titles, and DLC packages.
+## How it works
 
-    Smart File Handling:
+```
+[Xbox Aurora script] ──HTTP──▶ [Go backend on PC] ──FTP──▶ [Xbox HDD/USB]
+                                      │
+                               Internet Archive
+                               (parallel download)
+```
 
-        Includes a "Rigid" extraction protocol to ensure 100% file integrity during transfer.
+1. The Aurora script on the Xbox browses game libraries sourced from Internet Archive metadata
+2. The user selects a title; the script sends a trigger request to the Go backend
+3. The backend downloads the ISO from Internet Archive using parallel range requests (5 workers by default, 1–7 configurable), or picks it up from the local Transfer folder if already present
+4. For disc ISOs the backend runs `iso2god.exe` to convert to Games on Demand format; XBLA/digital titles are extracted with `7za.exe`
+5. The finished game files are transferred to the Xbox over FTP using Aurora's built-in FTP server
+6. The Aurora script polls the backend for status and shows a live progress display; the game appears in Aurora when the transfer completes
 
-        Automated filename sanitization to prevent syntax errors (Error 123) on the destination drive.
+---
 
-        Recursive directory creation for complex DLC/XBLA file structures.
+## Repository structure
 
-    Storage Agnostic: Supports installation to HDD, USB, and UsbMu partitions.
+```
+source-control/          Go backend source (main.go, go.mod, go.sum)
+electron-app/            Electron Windows UI (source — no node_modules or dist)
+client-scripts/          Aurora Lua script + icons installed on the Xbox
+automated-installation/  Helper installer scripts (Linux/Windows)
+docker-install/          Docker compose files for headless Linux deployment
+```
 
-Requirments:
-7zip 19.00
-Iso2GOD - rs
+---
 
-Expected folder structure:
+## Building
 
-->Ready
-->Temp
-->7z.OS executable extension
-->godsend_(OS Name Here).OS executable extension
-->iso2GOD.OS executable extension
+### Go backend
 
+Requires Go 1.21+. Dependency: `github.com/jlaffaye/ftp`.
+
+```
+cd source-control
+go mod download
+go build -o godsend.exe .
+```
+
+The binary expects these third-party tools alongside it at runtime (not included in this repo — obtain separately):
+
+| File | Source |
+|------|--------|
+| `iso2god.exe` | iso2god by r-e-d |
+| `7za.exe` | 7-Zip standalone console |
+| `7za.dll` | 7-Zip standalone console |
+| `7zxa.dll` | 7-Zip standalone console |
+
+### Electron app (Windows installer)
+
+Requires Node.js 18+.
+
+```
+cd electron-app
+npm install
+npm run build:win        # produces dist/godsend-Setup-x.x.x.exe
+```
+
+The installer bundles `godsend.exe` (built separately above) as `godsend-backend.exe` along with the tool binaries, and installs them to a user-chosen directory. The backend launches automatically when the app starts and runs hidden in the background.
+
+---
+
+## Configuration
+
+### Electron app settings
+
+Open the settings page (⚙ button) to configure:
+
+- **Start with Windows** — adds GODsend to Windows login items
+- **Local Transfer folder** — directory the backend scans for pre-downloaded ISOs (defaults to `%APPDATA%\godsend-electron\runtime\Transfer`)
+- **Internet Archive account** — log in with your archive.org credentials; session cookies are stored locally, your password is never saved
+- **Parallel download connections** — concurrent range-request workers per IA download (1–7, default 5)
+
+### Aurora script (`client-scripts/GODSend.ini`)
+
+Edit before copying to the Xbox:
+
+```ini
+[Config]
+ip=192.168.1.x        ; IP address of the PC running the backend
+```
+
+If the IP changes after installation, edit `godsend_config.ini` in the script directory via FTP and restart the script. The file is read on every launch.
+
+---
+
+## Installing on the Xbox
+
+1. Copy the entire `client-scripts/` folder to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\` (or any Aurora scripts path)
+2. Edit `GODSend.ini` — set `ip=` to your PC's local IP address
+3. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
+4. Launch GODsend from Aurora → Scripts
+
+---
+
+## Backend HTTP API
+
+The backend listens on port 8080. Endpoints used by the Lua script:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/browse?platform=<p>&game=<name>` | Search game library; `platform` = `xbox360`, `xbox`, `xbla`, `digital`, `dlc`, `xblig`, `local` |
+| GET | `/status?game=<name>` | Poll job state: `Idle`, `Processing`, `Ready`, `Error` |
+| GET | `/queue` | List all active and completed jobs |
+| POST | `/trigger?game=<name>&platform=<p>` | Start processing a game |
+| POST | `/register?ip=<xbox-ip>` | Register the Xbox IP for FTP transfer |
+| GET | `/files/<name>/...` | Serve finished GOD/archive files to the Xbox over HTTP |
+| DELETE | `/queue/<name>` | Remove a completed job from the queue |
+
+---
+
+## Runtime folders
+
+The backend creates these under its working directory (or `GODSEND_HOME` if set):
+
+| Folder | Purpose |
+|--------|---------|
+| `Transfer/` | Drop ISOs here for local-library installs (used instead of downloading from IA) |
+| `Ready/` | Finished GOD/archive files awaiting FTP transfer or HTTP serving |
+| `Temp/` | Working directory for in-progress conversions |
+| `cache/` | Cached Internet Archive game metadata (avoids re-fetching on each launch) |
+
+---
+
+## Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GODSEND_HOME` | binary directory | Root path for Transfer/Ready/Temp/cache |
+| `GODSEND_TRANSFER` | `$GODSEND_HOME/Transfer` | Override Transfer folder path independently |
+| `GODSEND_IA_COOKIE` | — | `logged-in-user=…; logged-in-sig=…` session cookie for IA auth |
+| `GODSEND_IA_AUTHORIZATION` | — | Bearer token as an alternative to cookie auth |
+| `GODSEND_IA_CONCURRENCY` | `5` | Parallel download workers (1–7) |
+
+---
+
+## Requirements
+
+- Windows PC (backend + Electron app)
+- Xbox 360 running Aurora with FTP server enabled
+- Both devices on the same local network
+- Free archive.org account for Internet Archive downloads

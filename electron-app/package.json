@@ -1,0 +1,99 @@
+{
+  "name": "godsend-electron",
+  "version": "1.0.0",
+  "description": "Minimal Electron UI for running and monitoring godsend.exe",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "node scripts/sync-assets-icon.js && electron-builder --win nsis"
+  },
+  "keywords": [
+    "electron",
+    "tray",
+    "startup"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "jimp": "^0.22.12",
+    "png-to-ico": "^2.1.8",
+    "rcedit": "^5.0.2",
+    "sharp": "^0.34.5"
+  },
+  "build": {
+    "afterPack": "./scripts/after-pack-win-icon.js",
+    "appId": "com.abbu.godsend",
+    "productName": "GODsend",
+    "executableName": "GODsend",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!build/**",
+      "!scripts/**",
+      "!README.md"
+    ],
+    "extraFiles": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../cache",
+        "to": "cache",
+        "filter": [
+          "**/*",
+          "!**/*.iso",
+          "!**/*.ISO"
+        ]
+      },
+      {
+        "from": "../godsend.exe",
+        "to": "godsend-backend.exe"
+      },
+      {
+        "from": "../7za.dll",
+        "to": "7za.dll"
+      },
+      {
+        "from": "../7za.exe",
+        "to": "7za.exe"
+      },
+      {
+        "from": "../7zxa.dll",
+        "to": "7zxa.dll"
+      },
+      {
+        "from": "../iso2god.exe",
+        "to": "iso2god.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/tray.ico",
+      "forceCodeSigning": false,
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GODsend",
+      "uninstallDisplayName": "GODsend",
+      "installerIcon": "assets/tray.ico",
+      "include": "build/installer.nsh",
+      "artifactName": "godsend-Setup-${version}.${ext}"
+    }
+  }
+}

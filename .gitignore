@@ -1,0 +1,20 @@
+# Compiled binaries
+*.exe
+*.dll
+
+# Go build output
+source-control/godsend_*
+
+# Electron / Node
+electron-app/node_modules/
+electron-app/dist/
+
+# Runtime data dirs (created by the backend at runtime)
+Ready/
+Temp/
+Transfer/
+cache/
+
+# Electron builder temp artefacts
+electron-app/.webpack/
+electron-app/out/

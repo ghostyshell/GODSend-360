@@ -1,0 +1,213 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #101318;
+  color: #f2f5f7;
+}
+
+/* ── LAYOUT ── */
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+.page {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+}
+
+.page.active {
+  display: flex;
+}
+
+/* ── SHARED BUTTON ── */
+
+button {
+  border: 1px solid #2a2f3a;
+  background: #1f2630;
+  color: #ffffff;
+  padding: 7px 13px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+button:hover {
+  background: #263042;
+}
+
+/* ── ICON BUTTONS (restart / settings / back) ── */
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* ── HOME PAGE ── */
+
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+#output {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 10px;
+  background: #0b0f14;
+  border: 1px solid #2a2f3a;
+  border-radius: 6px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  user-select: text;
+  cursor: text;
+}
+
+/* ── SETTINGS PAGE ── */
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #2a2f3a;
+}
+
+.settings-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f2f5f7;
+}
+
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.setting-section {
+  padding: 16px 0;
+  border-bottom: 1px solid #1e242e;
+}
+
+.setting-section:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #cad3dc;
+  margin-bottom: 10px;
+}
+
+.setting-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #8a939c;
+  line-height: 1.4;
+}
+
+/* startup toggle */
+
+.startup-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* transfer folder */
+
+.transfer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.transfer-row input[type="text"] {
+  flex: 1;
+  min-width: 180px;
+  padding: 7px 10px;
+  border: 1px solid #2a2f3a;
+  border-radius: 4px;
+  background: #0b0f14;
+  color: #f2f5f7;
+  font-size: 12px;
+}
+
+/* IA account */
+
+.ia-session-status {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #a8b4c0;
+}
+
+.ia-field-label {
+  display: block;
+  font-size: 12px;
+  color: #9aa5b2;
+  margin: 10px 0 4px;
+}
+
+.setting-input {
+  width: 100%;
+  max-width: 480px;
+  padding: 7px 10px;
+  border: 1px solid #2a2f3a;
+  border-radius: 4px;
+  background: #0b0f14;
+  color: #f2f5f7;
+  font-size: 13px;
+}
+
+.ia-auth-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* concurrency slider */
+
+.ia-concurrency-slider {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 6px;
+  accent-color: #4a9eff;
+}
