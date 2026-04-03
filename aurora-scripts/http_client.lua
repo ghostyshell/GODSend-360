@@ -194,11 +194,57 @@ function sanitizeForUrl(name)
     return name:gsub('[<>:"/\\|%?%*]', " -")
 end
 
--- Safe JSON field extraction with pcall protection.
+-- Extract a JSON string value for "field" with escape handling (\", \\, \n, \uXXXX).
+-- The naive [^"]* pattern breaks when the message contains a quote or \ escapes.
 function jsonField(json, field)
     if not json or type(json) ~= "string" then return nil end
     local ok, result = pcall(function()
-        return json:match('"' .. field .. '"%s*:%s*"([^"]*)"')
+        local prefix = '"' .. field .. '"%s*:%s*"'
+        local _, e = json:find(prefix)
+        if not e then return nil end
+        local i = e + 1
+        local parts = {}
+        local n = #json
+        while i <= n do
+            local c = json:sub(i, i)
+            if c == '"' then
+                break
+            end
+            if c == "\\" and i < n then
+                local esc = json:sub(i + 1, i + 1)
+                if esc == '"' or esc == "\\" or esc == "/" then
+                    table.insert(parts, esc)
+                    i = i + 2
+                elseif esc == "n" then
+                    table.insert(parts, "\n")
+                    i = i + 2
+                elseif esc == "r" then
+                    table.insert(parts, "\r")
+                    i = i + 2
+                elseif esc == "t" then
+                    table.insert(parts, "\t")
+                    i = i + 2
+                elseif esc == "u" and i + 5 <= n then
+                    local hex = json:sub(i + 2, i + 5)
+                    local code = tonumber(hex, 16)
+                    if code and code >= 32 and code <= 126 then
+                        table.insert(parts, string.char(code))
+                    elseif code and (code == 10 or code == 13) then
+                        -- line breaks from JSON; host line is flattened in SetStatus anyway
+                    elseif code then
+                        table.insert(parts, "?")
+                    end
+                    i = i + 6
+                else
+                    table.insert(parts, esc)
+                    i = i + 2
+                end
+            else
+                table.insert(parts, c)
+                i = i + 1
+            end
+        end
+        return table.concat(parts)
     end)
     if ok then return result end
     return nil

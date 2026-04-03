@@ -40,8 +40,18 @@ local stateIcon = {
 
 local function formatQueueEntry(e)
     local icon  = stateIcon[e.state] or "  ?  "
-    local label = "[" .. icon .. "] " .. (e.game or "?")
     local msg   = e.message or ""
+
+    -- Try to parse a percentage from the message and show it first in the title.
+    local pct = msg:match("%((%d+%.?%d*)%%%)") -- "(46.8%)" style
+             or msg:match(":%s*(%d+)%%")        -- ": 75%"  style
+
+    local title = e.game or "?"
+    if pct then
+        title = pct .. "% - " .. title
+    end
+
+    local label = "[" .. icon .. "] " .. title
     if msg ~= "" then
         local short = msg:sub(1, 35)
         if #msg > 35 then short = short .. "..." end  -- ASCII dots, not UTF-8 ellipsis

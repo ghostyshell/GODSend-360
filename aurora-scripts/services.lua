@@ -184,7 +184,10 @@ function waitForProcessing(gameName)
 
         elseif state == "Processing" then
             local msg = message or "Processing"
-            Script.SetStatus("Host:\n" .. msg .. dots)
+            -- Aurora's progress UI does not show multi-line SetStatus text reliably;
+            -- keep one line and collapse any embedded newlines from JSON.
+            local line = msg:gsub("[\r\n]+", " "):gsub("  +", " ")
+            Script.SetStatus("Host: " .. line .. dots)
 
             local pct = msg:match("%((%d+%.?%d*)%%%)") -- "(46.8%)" style
                      or msg:match(":%s*(%d+)%%")        -- ": 75%" style
