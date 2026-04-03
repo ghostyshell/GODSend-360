@@ -318,7 +318,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v7.0-IA        ║")
+	fmt.Println("║    GODSend Backend Server v2.0.1         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + IA Cache       ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
