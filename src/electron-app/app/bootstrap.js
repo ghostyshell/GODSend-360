@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const http = require("http");
 const path = require("path");
 
 const {
@@ -9,6 +10,8 @@ const { createTray } = require("../infrastructure/electronTray");
 const {
   getConfiguredTransferFolder,
   getDefaultTransferFolder,
+  getConfiguredROMPath,
+  getDefaultROMPath,
   getConfiguredIAEmail,
   getConfiguredIAScreenname,
   getConfiguredIACookie,
@@ -144,6 +147,33 @@ function registerIpcHandlers() {
     writeConfig({ iaConcurrency: n });
     restartGodsendIfRunning();
     return n;
+  });
+
+  ipcMain.handle("config:get-rom-path", () =>
+    getConfiguredROMPath() || getDefaultROMPath()
+  );
+
+  ipcMain.handle("config:set-rom-path", (_event, value) => {
+    const v = typeof value === "string" ? value.trim() : "";
+    writeConfig({ romPath: v });
+    restartGodsendIfRunning();
+    return getConfiguredROMPath();
+  });
+
+  ipcMain.handle("config:cache-refresh", (_event, platform) => {
+    const p = typeof platform === "string" && platform ? platform : "all";
+    return new Promise((resolve) => {
+      const req = http.get(
+        `http://localhost:8080/cache-refresh?platform=${encodeURIComponent(p)}`,
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => { data += chunk; });
+          res.on("end", () => resolve({ ok: true, data }));
+        }
+      );
+      req.on("error", (err) => resolve({ ok: false, error: err.message }));
+      req.setTimeout(5000, () => { req.destroy(); resolve({ ok: false, error: "timeout" }); });
+    });
   });
 
   ipcMain.handle("config:choose-transfer-folder", async () => {

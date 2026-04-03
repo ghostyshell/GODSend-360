@@ -46,6 +46,15 @@
           </div>
 
           <div class="setting-section">
+            <span class="setting-label">Game cache</span>
+            <p id="cacheRefreshStatus" class="ia-session-status"></p>
+            <div class="ia-auth-row">
+              <button id="cacheRefreshBtn" type="button">Refresh all caches</button>
+            </div>
+            <p class="setting-hint">Caches are loaded from disk on startup and never refreshed automatically. Click to re-fetch all Internet Archive game lists and any ROM system caches you have previously browsed.</p>
+          </div>
+
+          <div class="setting-section">
             <span class="setting-label">Internet Archive account</span>
             <p id="iaSessionStatus" class="ia-session-status" aria-live="polite"></p>
             <label class="ia-field-label" for="iaEmail">Email</label>
@@ -71,6 +80,16 @@
               <button id="iaLogoutBtn" type="button">Sign out</button>
             </div>
             <p class="setting-hint">Uses archive.org's official login API. Session cookies are saved locally; your password is never stored.</p>
+          </div>
+
+          <div class="setting-section">
+            <span class="setting-label">ROM install path (on Xbox)</span>
+            <div class="transfer-row">
+              <input id="romPath" type="text" placeholder="Default: Emulators\RetroArch\roms" />
+              <button id="romPathSaveBtn" type="button">Save</button>
+              <button id="romPathResetBtn" type="button">Use default</button>
+            </div>
+            <p class="setting-hint">Drive-relative path for ROM installs. Each system gets a subfolder (e.g. \NES\, \SNES\). Changing this restarts the backend.</p>
           </div>
 
           <div class="setting-section">

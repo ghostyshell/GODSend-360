@@ -392,7 +392,64 @@ function installGame(gameName)
         return
     end
 
-    -- === PATH 1: DIGITAL/XBLA/DLC (RAW) INSTALL ===
+    -- === PATH 1: ROM INSTALL ===
+    if installType == "rom" then
+        local archiveUrl = ini:ReadValue(gameName, "dataurl", "")
+            :gsub("%%20", " "):gsub("%%28", "("):gsub("%%29", ")")
+        local romPath    = ini:ReadValue(gameName, "rompath", "")
+
+        if archiveUrl == "" or romPath == "" then
+            showError("MANIFEST_EMPTY", "ROM manifest missing dataurl or rompath")
+            pcall(FileSystem.DeleteFile, Script.GetBasePath() .. localIniRel)
+            return
+        end
+
+        -- Create install directory: [drive]\[romPath]  (romPath already has trailing backslash)
+        local installPath = gInstallDrive .. "\\" .. romPath:gsub("\\+$", "") .. "\\"
+        pcall(FileSystem.CreateDirectory, installPath)
+
+        local dlRel = DOWNLOAD_FOLDER .. "\\rom_part.7z"
+        local dlAbs = absoluteDownloadsPath .. "rom_part.7z"
+        local partUrl = gameBaseURL .. Http.UrlEncode(archiveUrl)
+
+        gAbortedOperation  = false
+        gDownloadStartTime = getTime()
+        gLastProgressUpdate = 0
+        gCurrentPart = 1
+        gTotalParts  = 1
+
+        Script.SetStatus("Downloading ROM...")
+        local dlOk, dlRes = pcall(Http.GetEx, partUrl, HttpProgressRoutine, dlRel)
+
+        if gAbortedOperation then
+            showError("CANCELLED")
+            pcall(FileSystem.DeleteFile, dlAbs)
+            pcall(FileSystem.DeleteFile, Script.GetBasePath() .. localIniRel)
+            return
+        end
+        if not dlOk or not dlRes then
+            showError("DOWNLOAD_FAILED", "ROM archive: " .. partUrl)
+            pcall(FileSystem.DeleteFile, dlAbs)
+            pcall(FileSystem.DeleteFile, Script.GetBasePath() .. localIniRel)
+            return
+        end
+
+        Script.SetStatus("Extracting ROM to " .. installPath)
+        local extractOk, extractErr = extractZipNative(dlRel, installPath)
+        pcall(FileSystem.DeleteFile, dlAbs)
+
+        if not extractOk then
+            showError("INSTALL_FAILED", extractErr)
+        else
+            Script.ShowMessageBox("ROM Installed",
+                "Installed to:\n" .. installPath .. "\n\n" ..
+                "Launch RetroArch to play it.", "OK")
+        end
+        pcall(FileSystem.DeleteFile, Script.GetBasePath() .. localIniRel)
+        return
+    end
+
+    -- === PATH 2: DIGITAL/XBLA/DLC (RAW) INSTALL ===
     if installType == "raw" then
         local rawFile   = ini:ReadValue(gameName, "filename", ""):gsub("%s+", "")
         local relPath   = ini:ReadValue(gameName, "path",     ""):gsub("%s+", "")

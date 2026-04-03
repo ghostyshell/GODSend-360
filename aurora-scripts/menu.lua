@@ -207,6 +207,226 @@ function showQueue()
     end
 end
 
+-- ── ROM browser (EdgeEmu — 62 systems) ───────────────────────────────────────
+
+-- Ordered system list matching romSystems in the Go backend.
+local romSystemList = {
+    {id = "a2600",      name = "Atari - 2600"},
+    {id = "a5200",      name = "Atari - 5200"},
+    {id = "a7800",      name = "Atari - 7800"},
+    {id = "jaguar",     name = "Atari - Jaguar"},
+    {id = "jaguarcd",   name = "Atari - Jaguar CD"},
+    {id = "lynx",       name = "Atari - Lynx"},
+    {id = "st",         name = "Atari - ST"},
+    {id = "ws",         name = "Bandai - WonderSwan"},
+    {id = "coleco",     name = "Coleco - ColecoVision"},
+    {id = "c64",        name = "Commodore - 64"},
+    {id = "amiga",      name = "Commodore - Amiga"},
+    {id = "amigacd",    name = "Commodore - Amiga CD"},
+    {id = "amigacd32",  name = "Commodore - Amiga CD32"},
+    {id = "plus4",      name = "Commodore - Plus/4"},
+    {id = "vic20",      name = "Commodore - VIC-20"},
+    {id = "channelf",   name = "Fairchild - Channel F"},
+    {id = "vectrex",    name = "GCE - Vectrex"},
+    {id = "msx",        name = "Microsoft - MSX / MSX2"},
+    {id = "pcecd",      name = "NEC - PC Engine CD"},
+    {id = "sgx",        name = "NEC - PC Engine SuperGrafx"},
+    {id = "pce",        name = "NEC - PC Engine / TurboGrafx 16"},
+    {id = "nds",        name = "Nintendo - DS"},
+    {id = "fds",        name = "Nintendo - Famicom Disk System"},
+    {id = "gb",         name = "Nintendo - Game Boy"},
+    {id = "gba",        name = "Nintendo - Game Boy Advance"},
+    {id = "gbc",        name = "Nintendo - Game Boy Color"},
+    {id = "gc",         name = "Nintendo - GameCube"},
+    {id = "n64",        name = "Nintendo - 64"},
+    {id = "nes",        name = "Nintendo - NES"},
+    {id = "sat",        name = "Nintendo - Satellaview"},
+    {id = "vb",         name = "Nintendo - Virtual Boy"},
+    {id = "snes",       name = "Nintendo - SNES"},
+    {id = "3do",        name = "Panasonic - 3DO"},
+    {id = "cdi",        name = "Philips - CDi"},
+    {id = "studioii",   name = "RCA - Studio II"},
+    {id = "32x",        name = "Sega - 32X"},
+    {id = "dc",         name = "Sega - Dreamcast"},
+    {id = "gg",         name = "Sega - Game Gear"},
+    {id = "sms",        name = "Sega - Master System / Mark III"},
+    {id = "scd",        name = "Sega - Mega-CD / Sega CD"},
+    {id = "genesis",    name = "Sega - Mega Drive / Genesis"},
+    {id = "pico",       name = "Sega - PICO"},
+    {id = "saturn",     name = "Sega - Saturn"},
+    {id = "sg1000",     name = "Sega - SG-1000"},
+    {id = "zx",         name = "Sinclair - ZX Spectrum +3"},
+    {id = "ngcd",       name = "SNK - Neo Geo CD"},
+    {id = "ngpc",       name = "SNK - Neo Geo Pocket Color"},
+    {id = "supervision",name = "Watara - Supervision"},
+}
+
+-- Top-level system picker.
+function browseROMs()
+    while true do
+        collectgarbage()
+        local sysNames = {}
+        for _, s in ipairs(romSystemList) do
+            table.insert(sysNames, s.name)
+        end
+
+        local r = Script.ShowPopupList("Retro ROMs (EdgeEmu)", "Select System", sysNames)
+        if not r or r.Canceled then break end
+
+        local selected = romSystemList[r.Selected.Key]
+        if selected then
+            browseROMLibrary("rom_" .. selected.id, selected.name)
+        end
+    end
+end
+
+-- Game browser for one ROM system, delegates install to installGame (type=rom).
+function browseROMLibrary(platform, sysName)
+    Script.SetStatus("Loading " .. sysName .. "...")
+    local list_data, err = httpGet(SERVER_BASE .. "/browse?platform=" .. platform)
+    collectgarbage()
+
+    if not list_data then
+        showError("SERVER_UNREACHABLE", err)
+        return
+    end
+
+    if list_data:sub(1, 14) == "__IA_LOADING__" then
+        local loaded, total = list_data:match("__IA_LOADING__:(%d+)/(%d+)")
+        local progressMsg = ""
+        if loaded and total then
+            progressMsg = string.format("\nProgress: %s / %s fetched.", loaded, total)
+        end
+        Script.ShowMessageBox("Library Loading",
+            sysName .. " list is loading from EdgeEmu.\n" ..
+            progressMsg .. "\n\nGo back and try again in a moment.\n" ..
+            "Cached after the first load.", "OK")
+        return
+    end
+
+    if not validateResponse(list_data) then
+        showError("HTTP_PARSE_ERROR", "Browse returned invalid data")
+        return
+    end
+
+    local buckets    = {}
+    local bucketKeys = {}
+    for game in list_data:gmatch("([^|]+)") do
+        local firstChar = string.upper(string.sub(game, 1, 1))
+        if string.match(firstChar, "%d") then firstChar = "#" end
+        if not buckets[firstChar] then
+            buckets[firstChar] = {}
+            table.insert(bucketKeys, firstChar)
+        end
+        table.insert(buckets[firstChar], game)
+    end
+
+    if #bucketKeys == 0 then
+        Script.ShowMessageBox("Empty Library",
+            "No ROMs found for " .. sysName .. ".\n\n" ..
+            "The list may still be loading — try again shortly.", "OK")
+        return
+    end
+
+    table.sort(bucketKeys, function(a, b)
+        if a == "#" then return true end
+        if b == "#" then return false end
+        return a < b
+    end)
+
+    local title = sysName .. "  (EdgeEmu)"
+
+    while true do
+        collectgarbage()
+        local r = Script.ShowPopupList(title, "Select Folder", bucketKeys)
+        if not r or r.Canceled then break end
+
+        local selectedKey = bucketKeys[r.Selected.Key]
+        if not selectedKey or not buckets[selectedKey] then break end
+
+        local gamesInBucket = buckets[selectedKey]
+        table.sort(gamesInBucket)
+
+        local g = Script.ShowPopupList(title .. " > " .. selectedKey,
+                                       "Select Game", gamesInBucket)
+        if g and not g.Canceled then
+            local cleanName = gamesInBucket[g.Selected.Key]
+            if not cleanName then break end
+
+            -- Drive picker
+            local drives = {
+                "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
+                "UsbMu0:", "UsbMu1:"
+            }
+            local dr = Script.ShowPopupList("Install to:", "", drives)
+            if not dr or dr.Canceled then
+                -- back to game list
+            else
+                gInstallDrive = drives[dr.Selected.Key]
+
+                local transferModes = {
+                    "HTTP (Download & Extract)",
+                    "FTP (Direct Transfer - More Reliable)"
+                }
+                local tm = Script.ShowPopupList("Transfer Method:", "Choose how to install", transferModes)
+                if tm and not tm.Canceled then
+                    gTransferMode = (tm.Selected.Key == 1) and "http" or "ftp"
+
+                    Script.SetStatus("Checking status...")
+                    local state, msg = getGameStatus(cleanName)
+
+                    if gTransferMode == "ftp" then
+                        Script.SetStatus("Registering for FTP...")
+                        if not registerForFTP(cleanName, platform) then
+                            gTransferMode = "http"
+                        end
+                    end
+
+                    local waitResult = nil
+
+                    if state == "Ready" and gTransferMode == "http" then
+                        waitResult = true
+                    elseif state == "Ready" and gTransferMode == "ftp" then
+                        if Script.ShowMessageBox("Transfer",
+                            "ROM ready. Start FTP to " .. gInstallDrive .. "?",
+                            "Yes", "No").Button == 1 then
+                            if triggerDownload(cleanName, platform) then
+                                Thread.Sleep(2000)
+                                waitResult = waitForProcessing(cleanName)
+                            end
+                        end
+                    elseif state == "Processing" then
+                        waitResult = waitForProcessing(cleanName)
+                    else
+                        local modeText = (gTransferMode == "ftp")
+                            and "process and FTP transfer" or "download"
+                        if Script.ShowMessageBox("Download",
+                            "Start " .. modeText .. " for\n" .. cleanName .. "?",
+                            "Yes", "No").Button == 1 then
+                            if triggerDownload(cleanName, platform) then
+                                Thread.Sleep(2000)
+                                waitResult = waitForProcessing(cleanName)
+                            end
+                        end
+                    end
+
+                    if waitResult == true then
+                        local ok, err2 = pcall(installGame, cleanName)
+                        if not ok then
+                            showError("INSTALL_FAILED",
+                                "ROM install error:\n" .. tostring(err2))
+                        end
+                    elseif waitResult == "backgrounded" then
+                        Script.ShowMessageBox("Running in Background",
+                            "'" .. cleanName .. "' is being prepared.\n\n" ..
+                            "Select it again when ready to install.", "OK")
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- ── Library browser ───────────────────────────────────────────────────────────
 
 function browseLibrary(platform)

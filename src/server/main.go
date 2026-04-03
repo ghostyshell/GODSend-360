@@ -134,6 +134,102 @@ var iaCollections = map[string][]string{
 }
 
 // ==========================================
+// ROM SYSTEMS (EdgeEmu — edgeemu.net)
+// platform key = "rom_" + sysid  (e.g. "rom_nes", "rom_snes")
+// ==========================================
+
+// ROMSystem describes one retro system served by EdgeEmu.
+type ROMSystem struct {
+	Name      string // Display name shown in Aurora menu
+	BrowseURL string // edgeemu.net browse page URL
+	Folder    string // RetroArch roms subfolder (e.g. "NES")
+}
+
+var romSystems = map[string]ROMSystem{
+	// Atari
+	"a2600":      {Name: "Atari - 2600",                        BrowseURL: "https://edgeemu.net/browse/atari-2600",                      Folder: "A2600"},
+	"a5200":      {Name: "Atari - 5200",                        BrowseURL: "https://edgeemu.net/browse/atari-5200",                      Folder: "A5200"},
+	"a7800":      {Name: "Atari - 7800",                        BrowseURL: "https://edgeemu.net/browse/atari-7800",                      Folder: "A7800"},
+	"jaguar":     {Name: "Atari - Jaguar",                      BrowseURL: "https://edgeemu.net/browse/atari-jaguar",                    Folder: "JAG"},
+	"jaguarcd":   {Name: "Atari - Jaguar CD",                   BrowseURL: "https://edgeemu.net/browse/atari-jaguar-cd",                 Folder: "JAGCD"},
+	"lynx":       {Name: "Atari - Lynx",                        BrowseURL: "https://edgeemu.net/browse/atari-lynx",                      Folder: "LYNX"},
+	"st":         {Name: "Atari - ST",                          BrowseURL: "https://edgeemu.net/browse/atari-st",                        Folder: "ST"},
+	// Bandai
+	"ws":         {Name: "Bandai - WonderSwan",                 BrowseURL: "https://edgeemu.net/browse/bandai-wonderswan",               Folder: "WS"},
+	// Coleco
+	"coleco":     {Name: "Coleco - ColecoVision",               BrowseURL: "https://edgeemu.net/browse/colecovision",                    Folder: "COLECO"},
+	// Commodore
+	"c64":        {Name: "Commodore - 64",                      BrowseURL: "https://edgeemu.net/browse/commodore-64",                    Folder: "C64"},
+	"amiga":      {Name: "Commodore - Amiga",                   BrowseURL: "https://edgeemu.net/browse/commodore-amiga",                 Folder: "AMIGA"},
+	"amigacd":    {Name: "Commodore - Amiga CD",                BrowseURL: "https://edgeemu.net/browse/commodore-amiga-cd",              Folder: "AMIGACD"},
+	"amigacd32":  {Name: "Commodore - Amiga CD32",              BrowseURL: "https://edgeemu.net/browse/commodore-amiga-cd32",            Folder: "AMIGACD32"},
+	"plus4":      {Name: "Commodore - Plus/4",                  BrowseURL: "https://edgeemu.net/browse/commodore-plus-4",                Folder: "PLUS4"},
+	"vic20":      {Name: "Commodore - VIC-20",                  BrowseURL: "https://edgeemu.net/browse/commodore-vic-20",                Folder: "VIC20"},
+	// Fairchild
+	"channelf":   {Name: "Fairchild - Channel F",               BrowseURL: "https://edgeemu.net/browse/fairchild-channel-f",            Folder: "CHANNELF"},
+	// GCE
+	"vectrex":    {Name: "GCE - Vectrex",                       BrowseURL: "https://edgeemu.net/browse/gce-vectrex",                     Folder: "VECTREX"},
+	// Microsoft
+	"msx":        {Name: "Microsoft - MSX / MSX2",              BrowseURL: "https://edgeemu.net/browse/microsoft-msx",                  Folder: "MSX"},
+	// NEC
+	"pcecd":      {Name: "NEC - PC Engine CD / TurboGrafx CD",  BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-cd-turbografx-cd", Folder: "PCECD"},
+	"sgx":        {Name: "NEC - PC Engine SuperGrafx",          BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-supergrafx",        Folder: "SGX"},
+	"pce":        {Name: "NEC - PC Engine / TurboGrafx 16",     BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-turbografx-16",    Folder: "PCE"},
+	// Nintendo
+	"nds":        {Name: "Nintendo - DS",                       BrowseURL: "https://edgeemu.net/browse/nintendo-ds",                    Folder: "NDS"},
+	"fds":        {Name: "Nintendo - Famicom Disk System",      BrowseURL: "https://edgeemu.net/browse/nintendo-fds",                   Folder: "FDS"},
+	"gb":         {Name: "Nintendo - Game Boy",                 BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy",               Folder: "GB"},
+	"gba":        {Name: "Nintendo - Game Boy Advance",         BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy-advance",       Folder: "GBA"},
+	"gbc":        {Name: "Nintendo - Game Boy Color",           BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy-color",         Folder: "GBC"},
+	"gc":         {Name: "Nintendo - GameCube",                 BrowseURL: "https://edgeemu.net/browse/nintendo-gamecube",              Folder: "GC"},
+	"n64":        {Name: "Nintendo - 64",                       BrowseURL: "https://edgeemu.net/browse/nintendo-64",                    Folder: "N64"},
+	"nes":        {Name: "Nintendo - NES",                      BrowseURL: "https://edgeemu.net/browse/nintendo-nes",                   Folder: "NES"},
+	"sat":        {Name: "Nintendo - Satellaview",              BrowseURL: "https://edgeemu.net/browse/nintendo-satellaview",           Folder: "SAT"},
+	"vb":         {Name: "Nintendo - Virtual Boy",              BrowseURL: "https://edgeemu.net/browse/nintendo-virtualboy",            Folder: "VB"},
+	"snes":       {Name: "Nintendo - SNES",                     BrowseURL: "https://edgeemu.net/browse/nintendo-snes",                  Folder: "SNES"},
+	// Panasonic
+	"3do":        {Name: "Panasonic - 3DO",                     BrowseURL: "https://edgeemu.net/browse/panasonic-3do",                  Folder: "3DO"},
+	// Philips
+	"cdi":        {Name: "Philips - CDi",                       BrowseURL: "https://edgeemu.net/browse/philips-cdi",                    Folder: "CDI"},
+	// RCA
+	"studioii":   {Name: "RCA - Studio II",                     BrowseURL: "https://edgeemu.net/browse/rca-studioii",                   Folder: "STUDIOII"},
+	// Sega
+	"32x":        {Name: "Sega - 32X",                          BrowseURL: "https://edgeemu.net/browse/sega-32x",                       Folder: "32X"},
+	"dc":         {Name: "Sega - Dreamcast",                    BrowseURL: "https://edgeemu.net/browse/sega-dreamcast",                 Folder: "DC"},
+	"gg":         {Name: "Sega - Game Gear",                    BrowseURL: "https://edgeemu.net/browse/sega-gamegear",                  Folder: "GG"},
+	"sms":        {Name: "Sega - Master System / Mark III",     BrowseURL: "https://edgeemu.net/browse/sega-sms",                       Folder: "SMS"},
+	"scd":        {Name: "Sega - Mega-CD / Sega CD",            BrowseURL: "https://edgeemu.net/browse/sega-cd",                        Folder: "SCD"},
+	"genesis":    {Name: "Sega - Mega Drive / Genesis",         BrowseURL: "https://edgeemu.net/browse/sega-genesis",                   Folder: "MD"},
+	"pico":       {Name: "Sega - PICO",                         BrowseURL: "https://edgeemu.net/browse/sega-pico",                      Folder: "PICO"},
+	"saturn":     {Name: "Sega - Saturn",                       BrowseURL: "https://edgeemu.net/browse/sega-saturn",                    Folder: "SATURN"},
+	"sg1000":     {Name: "Sega - SG-1000",                      BrowseURL: "https://edgeemu.net/browse/sega-sg1000",                    Folder: "SG1000"},
+	// Sinclair
+	"zx":         {Name: "Sinclair - ZX Spectrum +3",           BrowseURL: "https://edgeemu.net/browse/sinclair-zx-spectrum-3",         Folder: "ZX"},
+	// SNK
+	"ngcd":       {Name: "SNK - Neo Geo CD",                    BrowseURL: "https://edgeemu.net/browse/snk-neo-geo-cd",                 Folder: "NGCD"},
+	"ngpc":       {Name: "SNK - Neo Geo Pocket Color",          BrowseURL: "https://edgeemu.net/browse/snk-ngpc",                       Folder: "NGPC"},
+	// Watara
+	"supervision": {Name: "Watara - Supervision",               BrowseURL: "https://edgeemu.net/browse/watara-supervision",             Folder: "SUPERVISION"},
+}
+
+var (
+	// romGameCache maps sysid → sorted list of game names scraped from edgeemu.
+	romGameCache   = map[string][]string{}
+	romGameCacheMu sync.RWMutex
+
+	// romURLMap maps "sysid\x00lower(gameName)" → direct ZIP download URL.
+	romURLMap   = map[string]string{}
+	romURLMapMu sync.RWMutex
+
+	// romRootPath is the drive-relative path for ROM installs on Xbox (no drive, no trailing slash).
+	// Default: "Emulators\RetroArch\roms". Overridden by GODSEND_ROM_PATH env var.
+	romRootPath string
+
+	// edgeEmuHTTPClient is a plain client for edgeemu.net downloads (no IA auth headers).
+	edgeEmuHTTPClient = &http.Client{Timeout: 0}
+)
+
+// ==========================================
 // CACHE TYPES
 // ==========================================
 
@@ -318,8 +414,8 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.0.1         ║")
-	fmt.Println("║  ISO + XEX + XBLA + DLC + IA Cache       ║")
+	fmt.Println("║    GODSend Backend Server v2.1.0         ║")
+	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
@@ -327,6 +423,7 @@ func main() {
 	fmt.Printf("[INFO] TCP: NODELAY=on SNDBUF=%dKB KeepAlive=%s\n", TCPSendBuffer/1024, TCPKeepAlive)
 	fmt.Printf("[INFO] File serving: sendfile() zero-copy via http.ServeContent\n")
 	fmt.Printf("[INFO] Transfer folder (local ISOs): %s\n", transferDir)
+	fmt.Printf("[INFO] ROM install path (on Xbox): [Drive]\\%s\\[System]\\\n", romRootPath)
 	verifyTools()
 
 	// Initialise build-state trackers for every platform
@@ -336,25 +433,39 @@ func main() {
 	}
 	buildStatesMu.Unlock()
 
-	// Load persisted caches from disk first — if present they are served immediately.
-	// Then kick off background refreshes staggered by 800 ms so we don't fire
-	// 90+ concurrent requests at archive.org on startup.
+	// Load persisted caches from disk. If a cache exists it is used as-is —
+	// no automatic background refresh. Use the "Refresh Cache" button in the
+	// Electron settings (or /cache-refresh endpoint) to force a rebuild.
+	// Platforms with no disk cache are built immediately in the background.
 	platformOrder := []string{"xbox360", "digital", "xbla", "dlc", "xblig", "games", "xbox"}
-	for i, platform := range platformOrder {
+	var delay time.Duration
+	for _, platform := range platformOrder {
 		loaded := loadCacheFromDisk(platform)
 		if loaded {
 			logf("CACHE: Loaded %s from disk", platform)
+		} else {
+			go func(p string, d time.Duration) {
+				if d > 0 {
+					time.Sleep(d)
+				}
+				buildIAGameCache(p)
+			}(platform, delay)
+			delay += 800 * time.Millisecond
 		}
-		go func(p string, delay time.Duration) {
-			if delay > 0 {
-				time.Sleep(delay)
-			}
-			buildIAGameCache(p)
-		}(platform, time.Duration(i)*800*time.Millisecond)
 	}
+
+	// Reload any previously scraped ROM caches from disk (lazy — won't block startup).
+	go func() {
+		for sysid := range romSystems {
+			if loadROMCacheFromDisk(sysid) {
+				logf("ROM CACHE: Loaded %s from disk", sysid)
+			}
+		}
+	}()
 
 	http.HandleFunc("/browse", recoverMiddleware(handleBrowse))
 	http.HandleFunc("/cache-status", recoverMiddleware(handleCacheStatus))
+	http.HandleFunc("/cache-refresh", recoverMiddleware(handleCacheRefresh))
 	http.HandleFunc("/trigger", recoverMiddleware(handleTrigger))
 	http.HandleFunc("/status", recoverMiddleware(handleStatus))
 	http.HandleFunc("/queue", recoverMiddleware(handleQueue))
@@ -418,6 +529,13 @@ func setupPaths() error {
 			return err
 		}
 	}
+	// ROM install path (drive-relative, no drive letter, no trailing slash)
+	romRootPath = "Emulators\\RetroArch\\roms"
+	if v := strings.TrimSpace(os.Getenv("GODSEND_ROM_PATH")); v != "" {
+		v = strings.ReplaceAll(v, "/", "\\")
+		romRootPath = strings.TrimRight(v, "\\")
+	}
+
 	transferDir = filepath.Join(toolsDir, "Transfer")
 	if v := strings.TrimSpace(os.Getenv("GODSEND_TRANSFER")); v != "" {
 		abs, err := filepath.Abs(v)
@@ -925,6 +1043,36 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 	platform := r.URL.Query().Get("platform")
 	logf("BROWSE: platform=%s", platform)
 
+	// ROM platforms — served from edgeemu.net scrape cache
+	if strings.HasPrefix(platform, "rom_") {
+		sysid := strings.TrimPrefix(platform, "rom_")
+		sys, ok := romSystems[sysid]
+		if !ok {
+			jsonError(w, 400, "Unknown ROM system: "+sysid)
+			return
+		}
+		romGameCacheMu.RLock()
+		cached, ok := romGameCache[sysid]
+		romGameCacheMu.RUnlock()
+		if ok && len(cached) > 0 {
+			logf("BROWSE: Serving %d cached ROMs for %s", len(cached), sys.Name)
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Write([]byte(strings.Join(cached, "|")))
+			return
+		}
+		go buildROMGameCache(sysid)
+		s := getBuildState(platform)
+		loaded := atomic.LoadInt32(&s.loaded)
+		total := atomic.LoadInt32(&s.total)
+		if total == 0 {
+			total = 1
+		}
+		logf("BROWSE: ROM cache building for %s", sysid)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprintf(w, "__IA_LOADING__:%d/%d", loaded, total)
+		return
+	}
+
 	// Local — scan Transfer folder immediately, no IA needed
 	if platform == "local" {
 		games := scanTransferFolder()
@@ -985,6 +1133,57 @@ func handleCacheStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+// handleCacheRefresh triggers a fresh rebuild for one platform or all IA platforms.
+// ?platform=all  — rebuild all IA platforms (xbox360, digital, xbla, dlc, xblig, games, xbox)
+// ?platform=xbox360 — rebuild a single IA platform
+// ?platform=rom_nes — rebuild the ROM cache for one system
+// Returns immediately; the build runs in the background.
+func handleCacheRefresh(w http.ResponseWriter, r *http.Request) {
+	platform := r.URL.Query().Get("platform")
+
+	if platform == "" || platform == "all" {
+		logf("CACHE REFRESH: all IA platforms requested")
+		for p := range iaCollections {
+			go buildIAGameCache(p)
+		}
+		// Also refresh any ROM system that already has a cache on disk
+		var romRefreshed []string
+		romGameCacheMu.RLock()
+		for sysid := range romSystems {
+			if len(romGameCache[sysid]) > 0 {
+				romRefreshed = append(romRefreshed, sysid)
+			}
+		}
+		romGameCacheMu.RUnlock()
+		for _, sysid := range romRefreshed {
+			go buildROMGameCache(sysid)
+		}
+		logf("CACHE REFRESH: %d previously-used ROM systems queued", len(romRefreshed))
+		jsonSuccess(w, map[string]string{"status": "refreshing", "platforms": "all"})
+		return
+	}
+
+	if strings.HasPrefix(platform, "rom_") {
+		sysid := strings.TrimPrefix(platform, "rom_")
+		if _, ok := romSystems[sysid]; !ok {
+			jsonError(w, 400, "Unknown ROM system: "+sysid)
+			return
+		}
+		logf("CACHE REFRESH: ROM system %s", sysid)
+		go buildROMGameCache(sysid)
+		jsonSuccess(w, map[string]string{"status": "refreshing", "platform": platform})
+		return
+	}
+
+	if _, ok := iaCollections[platform]; !ok {
+		jsonError(w, 400, "Unknown platform: "+platform)
+		return
+	}
+	logf("CACHE REFRESH: %s", platform)
+	go buildIAGameCache(platform)
+	jsonSuccess(w, map[string]string{"status": "refreshing", "platform": platform})
 }
 
 func handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -1079,6 +1278,23 @@ func handleTrigger(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+	}
+
+	// ROM platforms (edgeemu.net)
+	if strings.HasPrefix(platform, "rom_") {
+		sysid := strings.TrimPrefix(platform, "rom_")
+		if _, ok := romSystems[sysid]; !ok {
+			jsonError(w, 400, "Unknown ROM system: "+sysid)
+			return
+		}
+		if isGameReadyLocally(gameName) {
+			logStatus(gameName, "Ready", "Ready to Install")
+			jsonSuccess(w, map[string]string{"status": "already_ready"})
+			return
+		}
+		launcher(func() { processROM(gameName, sysid) })
+		jsonSuccess(w, map[string]string{"status": "triggered", "source": "edgeemu"})
+		return
 	}
 
 	// Online — dispatch by platform
@@ -2644,4 +2860,608 @@ func sanitizeFilename(n string) string {
 		return ""
 	}
 	return regexp.MustCompile(`[<>:"/\\|?*]`).ReplaceAllString(n, " -")
+}
+
+// ==========================================
+// ROM — CACHE (EdgeEmu scraping)
+// ==========================================
+
+// buildROMGameCache fetches and caches the game list for one ROM system from edgeemu.net.
+// Uses the same build-state infrastructure as IA caches, keyed by "rom_"+sysid.
+func buildROMGameCache(sysid string) {
+	platform := "rom_" + sysid
+	iaCacheBuildMu.Lock()
+	if iaCacheBuilding[platform] {
+		iaCacheBuildMu.Unlock()
+		return
+	}
+	iaCacheBuilding[platform] = true
+	iaCacheBuildMu.Unlock()
+	defer func() {
+		iaCacheBuildMu.Lock()
+		iaCacheBuilding[platform] = false
+		iaCacheBuildMu.Unlock()
+	}()
+
+	sys, ok := romSystems[sysid]
+	if !ok {
+		return
+	}
+	setBuildState(platform, "building", 0, 1)
+	logf("ROM CACHE: Building %s (%s)...", sysid, sys.Name)
+
+	names, urlMap, err := fetchEdgeEmuGames(sys.BrowseURL)
+	if err != nil {
+		setBuildState(platform, "error", 0, 1)
+		logf("ROM CACHE ERROR [%s]: %v", sysid, err)
+		return
+	}
+
+	romGameCacheMu.Lock()
+	romGameCache[sysid] = names
+	romGameCacheMu.Unlock()
+
+	romURLMapMu.Lock()
+	for lower, dlURL := range urlMap {
+		romURLMap[sysid+"\x00"+lower] = dlURL
+	}
+	romURLMapMu.Unlock()
+
+	setBuildState(platform, "ready", 1, 1)
+	logf("ROM CACHE: %s complete — %d games", sysid, len(names))
+
+	// Persist using the existing PlatformCache format.
+	// IAGameEntry.CollectionID = sysid, IAGameEntry.FileName = download URL.
+	entries := map[string]IAGameEntry{}
+	for lower, dlURL := range urlMap {
+		entries[lower] = IAGameEntry{CollectionID: sysid, FileName: dlURL}
+	}
+	saveCacheToDisk(platform, names, entries)
+}
+
+// loadROMCacheFromDisk loads a previously scraped edgeemu game list.
+func loadROMCacheFromDisk(sysid string) bool {
+	platform := "rom_" + sysid
+	data, err := os.ReadFile(cacheFilePath(platform))
+	if err != nil {
+		return false
+	}
+	var pc PlatformCache
+	if err := json.Unmarshal(data, &pc); err != nil || len(pc.Games) == 0 {
+		return false
+	}
+
+	romGameCacheMu.Lock()
+	romGameCache[sysid] = pc.Games
+	romGameCacheMu.Unlock()
+
+	romURLMapMu.Lock()
+	for lower, entry := range pc.GameEntries {
+		// entry.FileName stores the download URL for ROM caches
+		romURLMap[sysid+"\x00"+lower] = entry.FileName
+	}
+	romURLMapMu.Unlock()
+
+	setBuildState(platform, "ready", 1, 1)
+	return true
+}
+
+// fetchEdgeEmuGames scrapes an edgeemu.net browse page and returns all game names
+// and their direct ZIP download URLs.
+//
+// edgeemu page structure (as of 2025):
+//   - The base browse URL shows only ~10 random ROMs — not the full list.
+//   - Full listings require ?alpha= letter pagination (A-Z plus "0" for numbers).
+//   - Download links look like: href="/download/nintendo-gameboy-advance/Game%20Name.zip"
+//   - The anchor text is the literal word "download", so game names are parsed
+//     from the URL filename rather than the link text.
+func fetchEdgeEmuGames(browseURL string) ([]string, map[string]string, error) {
+	client := &http.Client{Timeout: 20 * time.Second}
+	urlMap := map[string]string{}
+	var allNames []string
+	seen := map[string]bool{}
+
+	// Matches href="/download/[system]/[encoded-filename].zip"
+	// Capture group 1 = full path, group 2 = encoded filename (with .zip)
+	reDownload := regexp.MustCompile(`(?i)href="(/download/[^/"]+/([^"]+\.zip))"`)
+
+	parsePage := func(pageURL string) int {
+		req, err := http.NewRequest("GET", pageURL, nil)
+		if err != nil {
+			return 0
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0")
+		resp, err := client.Do(req)
+		if err != nil {
+			return 0
+		}
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return 0
+		}
+		count := 0
+		for _, m := range reDownload.FindAllStringSubmatch(string(body), -1) {
+			fullPath := m[1]    // e.g. /download/nintendo-gameboy-advance/Game%20Name%20(USA).zip
+			encoded := m[2]    // e.g. Game%20Name%20(USA).zip
+
+			// URL-decode the filename and strip .zip to get the display name
+			decoded, err := url.QueryUnescape(strings.ReplaceAll(encoded, "+", "%2B"))
+			if err != nil {
+				decoded = encoded
+			}
+			name := strings.TrimSuffix(decoded, ".zip")
+			name = strings.TrimSuffix(name, ".ZIP")
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+
+			lower := strings.ToLower(name)
+			if !seen[lower] {
+				seen[lower] = true
+				urlMap[lower] = "https://edgeemu.net" + fullPath
+				allNames = append(allNames, name)
+				count++
+			}
+		}
+		return count
+	}
+
+	// edgeemu letter pages use path segments: {browseURL}/a, {browseURL}/b, ...
+	// Numbers are grouped under {browseURL}/0-9
+	// The base page only shows ~10 random ROMs — always paginate all letters.
+	base := strings.TrimRight(browseURL, "/")
+	letters := []string{
+		"0-9",
+		"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+		"n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+	}
+	for _, l := range letters {
+		parsePage(base + "/" + l)
+		time.Sleep(150 * time.Millisecond) // be polite to edgeemu.net
+	}
+
+	sort.Strings(allNames)
+	if len(allNames) == 0 {
+		return nil, nil, fmt.Errorf("no games found at %s", browseURL)
+	}
+	return allNames, urlMap, nil
+}
+
+// findROMDownloadURL looks up the cached download URL for a ROM, with fuzzy fallback.
+func findROMDownloadURL(gameName, sysid string) string {
+	lower := strings.ToLower(gameName)
+	key := sysid + "\x00" + lower
+
+	romURLMapMu.RLock()
+	u, ok := romURLMap[key]
+	romURLMapMu.RUnlock()
+	if ok {
+		return u
+	}
+
+	// Fuzzy: strip region tag "(USA)" etc. and try partial match
+	baseSearch := strings.ToLower(strings.Split(gameName, " (")[0])
+	prefix := sysid + "\x00"
+	romURLMapMu.RLock()
+	defer romURLMapMu.RUnlock()
+	for k, v := range romURLMap {
+		if !strings.HasPrefix(k, prefix) {
+			continue
+		}
+		kGame := k[len(prefix):]
+		kBase := strings.Split(kGame, " (")[0]
+		if kGame == lower || strings.Contains(kGame, lower) || kBase == baseSearch {
+			return v
+		}
+	}
+	return ""
+}
+
+// ==========================================
+// ROM — PROCESSING
+// ==========================================
+
+// processROM downloads a ROM from edgeemu.net using parallel range requests,
+// extracts it, then delivers it via FTP or HTTP.
+func processROM(gameName, sysid string) {
+	logf("=== ROM: %s (%s) ===", gameName, sysid)
+	sys, ok := romSystems[sysid]
+	if !ok {
+		logStatus(gameName, "Error", "Unknown ROM system: "+sysid)
+		return
+	}
+	safeName := sanitizeFilename(gameName)
+	if safeName == "" {
+		logStatus(gameName, "Error", "Invalid game name")
+		return
+	}
+
+	var xboxConn *XboxConnection
+	if c, ok := xboxConnections.Load(gameName); ok {
+		cc := c.(XboxConnection)
+		xboxConn = &cc
+	}
+	gameDir := filepath.Join(toolsDir, "Ready", safeName)
+	os.MkdirAll(gameDir, 0755)
+
+	// Resolve download URL from cache
+	logStatus(gameName, "Processing", "Looking up ROM on EdgeEmu...")
+	downloadURL := findROMDownloadURL(gameName, sysid)
+	if downloadURL == "" {
+		// Cache might be cold — try building it now and retry
+		buildROMGameCache(sysid)
+		downloadURL = findROMDownloadURL(gameName, sysid)
+	}
+	if downloadURL == "" {
+		logStatus(gameName, "Error", "ROM not found: "+gameName)
+		return
+	}
+	logf("ROM Download: %s → %s", gameName, downloadURL)
+
+	// Download the ZIP using parallel range requests
+	zipPath := filepath.Join(toolsDir, "Temp", safeName+"_rom.zip")
+	logStatus(gameName, "Processing", "Downloading from EdgeEmu...")
+	if err := downloadEdgeEmuWithProgress(downloadURL, zipPath, gameName); err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Download: %v", err))
+		os.Remove(zipPath)
+		return
+	}
+	defer os.Remove(zipPath)
+
+	// Extract ZIP
+	logStatus(gameName, "Processing", "Extracting ROM...")
+	extDir := filepath.Join(toolsDir, "Temp", safeName+"_rom_ext")
+	os.RemoveAll(extDir)
+	defer os.RemoveAll(extDir)
+	if err := extractArchive(zipPath, extDir); err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
+		return
+	}
+
+	// Find the ROM file
+	romFiles := findROMFiles(extDir)
+	if len(romFiles) == 0 {
+		logStatus(gameName, "Error", "No ROM file found after extraction")
+		return
+	}
+	romFile := romFiles[0]
+	romFileName := filepath.Base(romFile)
+
+	// Xbox install path: [Drive]\[romRootPath]\[SystemFolder]\
+	xboxROMPath := romRootPath + "\\" + sys.Folder + "\\"
+
+	if xboxConn != nil && xboxConn.Mode == "ftp" {
+		logStatus(gameName, "Processing", "FTP transfer starting...")
+		drive := strings.TrimSuffix(xboxConn.Drive, ":")
+		remotePath := "/" + drive + "/" + strings.ReplaceAll(xboxROMPath, "\\", "/")
+
+		fc, err := connectWithRetry(xboxConn.IP)
+		if err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
+			return
+		}
+		defer fc.Quit()
+		ftpMkdirAll(fc, strings.TrimSuffix(remotePath, "/"))
+
+		info, _ := os.Stat(romFile)
+		var xfer int64
+		if err := ftpUploadFile(fc, romFile, remotePath+romFileName, gameName,
+			&xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("FTP upload: %v", err))
+		} else {
+			os.RemoveAll(gameDir)
+			logStatus(gameName, "Ready", "FTP Transfer Complete!")
+		}
+	} else {
+		// HTTP mode: compress ROM to .7z and serve from Ready/
+		logStatus(gameName, "Processing", "Archiving for HTTP transfer...")
+		archiveName := safeName + ".7z"
+		archiveDest := filepath.Join(gameDir, archiveName)
+		if err := compressROMFile(romFile, archiveDest, gameName); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("Compress: %v", err))
+			return
+		}
+		updateGameINI_ROM(gameDir, gameName, archiveName, xboxROMPath)
+		logStatus(gameName, "Ready", "Ready to Install")
+	}
+	logf("=== Complete (ROM): %s ===", gameName)
+}
+
+// findROMFiles walks a directory and returns all non-metadata files (the actual ROMs).
+func findROMFiles(dir string) []string {
+	skipExts := map[string]bool{
+		".txt": true, ".nfo": true, ".jpg": true, ".jpeg": true,
+		".png": true, ".xml": true, ".dat": true, ".md": true,
+	}
+	var files []string
+	filepath.Walk(dir, func(p string, i os.FileInfo, e error) error {
+		if e != nil || i.IsDir() || i.Size() == 0 {
+			return nil
+		}
+		if !skipExts[strings.ToLower(filepath.Ext(p))] {
+			files = append(files, p)
+		}
+		return nil
+	})
+	return files
+}
+
+// compressROMFile compresses a single ROM file to a .7z archive.
+// Runs 7z from the ROM's directory so the archive contains only the filename (no path).
+func compressROMFile(romFile, destArchive, gameName string) error {
+	logStatus(gameName, "Processing", "Compressing ROM...")
+	cmd := exec.Command(
+		filepath.Join(toolsDir, sevenZipBin),
+		"a", "-mx=1", "-mmt=on", destArchive, filepath.Base(romFile),
+	)
+	cmd.Dir = filepath.Dir(romFile)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("7z: %v: %s", err, string(out))
+	}
+	return nil
+}
+
+// updateGameINI_ROM writes a godsend.ini manifest for a ROM install.
+// romPath is the drive-relative path (e.g. "Emulators\RetroArch\roms\NES\").
+func updateGameINI_ROM(gameDir, gameName, archiveName, romPath string) {
+	f, err := os.Create(filepath.Join(gameDir, "godsend.ini"))
+	if err != nil {
+		logf("INI ERROR: %v", err)
+		return
+	}
+	defer f.Close()
+	enc := func(s string) string {
+		s = strings.ReplaceAll(s, " ", "%20")
+		s = strings.ReplaceAll(s, "(", "%28")
+		s = strings.ReplaceAll(s, ")", "%29")
+		return s
+	}
+	w := bufio.NewWriter(f)
+	fmt.Fprintf(w, "[%s]\ntype=rom\ndataurl=%s\nrompath=%s\n", gameName, enc(archiveName), romPath)
+	w.Flush()
+}
+
+// ==========================================
+// ROM — PARALLEL DOWNLOAD (no IA auth)
+// ==========================================
+
+// downloadEdgeEmuWithProgress downloads from edgeemu.net using parallel range
+// requests when supported, falling back to single-stream otherwise.
+func downloadEdgeEmuWithProgress(urlStr, dest, name string) error {
+	req, err := http.NewRequest("HEAD", urlStr, nil)
+	if err == nil {
+		req.Header.Set("User-Agent", "Mozilla/5.0")
+		if resp, err := edgeEmuHTTPClient.Do(req); err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				size := resp.ContentLength
+				rangeOK := strings.EqualFold(resp.Header.Get("Accept-Ranges"), "bytes") && size > 0
+				if rangeOK && size >= iaParallelThreshold && iaDownloadConcurrency > 1 {
+					logf("[%s] ROM parallel: %d workers, %.0f MB", name, iaDownloadConcurrency, float64(size)/1048576)
+					return downloadEdgeEmuParallel(urlStr, dest, name, size, iaDownloadConcurrency)
+				}
+			}
+		}
+	}
+	return downloadEdgeEmuSingle(urlStr, dest, name)
+}
+
+// downloadEdgeEmuSingle is a retrying single-stream download for edgeemu.net.
+func downloadEdgeEmuSingle(urlStr, dest, name string) error {
+	var lastErr error
+	for attempt := 0; attempt <= iaChunkRetries; attempt++ {
+		if attempt > 0 {
+			wait := time.Duration(attempt) * iaChunkRetryBase
+			logf("RETRY ROM [%s] attempt %d: %v — waiting %s", name, attempt, lastErr, wait)
+			time.Sleep(wait)
+		}
+		req, err := http.NewRequest("GET", urlStr, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0")
+		resp, err := edgeEmuHTTPClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("request: %w", err)
+			continue
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+			continue
+		}
+		out, err := os.Create(dest)
+		if err != nil {
+			resp.Body.Close()
+			return err
+		}
+		bw := bufio.NewWriterSize(out, CopyBufferSize)
+		pw := &ProgressWriter{Total: resp.ContentLength, GameName: name, LastLog: time.Now(), StartTime: time.Now()}
+		written, err := io.Copy(bw, io.TeeReader(resp.Body, pw))
+		resp.Body.Close()
+		bw.Flush()
+		out.Close()
+		if err != nil {
+			os.Remove(dest)
+			lastErr = fmt.Errorf("interrupted after %.2f MB: %w", float64(written)/1048576, err)
+			continue
+		}
+		return nil
+	}
+	return lastErr
+}
+
+// downloadEdgeEmuParallel downloads a file from edgeemu.net using concurrent range requests.
+func downloadEdgeEmuParallel(urlStr, dest, name string, totalSize int64, workers int) error {
+	chunkSize := (totalSize + int64(workers) - 1) / int64(workers)
+	type chunkSpec struct {
+		index int
+		start int64
+		end   int64
+		path  string
+	}
+	chunks := make([]chunkSpec, 0, workers)
+	for i := 0; i < workers; i++ {
+		start := int64(i) * chunkSize
+		end := start + chunkSize - 1
+		if end >= totalSize {
+			end = totalSize - 1
+		}
+		chunks = append(chunks, chunkSpec{i, start, end, dest + fmt.Sprintf(".part%d", i)})
+	}
+
+	var written int64
+	startTime := time.Now()
+	progressDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		lastConsole := time.Time{}
+		for {
+			select {
+			case <-progressDone:
+				return
+			case now := <-ticker.C:
+				w := atomic.LoadInt64(&written)
+				pct := float64(w) / float64(totalSize) * 100
+				elapsed := now.Sub(startTime).Seconds()
+				if elapsed < 0.001 {
+					elapsed = 0.001
+				}
+				speedMBs := float64(w) / elapsed / 1048576
+				etaStr := "..."
+				if speedMBs > 0 && pct < 100 {
+					etaSecs := float64(totalSize-w) / (speedMBs * 1048576)
+					etaStr = "~" + fmtDuration(etaSecs) + " left"
+				}
+				logStatus(name, "Processing",
+					fmt.Sprintf("Downloading: %.0f%% (%.0f/%.0f MB) @ %.1f MB/s | %s | %dx",
+						pct, float64(w)/1048576, float64(totalSize)/1048576, speedMBs, etaStr, workers))
+				if now.Sub(lastConsole) > 15*time.Second {
+					logf("ROM Download [%s]: %.1f%% @ %.1f MB/s | %dx", name, pct, speedMBs, workers)
+					lastConsole = now
+				}
+			}
+		}
+	}()
+
+	var wg sync.WaitGroup
+	errs := make([]error, len(chunks))
+	for i, c := range chunks {
+		wg.Add(1)
+		go func(idx int, spec chunkSpec) {
+			defer wg.Done()
+			errs[idx] = downloadEdgeEmuChunk(urlStr, spec.path, spec.start, spec.end, &written)
+		}(i, c)
+	}
+	wg.Wait()
+	close(progressDone)
+
+	for i, e := range errs {
+		if e != nil {
+			for _, c := range chunks {
+				os.Remove(c.path)
+			}
+			return fmt.Errorf("chunk %d/%d: %w", i+1, len(chunks), e)
+		}
+	}
+
+	logf("[%s] Joining %d ROM parts...", name, len(chunks))
+	out, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	bw := bufio.NewWriterSize(out, CopyBufferSize)
+	joinErr := func() error {
+		for _, c := range chunks {
+			f, err := os.Open(c.path)
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(bw, f)
+			f.Close()
+			os.Remove(c.path)
+			if err != nil {
+				return err
+			}
+		}
+		return bw.Flush()
+	}()
+	out.Close()
+	if joinErr != nil {
+		os.Remove(dest)
+		return joinErr
+	}
+	return nil
+}
+
+// downloadEdgeEmuChunk downloads one byte-range chunk from edgeemu.net with retries.
+func downloadEdgeEmuChunk(urlStr, destPath string, start, end int64, writtenAtomic *int64) error {
+	f, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("create part: %w", err)
+	}
+	defer f.Close()
+
+	var lastErr error
+	for attempt := 0; attempt <= iaChunkRetries; attempt++ {
+		if attempt > 0 {
+			wait := time.Duration(attempt) * iaChunkRetryBase
+			logf("RETRY ROM chunk bytes=%d-%d attempt %d: %v — waiting %s", start, end, attempt, lastErr, wait)
+			time.Sleep(wait)
+		}
+		req, err := http.NewRequest("GET", urlStr, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
+		req.Header.Set("User-Agent", "Mozilla/5.0")
+		resp, err := edgeEmuHTTPClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("request: %w", err)
+			continue
+		}
+		if resp.StatusCode != 206 {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("HTTP %d (expected 206)", resp.StatusCode)
+			continue
+		}
+		var chunkWritten int64
+		buf := make([]byte, 256*1024)
+		var readErr error
+		for {
+			var n int
+			n, readErr = resp.Body.Read(buf)
+			if n > 0 {
+				if _, wErr := f.WriteAt(buf[:n], chunkWritten); wErr != nil {
+					resp.Body.Close()
+					atomic.AddInt64(writtenAtomic, -chunkWritten)
+					lastErr = fmt.Errorf("write: %w", wErr)
+					chunkWritten = 0
+					goto nextAttempt
+				}
+				atomic.AddInt64(writtenAtomic, int64(n))
+				chunkWritten += int64(n)
+			}
+			if readErr == io.EOF {
+				break
+			}
+			if readErr != nil {
+				break
+			}
+		}
+		resp.Body.Close()
+		if readErr != nil && readErr != io.EOF {
+			atomic.AddInt64(writtenAtomic, -chunkWritten)
+			lastErr = fmt.Errorf("read: %w", readErr)
+			continue
+		}
+		return nil
+	nextAttempt:
+	}
+	return lastErr
 }

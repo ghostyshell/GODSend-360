@@ -21,7 +21,6 @@ src/electron-app/dist/
 Ready/
 Temp/
 Transfer/
-cache/
 
 # Electron builder temp artefacts
 src/electron-app/.webpack/

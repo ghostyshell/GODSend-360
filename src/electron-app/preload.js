@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld("godsendApi", {
   logoutInternetArchive: () => ipcRenderer.invoke("config:ia-logout"),
   getIAConcurrency: () => ipcRenderer.invoke("config:get-ia-concurrency"),
   setIAConcurrency: (v) => ipcRenderer.invoke("config:set-ia-concurrency", v),
+  getROMPath: () => ipcRenderer.invoke("config:get-rom-path"),
+  setROMPath: (v) => ipcRenderer.invoke("config:set-rom-path", v),
+  refreshCache: (platform) => ipcRenderer.invoke("config:cache-refresh", platform),
   onOutput: (callback) => {
     ipcRenderer.on("godsend-output", (_event, line) => callback(line));
   }

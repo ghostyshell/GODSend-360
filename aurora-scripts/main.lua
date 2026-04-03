@@ -1,7 +1,7 @@
 scriptTitle       = "GODSend Store"
 scriptAuthor      = "Nesquin/david12549 & ghosty99"
-scriptVersion     = "7.0"
-scriptDescription = "Browse and install Xbox 360, Original, and Digital (XBLA/DLC) - Now with FTP transfer support!"
+scriptVersion     = "8.0"
+scriptDescription = "Browse and install Xbox 360, Original, Digital (XBLA/DLC), and Retro ROMs via EdgeEmu!"
 scriptIcon        = "icon\\icon.xur"
 scriptPermissions = { "http", "filesystem" }
 
@@ -48,7 +48,7 @@ function main()
     -- Step 3: Main menu loop.
     while true do
         Menu.ResetMenu()
-        Menu.SetTitle("GODSend Store v7.0")
+        Menu.SetTitle("GODSend Store v8.0")
 
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Server Queue & Status  (Active Tasks)",            {action = "SHOW_QUEUE"}))
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Local Library  (Your Transfer Folder ISOs)",       {action = "BROWSE_LOCAL"}))
@@ -59,6 +59,7 @@ function main()
         Menu.AddMainMenuItem(Menu.MakeMenuItem("DLC Packages  (Internet Archive - Hdd1)",          {action = "BROWSE_DLC"}))
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox Live Indie Games  (Internet Archive)",        {action = "BROWSE_XBLIG"}))
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox 360 Game Archives  (Internet Archive)",       {action = "BROWSE_GAMES"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Retro ROMs  (EdgeEmu - 62 Systems)",               {action = "BROWSE_ROMS"}))
 
         local ret, menu, canceled = Menu.ShowMainMenu()
         if canceled or not ret then break end
@@ -72,6 +73,7 @@ function main()
         elseif ret.action == "BROWSE_DLC"    then browseLibrary("dlc")
         elseif ret.action == "BROWSE_XBLIG"  then browseLibrary("xblig")
         elseif ret.action == "BROWSE_GAMES"  then browseLibrary("games")
+        elseif ret.action == "BROWSE_ROMS"   then browseROMs()
         end
     end
 end

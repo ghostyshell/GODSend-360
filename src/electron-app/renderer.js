@@ -13,6 +13,11 @@ const iaLoginBtn         = document.getElementById("iaLoginBtn");
 const iaLogoutBtn        = document.getElementById("iaLogoutBtn");
 const iaConcurrencyEl    = document.getElementById("iaConcurrency");
 const iaConcurrencyValEl = document.getElementById("iaConcurrencyVal");
+const romPathEl          = document.getElementById("romPath");
+const romPathSaveBtn     = document.getElementById("romPathSaveBtn");
+const romPathResetBtn    = document.getElementById("romPathResetBtn");
+const cacheRefreshBtn    = document.getElementById("cacheRefreshBtn");
+const cacheRefreshStatus = document.getElementById("cacheRefreshStatus");
 const pageHome           = document.getElementById("page-home");
 const pageSettings       = document.getElementById("page-settings");
 
@@ -58,6 +63,8 @@ async function initialize() {
   const concurrency = await window.godsendApi.getIAConcurrency();
   iaConcurrencyEl.value = concurrency;
   iaConcurrencyValEl.textContent = String(concurrency);
+
+  romPathEl.value = await window.godsendApi.getROMPath();
 
   const lines = await window.godsendApi.getOutputBuffer();
   outputEl.textContent = lines.join("\n");
@@ -123,6 +130,25 @@ iaConcurrencyEl.addEventListener("input", () => {
 
 iaConcurrencyEl.addEventListener("change", async () => {
   await window.godsendApi.setIAConcurrency(parseInt(iaConcurrencyEl.value));
+});
+
+romPathSaveBtn.addEventListener("click", async () => {
+  await window.godsendApi.setROMPath(romPathEl.value);
+});
+
+cacheRefreshBtn.addEventListener("click", async () => {
+  cacheRefreshBtn.disabled = true;
+  cacheRefreshStatus.textContent = "Requesting refresh...";
+  const r = await window.godsendApi.refreshCache("all");
+  cacheRefreshStatus.textContent = r.ok
+    ? "Refresh started — running in background. Check server log for progress."
+    : `Failed: ${r.error || "unknown error"}`;
+  cacheRefreshBtn.disabled = false;
+});
+
+romPathResetBtn.addEventListener("click", async () => {
+  await window.godsendApi.setROMPath("");
+  romPathEl.value = await window.godsendApi.getROMPath();
 });
 
 // ── Live output ──

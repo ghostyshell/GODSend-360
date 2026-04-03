@@ -59,6 +59,15 @@ function getConfiguredIAScreenname() {
   return typeof v === "string" ? v.trim() : "";
 }
 
+function getConfiguredROMPath() {
+  const v = readConfig().romPath;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function getDefaultROMPath() {
+  return "Emulators\\RetroArch\\roms";
+}
+
 function buildGodsendEnv(writableRoot) {
   const env = { ...process.env, GODSEND_HOME: writableRoot };
   const custom = getConfiguredTransferFolder();
@@ -68,6 +77,8 @@ function buildGodsendEnv(writableRoot) {
   const iaAuth = getConfiguredIAAuthorization();
   if (iaAuth) env.GODSEND_IA_AUTHORIZATION = iaAuth;
   env.GODSEND_IA_CONCURRENCY = String(getConfiguredIAConcurrency());
+  const romPath = getConfiguredROMPath();
+  if (romPath) env.GODSEND_ROM_PATH = romPath;
   return env;
 }
 
@@ -76,6 +87,8 @@ module.exports = {
   writeConfig,
   getConfiguredTransferFolder,
   getDefaultTransferFolder,
+  getConfiguredROMPath,
+  getDefaultROMPath,
   getConfiguredIACookie,
   getConfiguredIAAuthorization,
   getConfiguredIAConcurrency,
