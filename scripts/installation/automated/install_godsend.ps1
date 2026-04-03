@@ -299,7 +299,7 @@ if (Test-Path -LiteralPath $GodsendExe) {
             Copy-Item -LiteralPath $GodsendSrc -Destination $GodsendExe -Force
             Write-Ok "GODSend backend installed successfully."
         } else {
-            throw "GODSend binary not found (build with: cd src/server; go build -o ../godsend.exe .)"
+            throw "GODSend binary not found (build with: npm run build:server from repo root, or go build -C src/server -o ../godsend.exe .)"
         }
     } catch {
         Write-Fail "GODSend backend installation failed: $($_.Exception.Message)"

@@ -29,6 +29,7 @@ GODsend is a local-network game management system for Xbox 360 consoles running 
 ## Repository structure
 
 ```
+package.json             Root npm scripts: `npm install`, `npm run build` (Go + Windows installer)
 src/server/              Go backend (main.go, go.mod, go.sum)
 src/electron-app/        Electron Windows UI (source — no node_modules or dist)
 aurora-scripts/          Aurora Lua script + icons installed on the Xbox
@@ -40,19 +41,18 @@ scripts/installation/docker/      Docker compose + Dockerfile for headless Linux
 
 ## Building
 
-### Go backend
+Requires **Go 1.21+** and **Node.js 18+**. The Windows installer bundles the Go backend as `godsend-backend.exe` plus optional helper binaries from `src/`; the backend launches when the app starts.
 
-Requires Go 1.21+. Dependency: `github.com/jlaffaye/ftp`.
+From the repository root:
 
 ```
-cd src/server
-go mod download
-go build -o ../godsend.exe .
+npm install
+npm run build
 ```
 
-On Linux or macOS, use `../godsend_linux` or `../godsend_mac` (or any name you prefer) instead of `../godsend.exe`.
+`npm install` pulls in Electron app dependencies (`postinstall` runs `npm install` under `src/electron-app`). `npm run build` compiles the server to `src/godsend.exe`, then runs the NSIS target; the installer appears under `src/electron-app/dist/`.
 
-The binary expects these third-party tools alongside it at runtime (not included in this repo — obtain separately). For a Windows + Electron workflow, place them in `src/` next to `godsend.exe` so the Electron packager can pick them up (see below).
+Place these third-party tools in `src/` before `npm run build` if you want them included in the installer (they are not shipped in this repo):
 
 | File | Source |
 |------|--------|
@@ -61,19 +61,7 @@ The binary expects these third-party tools alongside it at runtime (not included
 | `7za.dll` | 7-Zip standalone console |
 | `7zxa.dll` | 7-Zip standalone console |
 
-### Electron app (Windows installer)
-
-Requires Node.js 18+.
-
-Build the Go binary first (see above) so `src/godsend.exe` exists. Copy the tool binaries into `src/` as well if you want them bundled.
-
-```
-cd src/electron-app
-npm install
-npm run build:win        # produces dist/godsend-Setup-x.x.x.exe
-```
-
-The installer bundles `../godsend.exe` (relative to `src/electron-app`) as `godsend-backend.exe` along with the tool binaries, and installs them to a user-chosen directory. The backend launches automatically when the app starts and runs hidden in the background.
+Backend only (no installer): `go build -C src/server -o ../godsend.exe .`
 
 ---
 
