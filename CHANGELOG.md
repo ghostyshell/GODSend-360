@@ -7,6 +7,25 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **`scripts/build-go-all.js`** — cross-compiles the Go server for Windows, Linux, and macOS (amd64/arm64) into `dist/`; uses `cwd` + `shell: false` so paths with spaces work; copies darwin/arm64 → `godsend-mac` for Electron/mac defaults.
+- **`scripts/build-all.js`** — full pipeline: Go all targets, `sync-assets-icon`, then OS-specific Electron (see Changed).
+- **`npm run build:server:all`** (root) — Go-only all-platform binaries.
+- **Electron** `build:nsis` script — Windows NSIS without re-running icon sync (used by `build-all.js`).
+- Multi-disc compatibility: **Borderlands** and **Borderlands 2** (incl. GOTY) Title IDs **545407E7** / **5454087C** recommend **Content** install for Disc 2 (`docs/multi-disc-compatibility.md`, `discCompatTable` in `main.go`). XboxDB / marketplace Title ID references noted in docs next to Xbox Unity.
+
+### Changed
+- **`npm run build`** now runs `node scripts/build-all.js`: all Go targets, then Electron for the **host OS** — **NSIS** on Windows, **AppImage** on Linux, **AppImage** plus **arm64 and x64 DMGs** on macOS. **`npm run build:win`** is unchanged (Windows Go + NSIS only). **`AGENTS.md`** and **`readme.md`** describe the split.
+- **macOS DMG** artifact names include **`${arch}`** so arm64 and x64 builds do not overwrite each other.
+
+### Fixed
+- **AppImage on Windows** — unified build skips Linux AppImage on Windows (electron-builder symlink step needs Developer Mode / admin); build AppImage on Linux or macOS, or run `npm run build:wl` in `src/electron-app` if symlink creation is enabled.
+- **Node `DEP0190`** — `build-all.js` invokes **`npm.cmd`** with **`shell: false`** instead of `shell: true` when spawning `npm run`.
+
+---
+
 ## [2.2.0] — 2026-04-06
 
 ### Added

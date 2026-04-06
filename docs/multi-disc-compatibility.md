@@ -20,6 +20,8 @@ Adapted from [Iso2God by r4dius](https://github.com/r4dius/Iso2God) with additio
 | Alan Wake | 4D5308AB | Disc 2 is bonus content; install as Content to `00000002` |
 | Alpha Protocol | 555307DC | Disc 2 is bonus content |
 | Bayonetta | 5345082C / 53450833 | Disc 2 is bonus content; install as Content |
+| Borderlands: Game of the Year Edition | 545407E7 | GOTY Disc 2 is DLC/bonus content (same Title ID as base game); install as Content |
+| Borderlands 2: Game of the Year Edition | 5454087C | GOTY Disc 2 is DLC/bonus content (same Title ID as base game); install as Content |
 | Brutal Legend | 4541082F | Disc 2 is bonus content |
 | Call of Duty: Black Ops | 41560855 | Disc 2 (multiplayer/zombies); install as Content |
 | Call of Duty: Modern Warfare 2 | 41560817 | Disc 2 (spec ops); install as Content |
@@ -80,7 +82,7 @@ These need to be extracted and placed at `00000002\` with the correct TitleID.
 
 ## Notes
 
-- TitleIDs can be verified via [XboxUnity](http://xboxunity.net/) or by reading the default.xex
+- TitleIDs can be verified via [XboxUnity](http://xboxunity.net/), [XboxDB](https://xboxdb.altervista.org/), or by reading the default.xex
 - When in doubt, try **Content** install first; it's the safer choice for multi-disc games where Disc 1 launches the game and Disc 2 is referenced as DLC
 - After installing Disc 2 as Content, Aurora/FSD will find it automatically when Disc 1 is launched
 - If a game has 3+ discs, Disc 2 and beyond typically all go to the same `00000002` folder

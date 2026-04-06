@@ -135,8 +135,8 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 ## Repository structure
 
 ```
-package.json             Root npm scripts: `npm install`, `npm run build` (Go + Windows installer)
-dist/                    Build artifacts (godsend.exe, Windows installer, etc.) — created by npm run build
+package.json             Root npm scripts: `npm install`, `npm run build` (all Go targets + OS-matched Electron installer; DMGs on macOS)
+dist/                    Build artifacts (per-OS binaries and installers) — created by `npm run build`
 
 src/server/              Go backend
   main.go                  Entry point: HTTP server wiring & startup banner
@@ -178,9 +178,9 @@ npm install
 npm run build
 ```
 
-`npm install` pulls in Electron app dependencies (`postinstall` runs `npm install` under `src/electron-app`). `npm run build` compiles the server to `dist/godsend.exe`, then runs the NSIS target; all build artifacts (including the installer) appear under the root `dist/` folder.
+`npm install` pulls in Electron app dependencies (`postinstall` runs `npm install` under `src/electron-app`). `npm run build` cross-compiles Go for Windows, Linux, and macOS (`dist/godsend.exe`, `dist/godsend-linux`, `dist/godsend-darwin-*`, plus `dist/godsend-mac`), then builds the **Electron installer for the machine you run on**: **NSIS** on Windows, **AppImage** on Linux, and on **macOS** an AppImage plus **arm64 and x64 DMGs**. AppImage is omitted on Windows (electron-builder needs symlink privileges there). Use `npm run build:win` for Windows-only (faster). All artifacts land under the root `dist/` folder.
 
-Backend only (no installer): `go build -C src/server -o ../../dist/godsend.exe .`
+Backend only (all platforms): `npm run build:server:all`. Windows binary only: `go build -C src/server -o ../../dist/godsend.exe .`
 
 ---
 

@@ -310,6 +310,8 @@ var discCompatTable = map[uint32]discCompatRec{
 	0x555307DC: {installType: "content", notes: "Disc 2 is bonus content"},
 	0x5345082C: {installType: "content", notes: "Disc 2 is bonus content loaded by Disc 1"},
 	0x53450833: {installType: "content", notes: "Disc 2 is bonus content loaded by Disc 1"},
+	0x545407E7: {installType: "content", notes: "GOTY / multi-disc: Disc 2 is DLC content (Borderlands)"},
+	0x5454087C: {installType: "content", notes: "GOTY / multi-disc: Disc 2 is DLC content (Borderlands 2)"},
 	0x4541082F: {installType: "content", notes: "Disc 2 is bonus content"},
 	0x41560855: {installType: "content", notes: "Disc 2 is multiplayer/zombies content"},
 	0x41560817: {installType: "content", notes: "Disc 2 is spec ops content"},

@@ -83,8 +83,11 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 
 - Root `package.json`: unified build entrypoint:
   - `npm install` – installs root and Electron dependencies.
-  - `npm run build` / `npm run build:server` / `npm run build:electron` – Go backend + Windows installer, outputs into `dist/`.
-- `dist/`: consolidated build artifacts (`godsend.exe`, installer, etc.).
+  - `npm run build` – cross-compiles Go for Windows, Linux, and macOS; runs Electron for the **current OS** (Windows → **NSIS**; Linux → **AppImage**; macOS → **AppImage** then **arm64 + x64 DMGs**). AppImage is not built on Windows hosts by default (electron-builder needs symlink creation; use Linux/macOS CI or Windows Developer Mode if you must build it there).
+  - `npm run build:win` – Windows-only (Go `godsend.exe` + NSIS), same as the former default full build.
+  - `npm run build:server:all` – Go binaries only (all targets into `dist/`).
+  - `npm run build:server` / `npm run build:electron` – single-platform server or Electron step.
+- `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.).
 - `tools/`: ignored directory for third-party executables (`7za.exe`, `7za.dll`, `7zxa.dll`) when needed outside the bundled Go pipeline.
 
 ---
@@ -95,8 +98,10 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 
 - **Install dependencies (root + Electron)**:
   - `npm install`
-- **Full build — Windows (Go backend + NSIS installer)**:
-  - `npm run build` (or `npm run build:win`)
+- **Full build — all Go backends + installer for this OS**:
+  - `npm run build` — cross-compiles **all Go backends**; **Windows**: NSIS; **Linux**: AppImage; **macOS**: AppImage + arm64/x64 DMGs. (Linux AppImage from a Windows PC is skipped — build on Linux or macOS for that artifact.)
+- **Full build — Windows only (faster)**:
+  - `npm run build:win`
 - **Full build — macOS x64 (Go binary + DMG)**:
   - `npm run build:mac` *(run on macOS)*
 - **Full build — macOS arm64 (Go binary + DMG)**:
@@ -104,6 +109,7 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 - **Full build — Linux x64 (Go binary + AppImage)**:
   - `npm run build:linux` *(run on Linux or macOS)*
 - **Backend-only builds**:
+  - All targets: `npm run build:server:all`
   - Windows: `go build -C src/server -o ../../dist/godsend.exe .`
   - macOS x64: `npm run build:server:mac`
   - macOS arm64: `npm run build:server:mac:arm`

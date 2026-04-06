@@ -6,8 +6,12 @@
   "scripts": {
     "start": "electron .",
     "build:win": "node scripts/sync-assets-icon.js && electron-builder --win nsis",
+    "build:nsis": "electron-builder --win nsis",
+    "build:wl": "electron-builder --win nsis --linux AppImage",
     "build:mac": "electron-builder --mac dmg",
     "build:mac:arm": "electron-builder --mac dmg --arm64",
+    "build:mac:dmg:arm64": "electron-builder --mac dmg --arm64",
+    "build:mac:dmg:x64": "electron-builder --mac dmg --x64",
     "build:linux": "electron-builder --linux AppImage"
   },
   "keywords": [
@@ -96,7 +100,7 @@
       ]
     },
     "dmg": {
-      "artifactName": "godsend-${version}.${ext}"
+      "artifactName": "godsend-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": [
