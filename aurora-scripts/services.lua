@@ -34,7 +34,7 @@ function getGameStatus(gameName)
     return "Error", "Could not parse server response"
 end
 
-function triggerDownload(gameName, platform)
+function triggerDownload(gameName, platform, installType)
     if not gameName or gameName == "" then
         showError("TRIGGER_FAILED", "No game name provided")
         return false
@@ -48,6 +48,7 @@ function triggerDownload(gameName, platform)
 
     local url = SERVER_BASE .. "/trigger?game=" .. encodedName
         .. "&platform=" .. (platform or "xbox360")
+        .. "&install_type=" .. (installType or gInstallType or "god")
     local json, err = httpGet(url)
 
     if not json then
@@ -77,7 +78,7 @@ function triggerDownload(gameName, platform)
 end
 
 -- Register Xbox for FTP transfer with server.
-function registerForFTP(gameName, platform)
+function registerForFTP(gameName, platform, installType)
     local xboxIP = getXboxIP()
 
     if xboxIP == "0.0.0.0" then
@@ -92,10 +93,11 @@ function registerForFTP(gameName, platform)
     end
 
     local url = SERVER_BASE .. "/register?game=" .. encodedName
-        .. "&ip="       .. Http.UrlEncode(xboxIP)
-        .. "&drive="    .. Http.UrlEncode(gInstallDrive)
-        .. "&platform=" .. (platform or "xbox360")
-        .. "&mode="     .. gTransferMode
+        .. "&ip="           .. Http.UrlEncode(xboxIP)
+        .. "&drive="        .. Http.UrlEncode(gInstallDrive)
+        .. "&platform="     .. (platform or "xbox360")
+        .. "&mode="         .. gTransferMode
+        .. "&install_type=" .. (installType or gInstallType or "god")
 
     local json, err = httpGet(url)
 
@@ -553,6 +555,69 @@ function installGame(gameName)
         return
     end
 
+    -- === PATH: CONTENT INSTALL (Disc 2 / DLC) ===
+    if installType == "content" then
+        local titleID = ini:ReadValue(gameName, "titleid", ""):gsub("%s+", "")
+        local relPath = ini:ReadValue(gameName, "path",    ""):gsub("%s+", "")
+        local dataUrl = ini:ReadValue(gameName, "dataurl", "")
+            :gsub("%%20", " "):gsub("%%28", "("):gsub("%%29", ")")
+
+        if titleID == "" or relPath == "" or dataUrl == "" then
+            showError("MANIFEST_EMPTY", "Content manifest missing titleid, path, or dataurl")
+            pcall(FileSystem.DeleteFile, Script.GetBasePath() .. localIniRel)
+            return
+        end
+
+        -- Build install path: {drive}\Content\0000000000000000\{TitleID}\00000002\
+        local installPath = gInstallDrive .. "\\" .. relPath
+        local currentPath = gInstallDrive .. "\\"
+        for folder in relPath:gmatch("[^\\]+") do
+            currentPath = currentPath .. folder .. "\\"
+            pcall(FileSystem.CreateDirectory, currentPath)
+        end
+
+        local dlRel = DOWNLOAD_FOLDER .. "\\content_part1.7z"
+        local dlAbs = absoluteDownloadsPath .. "content_part1.7z"
+        local fullUrl = gameBaseURL .. Http.UrlEncode(dataUrl)
+
+        gAbortedOperation = false
+        gDownloadStartTime = getTime()
+        gLastProgressUpdate = 0
+        gCurrentPart = 1
+        gTotalParts  = 1
+
+        Script.SetStatus("Downloading content...")
+        local dlOk, dlRes = pcall(Http.GetEx, fullUrl, HttpProgressRoutine, dlRel)
+
+        if gAbortedOperation then
+            showError("CANCELLED")
+            pcall(FileSystem.DeleteFile, dlAbs)
+            pcall(FileSystem.DeleteFile, Script.GetBasePath() .. localIniRel)
+            return
+        end
+
+        if not dlOk or not dlRes then
+            showError("DOWNLOAD_FAILED", "Content archive download failed\nURL: " .. fullUrl)
+            pcall(FileSystem.DeleteFile, dlAbs)
+            pcall(FileSystem.DeleteFile, Script.GetBasePath() .. localIniRel)
+            return
+        end
+
+        Script.SetStatus("Installing content to " .. installPath)
+        local extractOk, extractErr = extractZipNative(dlRel, installPath)
+        pcall(FileSystem.DeleteFile, dlAbs)
+        pcall(FileSystem.DeleteFile, Script.GetBasePath() .. localIniRel)
+
+        if not extractOk then
+            showError("INSTALL_FAILED", "Content extraction failed:\n" .. tostring(extractErr))
+        else
+            Script.ShowMessageBox("Content Installed",
+                "Disc content installed to:\n" .. installPath .. "\n\n" ..
+                "Launch the game from Disc 1 to access this content.", "OK")
+        end
+        return
+    end
+
     -- === PATH 2: STANDARD (GOD) INSTALL ===
     local downloadQueue, titleID, mediaID, dlcs, titleName =
         parseManifest(localIniRel, gameName)
@@ -570,8 +635,7 @@ function installGame(gameName)
     end
 
     local godPrefix = (titleName and titleName ~= "") and titleName or "Title"
-    local installPath = gInstallDrive .. "\\GOD\\" .. godPrefix .. " - " .. titleID
-        .. "\\" .. mediaID .. "\\"
+    local installPath = gInstallDrive .. "\\GOD\\" .. godPrefix .. " - " .. titleID .. "\\"
     local mkOk = pcall(FileSystem.CreateDirectory, installPath)
     if not mkOk then
         showError("INSTALL_FAILED", "Could not create install directory on " .. gInstallDrive)

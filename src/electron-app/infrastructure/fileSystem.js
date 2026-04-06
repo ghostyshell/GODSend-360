@@ -19,17 +19,24 @@ function getBundledRoot() {
     : getRepoRoot();
 }
 
-/** Go binary: packaged as godsend-backend.exe so it never overwrites GODsend.exe on case-insensitive Windows. */
+/** Go binary: packaged next to the app executable; name varies by OS. */
 function getGodsendExePath() {
+  const isWin = process.platform === "win32";
   if (app.isPackaged) {
-    return path.join(path.dirname(process.execPath), "godsend-backend.exe");
+    const name = isWin ? "godsend-backend.exe" : "godsend-backend";
+    return path.join(path.dirname(process.execPath), name);
   }
   const repo = getRepoRoot();
-  const distExe = path.join(repo, "dist", "godsend.exe");
-  if (fs.existsSync(distExe)) {
-    return distExe;
+  const devCandidates = isWin
+    ? ["dist/godsend.exe"]
+    : process.platform === "darwin"
+    ? ["dist/godsend-mac"]
+    : ["dist/godsend-linux"];
+  for (const rel of devCandidates) {
+    const p = path.join(repo, rel);
+    if (fs.existsSync(p)) return p;
   }
-  return path.join(repo, "godsend.exe");
+  return path.join(repo, devCandidates[0]);
 }
 
 function getWritableRuntimeRoot() {
@@ -87,25 +94,12 @@ function prepareWritableRuntime() {
     );
   }
 
-  const toolNames = ["iso2god.exe", "7z.exe", "7z.dll"];
-  if (app.isPackaged) {
-    for (const fileName of toolNames) {
-      copyFileIfMissing(
-        path.join(bundledRoot, fileName),
-        path.join(writableRoot, fileName)
-      );
-    }
-  } else {
-    const toolsDir = path.join(getRepoRoot(), "tools");
-    for (const fileName of toolNames) {
-      copyFileIfMissing(
-        path.join(toolsDir, fileName),
-        path.join(writableRoot, fileName)
-      );
-    }
-  }
-
   return writableRoot;
+}
+
+/** Aurora scripts bundled with the installer (extraFiles → aurora-scripts/). */
+function getAuroraScriptsPath() {
+  return path.join(getBundledRoot(), "aurora-scripts");
 }
 
 /** Window + tray: canonical tray logo; icon.ico is a duplicate from sync. */
@@ -138,6 +132,7 @@ module.exports = {
   getBundledRoot,
   getGodsendExePath,
   getWritableRuntimeRoot,
+  getAuroraScriptsPath,
   ensureDirectory,
   copyFileIfMissing,
   copyDirectoryContentsIfMissing,

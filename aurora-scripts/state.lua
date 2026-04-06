@@ -22,6 +22,7 @@ gCurrentPart = 0
 gTotalParts  = 0
 gInstallDrive  = "Hdd1:"
 gTransferMode  = "http"   -- "http" or "ftp"
+gInstallType   = "god"    -- "god" or "content" (Disc 2 DLC path)
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 

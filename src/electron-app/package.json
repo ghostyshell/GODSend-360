@@ -1,11 +1,14 @@
 {
   "name": "godsend-electron",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Minimal Electron UI for running and monitoring godsend.exe",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:win": "node scripts/sync-assets-icon.js && electron-builder --win nsis"
+    "build:win": "node scripts/sync-assets-icon.js && electron-builder --win nsis",
+    "build:mac": "electron-builder --mac dmg",
+    "build:mac:arm": "electron-builder --mac dmg --arm64",
+    "build:linux": "electron-builder --linux AppImage"
   },
   "keywords": [
     "electron",
@@ -14,6 +17,9 @@
   ],
   "author": "Nesquin and ghosty99",
   "license": "MIT",
+  "dependencies": {
+    "basic-ftp": "^5.2.0"
+  },
   "devDependencies": {
     "electron": "^37.2.0",
     "electron-builder": "^26.0.12",
@@ -22,12 +28,12 @@
     "rcedit": "^5.0.2",
     "sharp": "^0.34.5"
   },
-    "build": {
+  "build": {
     "afterPack": "./scripts/after-pack-win-icon.js",
     "appId": "com.abbu.godsend",
     "productName": "GODsend",
     "executableName": "GODsend",
-      "directories": {
+    "directories": {
       "output": "../../dist"
     },
     "files": [
@@ -55,20 +61,11 @@
         ]
       },
       {
-        "from": "../../dist/godsend.exe",
-        "to": "godsend-backend.exe"
-      },
-      {
-        "from": "../../tools/7z.exe",
-        "to": "7z.exe"
-      },
-      {
-        "from": "../../tools/7z.dll",
-        "to": "7z.dll"
-      },
-      {
-        "from": "../../tools/iso2god.exe",
-        "to": "iso2god.exe"
+        "from": "../../aurora-scripts",
+        "to": "aurora-scripts",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
@@ -77,7 +74,45 @@
       ],
       "icon": "assets/tray.ico",
       "forceCodeSigning": false,
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "extraFiles": [
+        {
+          "from": "../../dist/godsend.exe",
+          "to": "godsend-backend.exe"
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/tray.png",
+      "category": "public.app-category.utilities",
+      "extraFiles": [
+        {
+          "from": "../../dist/godsend-mac",
+          "to": "godsend-backend"
+        }
+      ]
+    },
+    "dmg": {
+      "artifactName": "godsend-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/tray.png",
+      "category": "Utility",
+      "extraFiles": [
+        {
+          "from": "../../dist/godsend-linux",
+          "to": "godsend-backend"
+        }
+      ]
+    },
+    "appImage": {
+      "artifactName": "godsend-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

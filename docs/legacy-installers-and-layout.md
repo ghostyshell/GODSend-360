@@ -22,10 +22,9 @@ In this repository, the same pieces are organised as:
 
 - Backend binary:
   - `dist/godsend.exe` — built from `src/server/` via the root `package.json` or a direct `go build`.
-- External tools:
-  - `tools/iso2god.exe`
+- External tools (legacy workflows only; ISO→GOD is implemented in Go under `src/server/utils/`):
   - `tools/7za.exe`, `tools/7za.dll`, `tools/7zxa.dll`
-  - These are not committed; place the downloaded binaries in `tools/` before building.
+  - These are not committed; place downloaded binaries in `tools/` before building if you still rely on them.
 - Xbox-side scripts (what legacy docs called `MOVE_THESE_FILES_TO_XBOX/`):
   - `aurora-scripts/`:
     - `GODSend.ini` — Xbox-side configuration (PC IP, etc.).

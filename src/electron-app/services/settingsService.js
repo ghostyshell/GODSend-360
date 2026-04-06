@@ -68,6 +68,30 @@ function getDefaultROMPath() {
   return "Emulators\\RetroArch\\roms";
 }
 
+function getConfiguredXboxIP() {
+  const v = readConfig().xboxIp;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function getConfiguredFtpUser() {
+  const v = readConfig().ftpUser;
+  return typeof v === "string" && v.trim() !== "" ? v.trim() : "xboxftp";
+}
+
+function getConfiguredFtpPassword() {
+  const v = readConfig().ftpPassword;
+  return typeof v === "string" ? v : "xboxftp";
+}
+
+function getDefaultFtpScriptsPath() {
+  return "/Hdd1/Aurora/User/Scripts/Utilities/GODSend";
+}
+
+function getConfiguredFtpScriptsPath() {
+  const v = readConfig().ftpScriptsPath;
+  return typeof v === "string" && v.trim() ? v.trim() : getDefaultFtpScriptsPath();
+}
+
 function buildGodsendEnv(writableRoot) {
   const env = { ...process.env, GODSEND_HOME: writableRoot };
   const custom = getConfiguredTransferFolder();
@@ -94,5 +118,10 @@ module.exports = {
   getConfiguredIAConcurrency,
   getConfiguredIAEmail,
   getConfiguredIAScreenname,
+  getConfiguredXboxIP,
+  getConfiguredFtpUser,
+  getConfiguredFtpPassword,
+  getDefaultFtpScriptsPath,
+  getConfiguredFtpScriptsPath,
   buildGodsendEnv,
 };

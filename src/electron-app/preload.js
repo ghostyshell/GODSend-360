@@ -19,6 +19,13 @@ contextBridge.exposeInMainWorld("godsendApi", {
   getROMPath: () => ipcRenderer.invoke("config:get-rom-path"),
   setROMPath: (v) => ipcRenderer.invoke("config:set-rom-path", v),
   refreshCache: (platform) => ipcRenderer.invoke("config:cache-refresh", platform),
+  getXboxConnection: () => ipcRenderer.invoke("config:get-xbox-connection"),
+  setXboxConnection: (payload) => ipcRenderer.invoke("config:set-xbox-connection", payload),
+  getFtpScriptsPathDefault: () => ipcRenderer.invoke("config:get-ftp-scripts-path-default"),
+  ftpAuroraScripts: (payload) => ipcRenderer.invoke("xbox:ftp-scripts", payload),
+  onFtpProgress: (callback) => {
+    ipcRenderer.on("godsend-ftp-progress", (_event, msg) => callback(msg));
+  },
   onOutput: (callback) => {
     ipcRenderer.on("godsend-output", (_event, line) => callback(line));
   }

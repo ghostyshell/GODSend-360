@@ -1,10 +1,14 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const http = require("http");
+const os = require("os");
 const path = require("path");
+const fs = require("fs");
+const ftp = require("basic-ftp");
 
 const {
   getFirstValidIconPath,
   getWritableRuntimeRoot,
+  getAuroraScriptsPath,
 } = require("../infrastructure/fileSystem");
 const { createTray } = require("../infrastructure/electronTray");
 const {
@@ -16,6 +20,11 @@ const {
   getConfiguredIAScreenname,
   getConfiguredIACookie,
   getConfiguredIAConcurrency,
+  getConfiguredXboxIP,
+  getConfiguredFtpUser,
+  getConfiguredFtpPassword,
+  getDefaultFtpScriptsPath,
+  getConfiguredFtpScriptsPath,
   writeConfig,
 } = require("../services/settingsService");
 const {
@@ -61,6 +70,19 @@ function createMainWindow() {
   });
 
   setMainWindowRef(mainWindow);
+}
+
+// Returns this machine's first non-loopback IPv4 address, or null if not found.
+function getLocalIPAddress() {
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name]) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return null;
 }
 
 function registerIpcHandlers() {
@@ -183,6 +205,97 @@ function registerIpcHandlers() {
     });
     if (r.canceled || !r.filePaths[0]) return null;
     return r.filePaths[0];
+  });
+
+  ipcMain.handle("config:get-xbox-connection", () => ({
+    xboxIp:         getConfiguredXboxIP(),
+    ftpUser:        getConfiguredFtpUser(),
+    ftpPassword:    getConfiguredFtpPassword(),
+    ftpScriptsPath: getConfiguredFtpScriptsPath(),
+  }));
+
+  ipcMain.handle("config:set-xbox-connection", (_event, payload) => {
+    const p = payload || {};
+    writeConfig({
+      xboxIp:         typeof p.xboxIp         === "string" ? p.xboxIp.trim()        : getConfiguredXboxIP(),
+      ftpUser:        typeof p.ftpUser         === "string" ? p.ftpUser.trim()       : getConfiguredFtpUser(),
+      ftpPassword:    typeof p.ftpPassword     === "string" ? p.ftpPassword          : getConfiguredFtpPassword(),
+      ftpScriptsPath: typeof p.ftpScriptsPath  === "string" ? p.ftpScriptsPath.trim(): getConfiguredFtpScriptsPath(),
+    });
+    return true;
+  });
+
+  ipcMain.handle("config:get-ftp-scripts-path-default", () => getDefaultFtpScriptsPath());
+
+  ipcMain.handle("xbox:ftp-scripts", async (_event, payload) => {
+    const p = payload || {};
+    const xboxIp    = (typeof p.xboxIp  === "string" ? p.xboxIp.trim()  : "") || getConfiguredXboxIP();
+    const ftpUser   = (typeof p.ftpUser === "string" ? p.ftpUser.trim() : "") || getConfiguredFtpUser();
+    const ftpPass   = (typeof p.ftpPassword === "string" ? p.ftpPassword : "") || getConfiguredFtpPassword();
+    const remotePath = (typeof p.ftpScriptsPath === "string" && p.ftpScriptsPath.trim())
+      ? p.ftpScriptsPath.trim()
+      : getConfiguredFtpScriptsPath();
+
+    // Send live status updates to the renderer window.
+    const sendProgress = (msg) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("godsend-ftp-progress", msg);
+      }
+    };
+
+    let iniTempPath = null;
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 20000;
+    try {
+      if (!xboxIp) return { ok: false, error: "Xbox IP address is required." };
+
+      const scriptsDir = getAuroraScriptsPath();
+      if (!fs.existsSync(scriptsDir)) {
+        return { ok: false, error: `Aurora scripts folder not found at: ${scriptsDir}` };
+      }
+
+      // Auto-detect this PC's local IP and patch it into GODSend.ini.
+      // Write the temp file to os.tmpdir() so it's always writable.
+      const pcIp = getLocalIPAddress();
+      const iniSrc = path.join(scriptsDir, "GODSend.ini");
+      if (pcIp && fs.existsSync(iniSrc)) {
+        const originalIni = fs.readFileSync(iniSrc, "utf8");
+        const patched = originalIni.replace(/^(ip\s*=\s*).*$/m, `$1${pcIp}`);
+        iniTempPath = path.join(os.tmpdir(), "GODSend.ini.upload-tmp");
+        fs.writeFileSync(iniTempPath, patched, "utf8");
+      }
+
+      sendProgress("Connecting to " + xboxIp + "...");
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      sendProgress("Connected. Preparing destination folder...");
+      await client.ensureDir(remotePath);
+
+      // Upload all entries — basic-ftp STOR overwrites existing files by default.
+      const entries = fs.readdirSync(scriptsDir, { withFileTypes: true });
+      let done = 0;
+      for (const entry of entries) {
+        sendProgress(`Uploading ${entry.name} (${done}/${entries.length})...`);
+        if (entry.isDirectory()) {
+          await client.uploadFromDir(
+            path.join(scriptsDir, entry.name),
+            `${remotePath}/${entry.name}`
+          );
+        } else {
+          const localFile = (iniTempPath && entry.name === "GODSend.ini")
+            ? iniTempPath
+            : path.join(scriptsDir, entry.name);
+          await client.uploadFrom(localFile, `${remotePath}/${entry.name}`);
+        }
+        done++;
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+      if (iniTempPath) try { fs.unlinkSync(iniTempPath); } catch { /* ignore */ }
+    }
   });
 }
 

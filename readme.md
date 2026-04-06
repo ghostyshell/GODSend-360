@@ -10,12 +10,11 @@ GODsend 360 is a local-network game management system for Xbox 360 consoles runn
 
 ## Quick Installation
 
-### 1. Download the files
+### 1. Download the installer
 
-Go to the [GODsend 360 v2.1.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/snippets/2658) and download both files:
+Go to the [GODsend 360 v2.1.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/snippets/2658) and download:
 
-- **`godsend-Setup-2.1.0.exe`** — Windows installer for the Electron tray app + backend
-- **`aurora-scripts-2.1.0.zip`** — Aurora Lua scripts to install on the Xbox
+- **`godsend-Setup-2.1.0.exe`** — Windows installer for the Electron tray app + backend (Aurora scripts are bundled)
 
 ### 2. Install the Electron app
 
@@ -31,18 +30,15 @@ Go to the [GODsend 360 v2.1.0 snippet](https://gitgud.io/ghosty99/godsend-360/-/
 
 ### 4. Install Aurora scripts on the Xbox
 
-1. Extract `aurora-scripts-2.1.0.zip`.
-2. Edit `GODSend.ini` inside the extracted folder — set `ip=` to your PC's local IPv4 address:
-   ```ini
-   [Config]
-   ip=192.168.1.x
-   ```
-3. Copy the contents of the `aurora-scripts/` folder to the Xbox at:
-   ```
-   HDD1:\Aurora\User\Scripts\Utilities\GODsend\
-   ```
-4. Enable Aurora's FTP server: **Aurora → Settings → Network → Enable FTP**.
+The Aurora scripts are bundled with the installer. The easiest way to install them is via the app:
+
+1. Enable Aurora's FTP server: **Aurora → Settings → Network → Enable FTP**.
+2. In the GODsend app, open **⚙ Settings** → scroll to **Xbox connection**.
+3. Enter your **Xbox IP address** and your **PC's IP address**, then click **Save**.
+4. Click **FTP Aurora Scripts to Xbox** — the scripts are uploaded automatically to `Hdd1:\Aurora\User\Scripts\Utilities\GODsend\` and `GODSend.ini` is patched with your PC's IP.
 5. Launch **GODsend** from Aurora → Scripts.
+
+Alternatively, copy the `aurora-scripts/` folder from the GODsend install directory to the Xbox manually via FTP, then edit `GODSend.ini` to set `ip=` to your PC's IP.
 
 The Xbox will now connect to the backend running on your PC. You can browse games, trigger downloads, and track progress directly from Aurora.
 
@@ -84,13 +80,13 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 - **What:** Redump-style ISO libraries converted for Aurora.
 - **How:** Main menu → **Xbox 360 Redump ISOs** or **Original Xbox Redump ISOs** → letter folder → title → destination drive → HTTP or FTP → confirm download/processing → install when **Ready**.
-- **How it works:** Backend downloads the ISO (or uses your local copy), runs `iso2god.exe` for GOD packages (or the appropriate path for that platform), stages under `Ready/`, then either serves files over HTTP for the script to pull or pushes them over FTP to the paths you registered.
+- **How it works:** Backend downloads the ISO (or uses your local copy), converts it to GOD format natively (no external tools required), stages under `Ready/`, then either serves files over HTTP for the script to pull or pushes them over FTP to the paths you registered.
 
 #### Browse & install: XBLA, digital (No-Intro), DLC, Xbox Live Indie Games, 360 game archives
 
 - **What:** Non-disc content (arcade packages, digital titles, DLC, indie games, pre-packed game archives) from curated Internet Archive collections.
 - **How:** Choose the matching main-menu entry → same browse flow; **DLC** skips drive pick and targets **Hdd1:** as required for that content.
-- **How it works:** Backend downloads and unpacks with `7z` where needed, writes a small `godsend.ini` manifest and payloads the script understands. Install type may be **GOD** (multi-part `.7z`), **raw** (single file into a content path), or **xex** as defined by the manifest.
+- **How it works:** Backend downloads and unpacks archives natively (no external tools required), writes a small `godsend.ini` manifest and payloads the script understands. Install type may be **GOD** (multi-part `.7z`), **raw** (single file into a content path), or **xex** as defined by the manifest.
 
 #### HTTP vs FTP transfer mode
 
@@ -116,12 +112,6 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 - **How:** From a browser on the PC, open `http://<pc-ip>:8080/debug` while the backend is running.
 - **How it works:** The server renders live in-memory and filesystem state for troubleshooting.
 
-#### Headless backend (Docker / manual `godsend.exe`)
-
-- **What:** Run only the Go server on Windows or Linux without the tray app.
-- **How:** See **Setup options** and [scripts/installation/docker/README-Docker.md](scripts/installation/docker/README-Docker.md); set the same `GODSEND_*` variables as documented.
-- **How it works:** Identical HTTP API and processing logic; Aurora and any IA/Transfer configuration must still reach this instance over the network.
-
 ---
 
 ## How it works
@@ -136,7 +126,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 1. The Aurora script on the Xbox browses game libraries sourced from Internet Archive metadata
 2. The user selects a title; the script sends a trigger request to the Go backend
 3. The backend downloads the ISO from Internet Archive using parallel range requests (5 workers by default, 1–7 configurable), or picks it up from the local Transfer folder if already present
-4. For disc ISOs the backend runs `iso2god.exe` to convert to Games on Demand format; XBLA/digital titles are extracted with `7z.exe`
+4. For disc ISOs the backend converts to Games on Demand format using a pure Go implementation; XBLA/digital titles are extracted natively — no external tools required
 5. The finished game files are transferred to the Xbox over FTP using Aurora's built-in FTP server
 6. The Aurora script polls the backend for status and shows a live progress display; the game appears in Aurora when the transfer completes
 
@@ -147,7 +137,6 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 ```
 package.json             Root npm scripts: `npm install`, `npm run build` (Go + Windows installer)
 dist/                    Build artifacts (godsend.exe, Windows installer, etc.) — created by npm run build
-tools/                   Local-only helper binaries (iso2god.exe, 7z.exe, etc.) — ignored by git
 
 src/server/              Go backend
   main.go                  Entry point: HTTP server wiring & startup banner
@@ -174,15 +163,13 @@ aurora-scripts/          Aurora Lua script + icons installed on the Xbox
   menu.lua                 Queue viewer and library browser UI
   menu_system.lua          Simple menu helper used by main.lua/menu.lua
 
-scripts/installation/automated/   Helper installer scripts (Linux/Windows)
-scripts/installation/docker/      Docker compose + Dockerfile for headless Linux deployment
 ```
 
 ---
 
 ## Building
 
-Requires **Go 1.21+** and **Node.js 18+**. The Windows installer bundles the Go backend as `godsend-backend.exe` plus optional helper binaries from `src/`; the backend launches when the app starts.
+Requires **Go 1.21+** and **Node.js 18+**. No third-party tool binaries are needed — ISO conversion and archive extraction are handled by the Go backend natively. The Windows installer bundles the Go backend as `godsend-backend.exe` and the Aurora Lua scripts; the backend launches when the app starts.
 
 From the repository root:
 
@@ -192,14 +179,6 @@ npm run build
 ```
 
 `npm install` pulls in Electron app dependencies (`postinstall` runs `npm install` under `src/electron-app`). `npm run build` compiles the server to `dist/godsend.exe`, then runs the NSIS target; all build artifacts (including the installer) appear under the root `dist/` folder.
-
-Place these third-party tools in a `tools/` folder at the repository root before `npm run build` if you want them included in the installer (they are not shipped in this repo and `tools/` is ignored by git):
-
-| File | Source |
-|------|--------|
-| `iso2god.exe` | [Iso2God by r4dius (Windows GUI)](https://github.com/r4dius/Iso2God/releases) — download latest `Iso2God.exe` and rename/copy as needed |
-| `7z.exe` | [7-Zip official downloads](https://www.7-zip.org/) — install 7-Zip and copy `7z.exe` from the installation folder into `tools/` |
-| `7z.dll` | Same 7-Zip installation folder — required by `7z.exe` at runtime |
 
 Backend only (no installer): `go build -C src/server -o ../../dist/godsend.exe .`
 
@@ -251,10 +230,13 @@ Open the settings page (⚙ button) to configure:
 - **Local Transfer folder** — directory the backend scans for pre-downloaded ISOs (defaults to `%APPDATA%\godsend-electron\runtime\Transfer`)
 - **Internet Archive account** — log in with your archive.org credentials; session cookies are stored locally, your password is never saved
 - **Parallel download connections** — concurrent range-request workers per IA download (1–7, default 5)
+- **Xbox connection** — enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your PC's IP is detected automatically
 
 ### Aurora script (`aurora-scripts/GODSend.ini`)
 
-Edit before copying to the Xbox:
+The easiest way to configure and deploy the scripts is via **Settings → Xbox connection** in the app: enter the Xbox IP and click **FTP Aurora Scripts to Xbox**. The app detects your PC's IP automatically and patches it into `GODSend.ini` before uploading.
+
+To configure manually before copying to the Xbox:
 
 ```ini
 [Config]
@@ -267,16 +249,20 @@ If the IP changes after installation, edit `godsend_config.ini` in the script di
 
 ## Installing on the Xbox
 
-1. Copy all the contents of the `aurora-scripts/` folder to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\` (or any Aurora scripts path)
+**Via the app (recommended):**
+
+1. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
+2. In GODsend Settings → **Xbox connection**, enter the Xbox IP and click **FTP Aurora Scripts to Xbox**
+3. Launch GODsend from Aurora → Scripts
+
+**Manually:**
+
+1. Copy all the contents of the `aurora-scripts/` folder (from the GODsend install directory or repo) to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\`
 2. Edit `GODSend.ini` — set `ip=` to your PC's local IP address
 3. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
 4. Launch GODsend from Aurora → Scripts
 
 ---
-
-## Docker (headless Linux)
-
-See [scripts/installation/docker/README-Docker.md](scripts/installation/docker/README-Docker.md). Run Compose from `scripts/installation/docker/` so build context and volume paths resolve correctly.
 
 ---
 

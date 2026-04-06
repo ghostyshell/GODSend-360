@@ -36,6 +36,52 @@
           </div>
 
           <div class="setting-section">
+            <span class="setting-label">Xbox connection</span>
+            <label class="ia-field-label" for="xboxIp">Xbox IP address</label>
+            <input
+              id="xboxIp"
+              type="text"
+              class="setting-input"
+              spellcheck="false"
+              placeholder="e.g. 192.168.1.100"
+            />
+            <label class="ia-field-label" for="ftpUser">FTP username</label>
+            <input
+              id="ftpUser"
+              type="text"
+              class="setting-input"
+              spellcheck="false"
+              placeholder="xboxftp"
+              autocomplete="username"
+            />
+            <label class="ia-field-label" for="ftpPassword">FTP password</label>
+            <input
+              id="ftpPassword"
+              type="password"
+              class="setting-input"
+              spellcheck="false"
+              placeholder="xboxftp"
+              autocomplete="current-password"
+            />
+            <label class="ia-field-label" for="ftpScriptsPath">Scripts destination path (on Xbox)</label>
+            <div class="transfer-row">
+              <input
+                id="ftpScriptsPath"
+                type="text"
+                class="setting-input"
+                spellcheck="false"
+                placeholder="/Hdd1/Aurora/User/Scripts/Utilities/GODSend"
+              />
+              <button id="ftpScriptsPathResetBtn" type="button">Use default</button>
+            </div>
+            <div class="ia-auth-row">
+              <button id="ftpScriptsBtn" type="button">FTP Aurora Scripts to Xbox</button>
+            </div>
+            <p id="ftpScriptsStatus" class="ia-session-status" aria-live="polite"></p>
+            <p class="setting-hint">Enable FTP in Aurora (Settings → Network → Enable FTP) before using this button. Your PC's IP is detected automatically and patched into GODSend.ini. Credentials and destination path are saved when you click the button above.</p>
+          </div>
+
+          <div class="setting-section">
             <span class="setting-label">Local Transfer folder (ISOs)</span>
             <div class="transfer-row">
               <input id="transferPath" type="text" readonly placeholder="Default: data folder / Transfer" />

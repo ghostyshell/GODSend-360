@@ -427,6 +427,62 @@ function browseROMLibrary(platform, sysName)
     end
 end
 
+-- ── Multi-disc helpers ────────────────────────────────────────────────────────
+
+-- Returns true when a game name looks like a Disc 2 or higher.
+local function isMultiDiscGame(name)
+    local lower = name:lower()
+    return lower:match("disc%s*[2-9]")
+        or lower:match("disk%s*[2-9]")
+        or lower:match("%(disc%s*[2-9]%)")
+        or lower:match("%(disk%s*[2-9]%)")
+        or lower:match("cd%s*[2-9]")
+        or lower:match("%(cd%s*[2-9]%)")
+        or false
+end
+
+-- Asks the server for a disc-info recommendation for a locally cached ISO.
+-- Returns "god", "content", or nil (if no local ISO or server unreachable).
+local function getDiscRecommendation(gameName)
+    local enc = Http.UrlEncode(gameName)
+    if not enc then return nil end
+    local json, _ = httpGet(SERVER_BASE .. "/disc-info?game=" .. enc)
+    if not json then return nil end
+    local rec = json:match('"recommendation"%s*:%s*"([^"]*)"')
+    local notes = json:match('"notes"%s*:%s*"([^"]*)"')
+    return rec, notes
+end
+
+-- Shows the install-type picker for a Disc 2+ game.
+-- Returns "god", "content", or nil (user cancelled).
+local function pickInstallType(gameName)
+    local rec, notes = getDiscRecommendation(gameName)
+
+    local godLabel     = "GOD  — Convert to Games-on-Demand (same as Disc 1)"
+    local contentLabel = "Content  — Install to Content\\0000000000000000\\{TitleID}\\00000002\\"
+
+    if rec == "god" then
+        godLabel = godLabel .. "  [Recommended]"
+    elseif rec == "content" then
+        contentLabel = contentLabel .. "  [Recommended]"
+    end
+
+    local hint = notes and ("\n\nNote: " .. notes) or ""
+    local options = { godLabel, contentLabel }
+
+    local r = Script.ShowPopupList(
+        "Disc 2 Install Method",
+        "Choose how to install this disc" .. hint,
+        options)
+
+    if not r or r.Canceled then return nil end
+    if r.Selected.Key == 1 then
+        return "god"
+    else
+        return "content"
+    end
+end
+
 -- ── Library browser ───────────────────────────────────────────────────────────
 
 function browseLibrary(platform)
@@ -538,6 +594,22 @@ function browseLibrary(platform)
                 end
 
                 if driveReady then
+                    -- Multi-disc picker: show GOD vs Content for Disc 2+ on disc platforms
+                    local isDiscPlatform = (platform == "xbox360" or platform == "xbox"
+                        or platform == "local" or platform == "games")
+                    local installTypeOk = true
+                    if isDiscPlatform and isMultiDiscGame(cleanName) then
+                        local picked = pickInstallType(cleanName)
+                        if not picked then
+                            installTypeOk = false  -- user cancelled
+                        else
+                            gInstallType = picked
+                        end
+                    else
+                        gInstallType = "god"
+                    end
+
+                if installTypeOk then
                     local transferModes = {
                         "HTTP (Download & Extract)",
                         "FTP (Direct Transfer - More Reliable)"
@@ -555,7 +627,7 @@ function browseLibrary(platform)
 
                         if gTransferMode == "ftp" then
                             Script.SetStatus("Registering for FTP transfer...")
-                            if not registerForFTP(cleanName, platform) then
+                            if not registerForFTP(cleanName, platform, gInstallType) then
                                 gTransferMode = "http"
                             end
                         end
@@ -586,7 +658,7 @@ function browseLibrary(platform)
                             if Script.ShowMessageBox("Transfer",
                                 "Game ready. Start FTP transfer to " .. gInstallDrive .. "?",
                                 "Yes", "No").Button == 1 then
-                                if triggerDownload(cleanName, platform) then
+                                if triggerDownload(cleanName, platform, gInstallType) then
                                     Script.SetStatus("Starting FTP transfer...")
                                     Thread.Sleep(2000)
                                     waitResult = waitForProcessing(cleanName)
@@ -602,7 +674,7 @@ function browseLibrary(platform)
                             if Script.ShowMessageBox("Download",
                                 "Start " .. modeText .. " for " .. cleanName .. "?",
                                 "Yes", "No").Button == 1 then
-                                if triggerDownload(cleanName, platform) then
+                                if triggerDownload(cleanName, platform, gInstallType) then
                                     Script.SetStatus("Starting...")
                                     Thread.Sleep(2000)
                                     waitResult = waitForProcessing(cleanName)
@@ -627,7 +699,8 @@ function browseLibrary(platform)
                             end
                         end
                     end
-                end
+                end -- if installTypeOk
+                end -- if driveReady
             end
         end
     else

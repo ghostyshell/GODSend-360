@@ -24,11 +24,13 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 
 - **Entry point**
   - `main.go`: process startup, HTTP handler registration (for now), environment/config wiring, banner printing.
+- **`utils/`** (`package utils`)
+  - `iso2god.go`: pure-Go ISO→GOD conversion, archive extract/create, and disc metadata probe (`ProbeISODiscInfo`). Imported by `main`.
 - **Domain & services**
   - `models/`: pure domain types and repository-like interfaces (e.g. `Game`, `Platform`, `JobStatus`, `GameRepository`, `QueueRepository`).
   - `services/`: service interfaces coordinating application use-cases (e.g. `GameService`). Future concrete implementations should live here or under `infrastructure/` as appropriate.
 - **Infrastructure & interfaces**
-  - `infrastructure/`: environment/config resolution, filesystem paths, external process integration, FTP/IA clients, ISO/GOD conversion helpers.
+  - `infrastructure/`: environment/config resolution, filesystem paths, external process integration, FTP/IA clients.
   - `interfaces/http/`: HTTP router construction and request handlers that adapt the domain/services to concrete HTTP endpoints.
 
 **Pattern**: treat `models` as pure domain, `services` as application layer, `infrastructure` for side effects, and `interfaces/http` as the delivery mechanism. Keep `main.go` thin: wiring only, no complicated logic.
@@ -77,15 +79,13 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 - I/O-heavy functions (HTTP, filesystem, long loops) live in `http_client.lua` and `services.lua`.
 - Menu/UX logic lives in `menu.lua` and calls into services instead of duplicating HTTP calls.
 
-### Installers, Docker, and tooling
+### Build tooling
 
-- `scripts/installation/automated/`: PowerShell and shell installers for Windows/Linux, responsible for placing binaries and Lua scripts on disk.
-- `scripts/installation/docker/`: Dockerfile and `docker-compose` YAMLs for headless backend deployment.
 - Root `package.json`: unified build entrypoint:
   - `npm install` – installs root and Electron dependencies.
   - `npm run build` / `npm run build:server` / `npm run build:electron` – Go backend + Windows installer, outputs into `dist/`.
 - `dist/`: consolidated build artifacts (`godsend.exe`, installer, etc.).
-- `tools/`: ignored directory for third-party executables (`iso2god.exe`, `7za.exe`, `7za.dll`, `7zxa.dll`).
+- `tools/`: ignored directory for third-party executables (`7za.exe`, `7za.dll`, `7zxa.dll`) when needed outside the bundled Go pipeline.
 
 ---
 
@@ -95,12 +95,22 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 
 - **Install dependencies (root + Electron)**:
   - `npm install`
-- **Full build (Go backend + Windows installer)**:
-  - `npm run build`
-- **Backend-only build (no installer)**:
-  - `go build -C src/server -o ../../dist/godsend.exe .`
+- **Full build — Windows (Go backend + NSIS installer)**:
+  - `npm run build` (or `npm run build:win`)
+- **Full build — macOS x64 (Go binary + DMG)**:
+  - `npm run build:mac` *(run on macOS)*
+- **Full build — macOS arm64 (Go binary + DMG)**:
+  - `npm run build:mac:arm` *(run on macOS)*
+- **Full build — Linux x64 (Go binary + AppImage)**:
+  - `npm run build:linux` *(run on Linux or macOS)*
+- **Backend-only builds**:
+  - Windows: `go build -C src/server -o ../../dist/godsend.exe .`
+  - macOS x64: `npm run build:server:mac`
+  - macOS arm64: `npm run build:server:mac:arm`
+  - Linux x64: `npm run build:server:linux`
 - **Run Electron app in dev mode**:
   - `npm start --prefix src/electron-app`
+  - Dev binary resolved from `dist/godsend.exe` (Win), `dist/godsend-mac` (macOS), `dist/godsend-linux` (Linux).
 
 When making changes to Electron or the backend, prefer:
 
@@ -109,11 +119,6 @@ When making changes to Electron or the backend, prefer:
   - Backend starts successfully.
   - Settings page works (transfer folder, IA login, concurrency).
   - Lua script can still talk to the backend using the API described in `README.md`.
-
-### Docker / headless backend
-
-- From `scripts/installation/docker/`, follow `README-Docker.md`:
-  - Build & run: `docker compose up --build` (or the documented equivalent).
 
 ### Aurora scripts
 
@@ -176,6 +181,13 @@ When making changes to Electron or the backend, prefer:
   - Add menu flows to `menu.lua`, calling into those helpers instead of duplicating HTTP logic.
 
 ---
+
+## Changelog and contributing rules
+
+Every non-trivial change **must** include a `CHANGELOG.md` update. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full rules; the key points for agents are:
+
+- Add a bullet under `[Unreleased]` at the top of `CHANGELOG.md` (create the section if absent) in the appropriate category (`Added`, `Fixed`, `Changed`, `Removed`).
+- When releasing (cutting a new version), move `[Unreleased]` to the new version number + date and bump versions in **all four places** — see the version-bump table in `CONTRIBUTING.md`.
 
 ## When and how to update this file
 

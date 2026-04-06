@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -23,6 +22,8 @@ import (
 	"time"
 
 	"github.com/jlaffaye/ftp"
+
+	"godsend/utils"
 )
 
 // ==========================================
@@ -147,69 +148,69 @@ type ROMSystem struct {
 
 var romSystems = map[string]ROMSystem{
 	// Atari
-	"a2600":      {Name: "Atari - 2600",                        BrowseURL: "https://edgeemu.net/browse/atari-2600",                      Folder: "A2600"},
-	"a5200":      {Name: "Atari - 5200",                        BrowseURL: "https://edgeemu.net/browse/atari-5200",                      Folder: "A5200"},
-	"a7800":      {Name: "Atari - 7800",                        BrowseURL: "https://edgeemu.net/browse/atari-7800",                      Folder: "A7800"},
-	"jaguar":     {Name: "Atari - Jaguar",                      BrowseURL: "https://edgeemu.net/browse/atari-jaguar",                    Folder: "JAG"},
-	"jaguarcd":   {Name: "Atari - Jaguar CD",                   BrowseURL: "https://edgeemu.net/browse/atari-jaguar-cd",                 Folder: "JAGCD"},
-	"lynx":       {Name: "Atari - Lynx",                        BrowseURL: "https://edgeemu.net/browse/atari-lynx",                      Folder: "LYNX"},
-	"st":         {Name: "Atari - ST",                          BrowseURL: "https://edgeemu.net/browse/atari-st",                        Folder: "ST"},
+	"a2600":    {Name: "Atari - 2600", BrowseURL: "https://edgeemu.net/browse/atari-2600", Folder: "A2600"},
+	"a5200":    {Name: "Atari - 5200", BrowseURL: "https://edgeemu.net/browse/atari-5200", Folder: "A5200"},
+	"a7800":    {Name: "Atari - 7800", BrowseURL: "https://edgeemu.net/browse/atari-7800", Folder: "A7800"},
+	"jaguar":   {Name: "Atari - Jaguar", BrowseURL: "https://edgeemu.net/browse/atari-jaguar", Folder: "JAG"},
+	"jaguarcd": {Name: "Atari - Jaguar CD", BrowseURL: "https://edgeemu.net/browse/atari-jaguar-cd", Folder: "JAGCD"},
+	"lynx":     {Name: "Atari - Lynx", BrowseURL: "https://edgeemu.net/browse/atari-lynx", Folder: "LYNX"},
+	"st":       {Name: "Atari - ST", BrowseURL: "https://edgeemu.net/browse/atari-st", Folder: "ST"},
 	// Bandai
-	"ws":         {Name: "Bandai - WonderSwan",                 BrowseURL: "https://edgeemu.net/browse/bandai-wonderswan",               Folder: "WS"},
+	"ws": {Name: "Bandai - WonderSwan", BrowseURL: "https://edgeemu.net/browse/bandai-wonderswan", Folder: "WS"},
 	// Coleco
-	"coleco":     {Name: "Coleco - ColecoVision",               BrowseURL: "https://edgeemu.net/browse/colecovision",                    Folder: "COLECO"},
+	"coleco": {Name: "Coleco - ColecoVision", BrowseURL: "https://edgeemu.net/browse/colecovision", Folder: "COLECO"},
 	// Commodore
-	"c64":        {Name: "Commodore - 64",                      BrowseURL: "https://edgeemu.net/browse/commodore-64",                    Folder: "C64"},
-	"amiga":      {Name: "Commodore - Amiga",                   BrowseURL: "https://edgeemu.net/browse/commodore-amiga",                 Folder: "AMIGA"},
-	"amigacd":    {Name: "Commodore - Amiga CD",                BrowseURL: "https://edgeemu.net/browse/commodore-amiga-cd",              Folder: "AMIGACD"},
-	"amigacd32":  {Name: "Commodore - Amiga CD32",              BrowseURL: "https://edgeemu.net/browse/commodore-amiga-cd32",            Folder: "AMIGACD32"},
-	"plus4":      {Name: "Commodore - Plus/4",                  BrowseURL: "https://edgeemu.net/browse/commodore-plus-4",                Folder: "PLUS4"},
-	"vic20":      {Name: "Commodore - VIC-20",                  BrowseURL: "https://edgeemu.net/browse/commodore-vic-20",                Folder: "VIC20"},
+	"c64":       {Name: "Commodore - 64", BrowseURL: "https://edgeemu.net/browse/commodore-64", Folder: "C64"},
+	"amiga":     {Name: "Commodore - Amiga", BrowseURL: "https://edgeemu.net/browse/commodore-amiga", Folder: "AMIGA"},
+	"amigacd":   {Name: "Commodore - Amiga CD", BrowseURL: "https://edgeemu.net/browse/commodore-amiga-cd", Folder: "AMIGACD"},
+	"amigacd32": {Name: "Commodore - Amiga CD32", BrowseURL: "https://edgeemu.net/browse/commodore-amiga-cd32", Folder: "AMIGACD32"},
+	"plus4":     {Name: "Commodore - Plus/4", BrowseURL: "https://edgeemu.net/browse/commodore-plus-4", Folder: "PLUS4"},
+	"vic20":     {Name: "Commodore - VIC-20", BrowseURL: "https://edgeemu.net/browse/commodore-vic-20", Folder: "VIC20"},
 	// Fairchild
-	"channelf":   {Name: "Fairchild - Channel F",               BrowseURL: "https://edgeemu.net/browse/fairchild-channel-f",            Folder: "CHANNELF"},
+	"channelf": {Name: "Fairchild - Channel F", BrowseURL: "https://edgeemu.net/browse/fairchild-channel-f", Folder: "CHANNELF"},
 	// GCE
-	"vectrex":    {Name: "GCE - Vectrex",                       BrowseURL: "https://edgeemu.net/browse/gce-vectrex",                     Folder: "VECTREX"},
+	"vectrex": {Name: "GCE - Vectrex", BrowseURL: "https://edgeemu.net/browse/gce-vectrex", Folder: "VECTREX"},
 	// Microsoft
-	"msx":        {Name: "Microsoft - MSX / MSX2",              BrowseURL: "https://edgeemu.net/browse/microsoft-msx",                  Folder: "MSX"},
+	"msx": {Name: "Microsoft - MSX / MSX2", BrowseURL: "https://edgeemu.net/browse/microsoft-msx", Folder: "MSX"},
 	// NEC
-	"pcecd":      {Name: "NEC - PC Engine CD / TurboGrafx CD",  BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-cd-turbografx-cd", Folder: "PCECD"},
-	"sgx":        {Name: "NEC - PC Engine SuperGrafx",          BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-supergrafx",        Folder: "SGX"},
-	"pce":        {Name: "NEC - PC Engine / TurboGrafx 16",     BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-turbografx-16",    Folder: "PCE"},
+	"pcecd": {Name: "NEC - PC Engine CD / TurboGrafx CD", BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-cd-turbografx-cd", Folder: "PCECD"},
+	"sgx":   {Name: "NEC - PC Engine SuperGrafx", BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-supergrafx", Folder: "SGX"},
+	"pce":   {Name: "NEC - PC Engine / TurboGrafx 16", BrowseURL: "https://edgeemu.net/browse/nec-pc-engine-turbografx-16", Folder: "PCE"},
 	// Nintendo
-	"nds":        {Name: "Nintendo - DS",                       BrowseURL: "https://edgeemu.net/browse/nintendo-ds",                    Folder: "NDS"},
-	"fds":        {Name: "Nintendo - Famicom Disk System",      BrowseURL: "https://edgeemu.net/browse/nintendo-fds",                   Folder: "FDS"},
-	"gb":         {Name: "Nintendo - Game Boy",                 BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy",               Folder: "GB"},
-	"gba":        {Name: "Nintendo - Game Boy Advance",         BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy-advance",       Folder: "GBA"},
-	"gbc":        {Name: "Nintendo - Game Boy Color",           BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy-color",         Folder: "GBC"},
-	"gc":         {Name: "Nintendo - GameCube",                 BrowseURL: "https://edgeemu.net/browse/nintendo-gamecube",              Folder: "GC"},
-	"n64":        {Name: "Nintendo - 64",                       BrowseURL: "https://edgeemu.net/browse/nintendo-64",                    Folder: "N64"},
-	"nes":        {Name: "Nintendo - NES",                      BrowseURL: "https://edgeemu.net/browse/nintendo-nes",                   Folder: "NES"},
-	"sat":        {Name: "Nintendo - Satellaview",              BrowseURL: "https://edgeemu.net/browse/nintendo-satellaview",           Folder: "SAT"},
-	"vb":         {Name: "Nintendo - Virtual Boy",              BrowseURL: "https://edgeemu.net/browse/nintendo-virtualboy",            Folder: "VB"},
-	"snes":       {Name: "Nintendo - SNES",                     BrowseURL: "https://edgeemu.net/browse/nintendo-snes",                  Folder: "SNES"},
+	"nds":  {Name: "Nintendo - DS", BrowseURL: "https://edgeemu.net/browse/nintendo-ds", Folder: "NDS"},
+	"fds":  {Name: "Nintendo - Famicom Disk System", BrowseURL: "https://edgeemu.net/browse/nintendo-fds", Folder: "FDS"},
+	"gb":   {Name: "Nintendo - Game Boy", BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy", Folder: "GB"},
+	"gba":  {Name: "Nintendo - Game Boy Advance", BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy-advance", Folder: "GBA"},
+	"gbc":  {Name: "Nintendo - Game Boy Color", BrowseURL: "https://edgeemu.net/browse/nintendo-gameboy-color", Folder: "GBC"},
+	"gc":   {Name: "Nintendo - GameCube", BrowseURL: "https://edgeemu.net/browse/nintendo-gamecube", Folder: "GC"},
+	"n64":  {Name: "Nintendo - 64", BrowseURL: "https://edgeemu.net/browse/nintendo-64", Folder: "N64"},
+	"nes":  {Name: "Nintendo - NES", BrowseURL: "https://edgeemu.net/browse/nintendo-nes", Folder: "NES"},
+	"sat":  {Name: "Nintendo - Satellaview", BrowseURL: "https://edgeemu.net/browse/nintendo-satellaview", Folder: "SAT"},
+	"vb":   {Name: "Nintendo - Virtual Boy", BrowseURL: "https://edgeemu.net/browse/nintendo-virtualboy", Folder: "VB"},
+	"snes": {Name: "Nintendo - SNES", BrowseURL: "https://edgeemu.net/browse/nintendo-snes", Folder: "SNES"},
 	// Panasonic
-	"3do":        {Name: "Panasonic - 3DO",                     BrowseURL: "https://edgeemu.net/browse/panasonic-3do",                  Folder: "3DO"},
+	"3do": {Name: "Panasonic - 3DO", BrowseURL: "https://edgeemu.net/browse/panasonic-3do", Folder: "3DO"},
 	// Philips
-	"cdi":        {Name: "Philips - CDi",                       BrowseURL: "https://edgeemu.net/browse/philips-cdi",                    Folder: "CDI"},
+	"cdi": {Name: "Philips - CDi", BrowseURL: "https://edgeemu.net/browse/philips-cdi", Folder: "CDI"},
 	// RCA
-	"studioii":   {Name: "RCA - Studio II",                     BrowseURL: "https://edgeemu.net/browse/rca-studioii",                   Folder: "STUDIOII"},
+	"studioii": {Name: "RCA - Studio II", BrowseURL: "https://edgeemu.net/browse/rca-studioii", Folder: "STUDIOII"},
 	// Sega
-	"32x":        {Name: "Sega - 32X",                          BrowseURL: "https://edgeemu.net/browse/sega-32x",                       Folder: "32X"},
-	"dc":         {Name: "Sega - Dreamcast",                    BrowseURL: "https://edgeemu.net/browse/sega-dreamcast",                 Folder: "DC"},
-	"gg":         {Name: "Sega - Game Gear",                    BrowseURL: "https://edgeemu.net/browse/sega-gamegear",                  Folder: "GG"},
-	"sms":        {Name: "Sega - Master System / Mark III",     BrowseURL: "https://edgeemu.net/browse/sega-sms",                       Folder: "SMS"},
-	"scd":        {Name: "Sega - Mega-CD / Sega CD",            BrowseURL: "https://edgeemu.net/browse/sega-cd",                        Folder: "SCD"},
-	"genesis":    {Name: "Sega - Mega Drive / Genesis",         BrowseURL: "https://edgeemu.net/browse/sega-genesis",                   Folder: "MD"},
-	"pico":       {Name: "Sega - PICO",                         BrowseURL: "https://edgeemu.net/browse/sega-pico",                      Folder: "PICO"},
-	"saturn":     {Name: "Sega - Saturn",                       BrowseURL: "https://edgeemu.net/browse/sega-saturn",                    Folder: "SATURN"},
-	"sg1000":     {Name: "Sega - SG-1000",                      BrowseURL: "https://edgeemu.net/browse/sega-sg1000",                    Folder: "SG1000"},
+	"32x":     {Name: "Sega - 32X", BrowseURL: "https://edgeemu.net/browse/sega-32x", Folder: "32X"},
+	"dc":      {Name: "Sega - Dreamcast", BrowseURL: "https://edgeemu.net/browse/sega-dreamcast", Folder: "DC"},
+	"gg":      {Name: "Sega - Game Gear", BrowseURL: "https://edgeemu.net/browse/sega-gamegear", Folder: "GG"},
+	"sms":     {Name: "Sega - Master System / Mark III", BrowseURL: "https://edgeemu.net/browse/sega-sms", Folder: "SMS"},
+	"scd":     {Name: "Sega - Mega-CD / Sega CD", BrowseURL: "https://edgeemu.net/browse/sega-cd", Folder: "SCD"},
+	"genesis": {Name: "Sega - Mega Drive / Genesis", BrowseURL: "https://edgeemu.net/browse/sega-genesis", Folder: "MD"},
+	"pico":    {Name: "Sega - PICO", BrowseURL: "https://edgeemu.net/browse/sega-pico", Folder: "PICO"},
+	"saturn":  {Name: "Sega - Saturn", BrowseURL: "https://edgeemu.net/browse/sega-saturn", Folder: "SATURN"},
+	"sg1000":  {Name: "Sega - SG-1000", BrowseURL: "https://edgeemu.net/browse/sega-sg1000", Folder: "SG1000"},
 	// Sinclair
-	"zx":         {Name: "Sinclair - ZX Spectrum +3",           BrowseURL: "https://edgeemu.net/browse/sinclair-zx-spectrum-3",         Folder: "ZX"},
+	"zx": {Name: "Sinclair - ZX Spectrum +3", BrowseURL: "https://edgeemu.net/browse/sinclair-zx-spectrum-3", Folder: "ZX"},
 	// SNK
-	"ngcd":       {Name: "SNK - Neo Geo CD",                    BrowseURL: "https://edgeemu.net/browse/snk-neo-geo-cd",                 Folder: "NGCD"},
-	"ngpc":       {Name: "SNK - Neo Geo Pocket Color",          BrowseURL: "https://edgeemu.net/browse/snk-ngpc",                       Folder: "NGPC"},
+	"ngcd": {Name: "SNK - Neo Geo CD", BrowseURL: "https://edgeemu.net/browse/snk-neo-geo-cd", Folder: "NGCD"},
+	"ngpc": {Name: "SNK - Neo Geo Pocket Color", BrowseURL: "https://edgeemu.net/browse/snk-ngpc", Folder: "NGPC"},
 	// Watara
-	"supervision": {Name: "Watara - Supervision",               BrowseURL: "https://edgeemu.net/browse/watara-supervision",             Folder: "SUPERVISION"},
+	"supervision": {Name: "Watara - Supervision", BrowseURL: "https://edgeemu.net/browse/watara-supervision", Folder: "SUPERVISION"},
 }
 
 var (
@@ -276,21 +277,80 @@ var (
 // ==========================================
 
 var (
-	toolsDir        string
-	transferDir     string // local ISO folder (default toolsDir/Transfer, or GODSEND_TRANSFER)
-	sevenZipBin     string
-	isoGodBin       string
-	jobQueue        sync.Map
-	suppressedJobs  sync.Map // games removed via /queue/remove — ignore logStatus until next /trigger
-	iaCookieHeader        string // GODSEND_IA_COOKIE — browser session for archive.org
-	iaAuthorizationHeader string // GODSEND_IA_AUTHORIZATION — optional Bearer/basic
-	iaDownloadConcurrency int    // GODSEND_IA_CONCURRENCY — parallel chunk workers (1-7, default 4)
+	toolsDir              string
+	transferDir           string // local ISO folder (default toolsDir/Transfer, or GODSEND_TRANSFER)
+	jobQueue              sync.Map
+	suppressedJobs        sync.Map // games removed via /queue/remove — ignore logStatus until next /trigger
+	iaCookieHeader        string   // GODSEND_IA_COOKIE — browser session for archive.org
+	iaAuthorizationHeader string   // GODSEND_IA_AUTHORIZATION — optional Bearer/basic
+	iaDownloadConcurrency int      // GODSEND_IA_CONCURRENCY — parallel chunk workers (1-7, default 4)
 	iaHTTPClient          *http.Client
 	serverIP              string
-	gamePartsMap    sync.Map
-	copyBuffer      []byte
-	xboxConnections sync.Map
+	gamePartsMap          sync.Map
+	copyBuffer            []byte
+	xboxConnections       sync.Map
+	// installTypeMap stores the user-selected install type per game: "god" or "content"
+	installTypeMap sync.Map
 )
+
+// ==========================================
+// MULTI-DISC COMPAT TABLE
+// ==========================================
+
+// discCompatRec holds the recommended install method for a known multi-disc title.
+type discCompatRec struct {
+	installType string // "god" or "content"
+	notes       string
+}
+
+// discCompatTable maps TitleID → recommendation for Disc 2+ of known titles.
+// Sourced from docs/multi-disc-compatibility.md.
+var discCompatTable = map[uint32]discCompatRec{
+	0x4D5308AB: {installType: "content", notes: "Disc 2 is bonus content loaded by Disc 1"},
+	0x555307DC: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x5345082C: {installType: "content", notes: "Disc 2 is bonus content loaded by Disc 1"},
+	0x53450833: {installType: "content", notes: "Disc 2 is bonus content loaded by Disc 1"},
+	0x4541082F: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x41560855: {installType: "content", notes: "Disc 2 is multiplayer/zombies content"},
+	0x41560817: {installType: "content", notes: "Disc 2 is spec ops content"},
+	0x41560882: {installType: "content", notes: "Disc 2 is spec ops content"},
+	0x41560812: {installType: "content", notes: "Disc 2 is multiplayer content"},
+	0x4541085F: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x45410850: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x45410889: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x524B4005: {installType: "content", notes: "Disc 2/3 are bonus content"},
+	0x4541082E: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x4541097C: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x5254082A: {installType: "content", notes: "Disc 2 is multiplayer content"},
+	0x5553083E: {installType: "content", notes: "Disc 2 continues the game as content"},
+	0x5454082B: {installType: "content", notes: "Disc 2 (Undead Nightmare) is content"},
+	0x5553081A: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x4541091B: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x5454086B: {installType: "content", notes: "Disc 2 is high-res texture pack"},
+	0x5553088F: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x4541089C: {installType: "content", notes: "Disc 2 is bonus content"},
+	0x0B4607F2: {installType: "god", notes: "Disc 2 is game continuation"},
+	0x4D5307E6: {installType: "god", notes: "Disc 2 is game continuation"},
+	0x4D5307F1: {installType: "god", notes: "Disc 2 is game continuation"},
+	0x4D53082D: {installType: "god", notes: "Disc 2 contains car/track data"},
+	0x4D53087F: {installType: "god", notes: "Disc 2 contains car/track data"},
+	0x5345200A: {installType: "god", notes: "Disc 2 is game continuation"},
+	0x4D530877: {installType: "god", notes: "Disc 2 is multiplayer disc"},
+	0x4D530830: {installType: "god", notes: "Multi-disc RPG — all discs are GOD"},
+	0x5345082D: {installType: "god", notes: "Disc 2 is game continuation"},
+	0x4D530810: {installType: "god", notes: "Disc 2 is game continuation"},
+}
+
+// discCompatRec returns the compat recommendation for a given TitleID and disc number.
+func discCompat(titleID uint32, discNumber byte) discCompatRec {
+	if discNumber <= 1 {
+		return discCompatRec{installType: "god"}
+	}
+	if rec, ok := discCompatTable[titleID]; ok {
+		return rec
+	}
+	return discCompatRec{installType: "content", notes: "Default: Disc 2+ is typically content"}
+}
 
 type XboxConnection struct {
 	IP        string `json:"ip"`
@@ -414,17 +474,14 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.1.0         ║")
+	fmt.Println("║    GODSend Backend Server v2.2.0         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
 		CopyBufferSize/1024/1024, ServeBufferSize/1024, FTPBufferSize/1024/1024)
-	fmt.Printf("[INFO] TCP: NODELAY=on SNDBUF=%dKB KeepAlive=%s\n", TCPSendBuffer/1024, TCPKeepAlive)
-	fmt.Printf("[INFO] File serving: sendfile() zero-copy via http.ServeContent\n")
 	fmt.Printf("[INFO] Transfer folder (local ISOs): %s\n", transferDir)
 	fmt.Printf("[INFO] ROM install path (on Xbox): [Drive]\\%s\\[System]\\\n", romRootPath)
-	verifyTools()
 
 	// Initialise build-state trackers for every platform
 	buildStatesMu.Lock()
@@ -472,6 +529,7 @@ func main() {
 	http.HandleFunc("/queue/remove", recoverMiddleware(handleQueueRemove))
 	http.HandleFunc("/debug", recoverMiddleware(handleDebug))
 	http.HandleFunc("/register", recoverMiddleware(handleRegister))
+	http.HandleFunc("/disc-info", recoverMiddleware(handleDiscInfo))
 	http.HandleFunc("/files/", recoverMiddleware(handleFileServe))
 
 	server := &http.Server{
@@ -516,13 +574,6 @@ func setupPaths() error {
 		logf("[INFO] Executable: %s", ex)
 	} else {
 		toolsDir = exDir
-	}
-	if runtime.GOOS == "windows" {
-		sevenZipBin = "7z.exe"
-		isoGodBin = "iso2god.exe"
-	} else {
-		sevenZipBin = "7zz"
-		isoGodBin = "iso2god"
 	}
 	for _, dir := range []string{"Ready", "Temp", "cache"} {
 		if err := os.MkdirAll(filepath.Join(toolsDir, dir), 0755); err != nil {
@@ -642,19 +693,6 @@ func cleanupEmptyReadyDirs() {
 		if !hasFiles {
 			logf("Cleanup: removing empty Ready dir: %s", e.Name())
 			os.RemoveAll(subDir)
-		}
-	}
-}
-
-func verifyTools() {
-	for _, t := range []struct{ n, p string }{
-		{"7-Zip", filepath.Join(toolsDir, sevenZipBin)},
-		{"iso2god", filepath.Join(toolsDir, isoGodBin)},
-	} {
-		if _, err := os.Stat(t.p); os.IsNotExist(err) {
-			logf("WARNING: %s not found at %s", t.n, t.p)
-		} else {
-			logf("%s found: %s", t.n, t.p)
 		}
 	}
 }
@@ -1209,11 +1247,16 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	if platform == "" {
 		platform = "xbox360"
 	}
+	installType := r.URL.Query().Get("install_type")
+	if installType == "" {
+		installType = "god"
+	}
+	installTypeMap.Store(gameName, installType)
 	xboxConnections.Store(gameName, XboxConnection{
 		IP: xboxIP, Drive: drive, GameName: gameName,
 		Platform: platform, Mode: mode, Timestamp: time.Now(),
 	})
-	logf("REGISTER: Xbox %s for %s (mode=%s drive=%s)", xboxIP, gameName, mode, drive)
+	logf("REGISTER: Xbox %s for %s (mode=%s drive=%s install=%s)", xboxIP, gameName, mode, drive, installType)
 	jsonSuccess(w, map[string]string{"status": "registered", "mode": mode, "ip": xboxIP, "drive": drive})
 }
 
@@ -1227,6 +1270,11 @@ func handleTrigger(w http.ResponseWriter, r *http.Request) {
 	if platform == "" {
 		platform = "xbox360"
 	}
+	installType := r.URL.Query().Get("install_type")
+	if installType == "" {
+		installType = "god"
+	}
+	installTypeMap.Store(gameName, installType)
 	suppressedJobs.Delete(gameName)
 
 	if status, exists := jobQueue.Load(gameName); exists {
@@ -1321,6 +1369,35 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
+}
+
+// handleDiscInfo probes a local ISO in the Transfer folder and returns disc
+// metadata along with a compat-table install recommendation.
+func handleDiscInfo(w http.ResponseWriter, r *http.Request) {
+	gameName := r.URL.Query().Get("game")
+	if gameName == "" {
+		jsonError(w, 400, "Missing game parameter")
+		return
+	}
+	iso := findLocalISO(gameName)
+	if iso == "" {
+		jsonError(w, 404, "No local ISO found for this game")
+		return
+	}
+	info, err := utils.ProbeISODiscInfo(iso)
+	if err != nil {
+		jsonError(w, 500, fmt.Sprintf("Disc probe failed: %v", err))
+		return
+	}
+	rec := discCompat(info.TitleID, info.DiscNumber)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"disc_number":    info.DiscNumber,
+		"disc_count":     info.DiscCount,
+		"title_id":       fmt.Sprintf("%08X", info.TitleID),
+		"recommendation": rec.installType,
+		"notes":          rec.notes,
+	})
 }
 
 func handleQueue(w http.ResponseWriter, r *http.Request) {
@@ -1786,13 +1863,29 @@ func processLocalISO(gameName, isoPath string) {
 		cc := c.(XboxConnection)
 		xboxConn = &cc
 	}
+
+	// Check install type — "content" routes to content-folder install, not GOD.
+	installType := "god"
+	if it, ok := installTypeMap.Load(gameName); ok {
+		installType = it.(string)
+	}
+	if installType == "content" {
+		processContentInstallFromISO(gameName, safeName, isoPath, xboxConn)
+		if gs, ok := jobQueue.Load(gameName); ok && gs.(GameStatus).State == "Ready" {
+			if err := os.Remove(isoPath); err == nil {
+				logf("Cleanup: deleted source ISO: %s", filepath.Base(isoPath))
+			}
+		}
+		return
+	}
+
 	gameDir := filepath.Join(toolsDir, "Ready", safeName)
 	os.MkdirAll(gameDir, 0755)
 
 	logStatus(gameName, "Processing", "Converting ISO to GOD...")
 	godDir := filepath.Join(toolsDir, "Temp", safeName+"_GOD")
 	os.MkdirAll(godDir, 0755)
-	if err := runIso2God(isoPath, godDir); err != nil {
+	if err := utils.RunIso2GodNative(isoPath, godDir); err != nil {
 		logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err))
 		os.RemoveAll(godDir)
 		return
@@ -1855,7 +1948,7 @@ func processGame(gameName, platform string) {
 	}
 
 	logStatus(gameName, "Processing", "Extracting ISO...")
-	isoPath, err := extractISO(archivePath, safeName)
+	isoPath, err := utils.ExtractISO(archivePath, safeName, filepath.Join(toolsDir, "Temp"))
 	os.Remove(archivePath)
 	if err != nil {
 		logf("ERROR [%s]: Extract failed: %v", gameName, err)
@@ -1863,10 +1956,21 @@ func processGame(gameName, platform string) {
 		return
 	}
 
+	// Check install type — "content" routes to content-folder install, not GOD.
+	installType := "god"
+	if it, ok := installTypeMap.Load(gameName); ok {
+		installType = it.(string)
+	}
+	if installType == "content" {
+		processContentInstallFromISO(gameName, safeName, isoPath, xboxConn)
+		os.Remove(isoPath)
+		return
+	}
+
 	logStatus(gameName, "Processing", "Converting to GOD...")
 	godDir := filepath.Join(toolsDir, "Temp", safeName+"_GOD")
 	os.MkdirAll(godDir, 0755)
-	if err := runIso2God(isoPath, godDir); err != nil {
+	if err := utils.RunIso2GodNative(isoPath, godDir); err != nil {
 		logf("ERROR [%s]: iso2god failed: %v", gameName, err)
 		logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err))
 		os.Remove(isoPath)
@@ -1918,6 +2022,127 @@ func finalizeGOD(gameName, safeName, gameDir, godDir, titleID, mediaID string, x
 }
 
 // ==========================================
+// CONTENT INSTALL (Disc 2+ DLC path)
+// ==========================================
+
+// processContentInstallFromISO extracts the secondary-disc content from an ISO
+// and either FTPs it to the Xbox or packages it for HTTP delivery.
+// Install path on Xbox: {Drive}\Content\0000000000000000\{TitleID}\00000002\
+func processContentInstallFromISO(gameName, safeName, isoPath string, xboxConn *XboxConnection) {
+	logf("=== Content install: %s ===", gameName)
+
+	logStatus(gameName, "Processing", "Reading disc info...")
+	info, err := utils.ProbeISODiscInfo(isoPath)
+	if err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Disc probe: %v", err))
+		return
+	}
+	titleID := fmt.Sprintf("%08X", info.TitleID)
+	logf("Content install: TitleID=%s disc=%d/%d", titleID, info.DiscNumber, info.DiscCount)
+
+	logStatus(gameName, "Processing", "Extracting content files from ISO...")
+	contentDir := filepath.Join(toolsDir, "Temp", safeName+"_content")
+	os.RemoveAll(contentDir)
+	os.MkdirAll(contentDir, 0755)
+	if err := utils.ExtractXDVDFSContentToDir(isoPath, contentDir, info); err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Content extract: %v", err))
+		os.RemoveAll(contentDir)
+		return
+	}
+
+	if xboxConn != nil && xboxConn.Mode == "ftp" {
+		logStatus(gameName, "Processing", "FTP Transfer starting...")
+		if err := ftpTransferContent(contentDir, xboxConn, gameName, titleID); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
+			os.RemoveAll(contentDir)
+			return
+		}
+		os.RemoveAll(contentDir)
+		logStatus(gameName, "Ready", "FTP Transfer Complete!")
+	} else {
+		gameDir := filepath.Join(toolsDir, "Ready", safeName)
+		os.MkdirAll(gameDir, 0755)
+
+		logStatus(gameName, "Processing", "Packaging content for transfer...")
+		partName := safeName + "_Part1.7z"
+		if err := utils.CreateZipFromDir(contentDir, filepath.Join(gameDir, partName)); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("Archive: %v", err))
+			os.RemoveAll(contentDir)
+			return
+		}
+		os.RemoveAll(contentDir)
+		gamePartsMap.Store(gameName, []string{partName})
+		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\00000002\\", titleID)
+		updateGameINI_Content(gameDir, gameName, titleID, partName, relPath)
+		logStatus(gameName, "Ready", "Ready to Install")
+	}
+	logf("=== Complete (Content): %s ===", gameName)
+}
+
+// ftpTransferContent FTPs extracted content files to
+// {Drive}/Content/0000000000000000/{titleID}/00000002/ on the Xbox.
+func ftpTransferContent(contentDir string, conn *XboxConnection, gameName, titleID string) error {
+	fc, err := connectWithRetry(conn.IP)
+	if err != nil {
+		return err
+	}
+	defer fc.Quit()
+
+	drive := strings.TrimSuffix(conn.Drive, ":")
+	base := fmt.Sprintf("/%s/Content/0000000000000000/%s/00000002", drive, titleID)
+	logf("FTP Content Dest: %s", base)
+	ftpMkdirAll(fc, base)
+
+	var totalFiles int
+	var totalSize int64
+	filepath.Walk(contentDir, func(p string, i os.FileInfo, e error) error {
+		if e == nil && !i.IsDir() {
+			totalFiles++
+			totalSize += i.Size()
+		}
+		return nil
+	})
+
+	var xferred int
+	var xferSize int64
+	xferStart := time.Now()
+	return filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, _ := filepath.Rel(contentDir, path)
+		rel = strings.ReplaceAll(rel, "\\", "/")
+		remote := base + "/" + rel
+		if info.IsDir() {
+			fc.MakeDir(remote)
+			return nil
+		}
+		xferred++
+		return ftpUploadWithRetry(fc, conn.IP, path, remote, gameName, &xferSize, totalSize, xferred, totalFiles, xferStart)
+	})
+}
+
+// updateGameINI_Content writes a manifest for secondary-disc content installs.
+func updateGameINI_Content(gameDir, gameName, titleID, partFile, relPath string) {
+	f, err := os.Create(filepath.Join(gameDir, "godsend.ini"))
+	if err != nil {
+		logf("INI ERROR: %v", err)
+		return
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	enc := func(s string) string {
+		s = strings.ReplaceAll(s, " ", "%20")
+		s = strings.ReplaceAll(s, "(", "%28")
+		s = strings.ReplaceAll(s, ")", "%29")
+		return s
+	}
+	fmt.Fprintf(w, "[%s]\ntype=content\ntitleid=%s\npath=%s\ndataurl=%s\n",
+		gameName, titleID, relPath, enc(partFile))
+	w.Flush()
+}
+
+// ==========================================
 // GENERIC GAME PROCESSING (XBOX_360_* collections)
 // Handles: zip/rar → ISO (iso2god) OR XEX folder
 // ==========================================
@@ -1961,7 +2186,7 @@ func processGenericGame(gameName string) {
 	extDir := filepath.Join(toolsDir, "Temp", safeName+"_ext")
 	os.RemoveAll(extDir)
 	defer os.RemoveAll(extDir)
-	if err := extractArchive(archivePath, extDir); err != nil {
+	if err := utils.ExtractArchive(archivePath, extDir); err != nil {
 		logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
 		return
 	}
@@ -1976,7 +2201,7 @@ func processGenericGame(gameName string) {
 		logStatus(gameName, "Processing", "ISO detected, converting to GOD...")
 		godDir := filepath.Join(toolsDir, "Temp", safeName+"_GOD")
 		os.MkdirAll(godDir, 0755)
-		if err := runIso2God(isoPath, godDir); err != nil {
+		if err := utils.RunIso2GodNative(isoPath, godDir); err != nil {
 			logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err))
 			os.RemoveAll(godDir)
 			return
@@ -2003,7 +2228,7 @@ func processGenericGame(gameName string) {
 		} else {
 			// Package the XEX folder contents as a 7z archive
 			partName := fmt.Sprintf("%s_Part1.7z", safeName)
-			if err := createZipFromDir(xexFolder, filepath.Join(gameDir, partName)); err != nil {
+			if err := utils.CreateZipFromDir(xexFolder, filepath.Join(gameDir, partName)); err != nil {
 				logStatus(gameName, "Error", fmt.Sprintf("Archive XEX: %v", err))
 				return
 			}
@@ -2129,7 +2354,7 @@ func processDigital(gameName, platform string) {
 	extDir := filepath.Join(toolsDir, "Temp", safeName+"_ext")
 	os.RemoveAll(extDir)
 	defer os.RemoveAll(extDir)
-	if err := extractArchive(archivePath, extDir); err != nil {
+	if err := utils.ExtractArchive(archivePath, extDir); err != nil {
 		logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
 		return
 	}
@@ -2218,11 +2443,11 @@ func ftpTransferGame(godDir string, conn *XboxConnection, gameName, titleID, med
 	}
 	folderID = sanitizeFilename(folderID)
 	drive := strings.TrimSuffix(conn.Drive, ":")
-	base := fmt.Sprintf("/%s/GOD/%s - %s/%s", drive, folderID, titleID, mediaID)
+	base := fmt.Sprintf("/%s/GOD/%s - %s", drive, folderID, titleID)
 	logf("FTP GOD Dest: %s", base)
 	ftpMkdirAll(fc, base)
 
-	contentDir := filepath.Join(godDir, titleID, mediaID)
+	contentDir := filepath.Join(godDir, titleID)
 	if _, err := os.Stat(contentDir); os.IsNotExist(err) {
 		return fmt.Errorf("GOD content not found: %s", contentDir)
 	}
@@ -2404,7 +2629,7 @@ func bucketAndZip(src, dest, gameName, safeName string) (string, string, error) 
 	pn := 1
 	cpd := filepath.Join(staging, fmt.Sprintf("%s_Part%d", safeName, pn))
 	os.MkdirAll(cpd, 0755)
-	contentDir := filepath.Join(src, titleID, mediaID)
+	contentDir := filepath.Join(src, titleID)
 	err = filepath.Walk(contentDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
@@ -2412,7 +2637,7 @@ func bucketAndZip(src, dest, gameName, safeName string) (string, string, error) 
 		rel, _ := filepath.Rel(contentDir, path)
 		if curSize+info.Size() > MaxPartSize && curSize > 0 {
 			pname := fmt.Sprintf("%s_Part%d.7z", safeName, pn)
-			if err := createZipFromDir(cpd, filepath.Join(dest, pname)); err != nil {
+			if err := utils.CreateZipFromDir(cpd, filepath.Join(dest, pname)); err != nil {
 				return err
 			}
 			parts = append(parts, pname)
@@ -2435,7 +2660,7 @@ func bucketAndZip(src, dest, gameName, safeName string) (string, string, error) 
 	}
 	if curSize > 0 {
 		pname := fmt.Sprintf("%s_Part%d.7z", safeName, pn)
-		if err := createZipFromDir(cpd, filepath.Join(dest, pname)); err != nil {
+		if err := utils.CreateZipFromDir(cpd, filepath.Join(dest, pname)); err != nil {
 			os.RemoveAll(staging)
 			return "", "", err
 		}
@@ -2447,6 +2672,8 @@ func bucketAndZip(src, dest, gameName, safeName string) (string, string, error) 
 }
 
 func detectGodStructure(godDir string) (string, string, error) {
+	// Layout: godDir/{TitleID}/{MediaID} (CON header file) + Data0000… alongside it.
+	// The MediaID file is the one that is not named Data*.
 	entries, err := os.ReadDir(godDir)
 	if err != nil {
 		return "", "", err
@@ -2455,13 +2682,14 @@ func detectGodStructure(godDir string) (string, string, error) {
 		if !e.IsDir() {
 			continue
 		}
-		subs, err := os.ReadDir(filepath.Join(godDir, e.Name()))
+		titleID := e.Name()
+		subs, err := os.ReadDir(filepath.Join(godDir, titleID))
 		if err != nil {
 			continue
 		}
 		for _, s := range subs {
-			if s.IsDir() {
-				return e.Name(), s.Name(), nil
+			if !s.IsDir() && !strings.HasPrefix(s.Name(), "Data") {
+				return titleID, s.Name(), nil
 			}
 		}
 	}
@@ -2776,55 +3004,6 @@ func iaDownloadSingleAttempt(urlStr, dest, name, ref string, isIA bool) error {
 	return nil
 }
 
-// extractArchive extracts any 7-Zip-supported archive (zip, rar, 7z) to destDir.
-func extractArchive(archivePath, destDir string) error {
-	os.MkdirAll(destDir, 0755)
-	out, err := exec.Command(
-		filepath.Join(toolsDir, sevenZipBin),
-		"x", archivePath, "-o"+destDir, "-y",
-	).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("7z: %v | %s", err, string(out))
-	}
-	return nil
-}
-
-// extractISO extracts only the ISO file(s) from an archive.
-func extractISO(archivePath, safeName string) (string, error) {
-	dest := filepath.Join(toolsDir, "Temp", safeName+"_extracted")
-	os.RemoveAll(dest)
-	out, err := exec.Command(
-		filepath.Join(toolsDir, sevenZipBin),
-		"x", archivePath, "-o"+dest, "*.iso", "-r", "-y",
-	).CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("7z: %v | %s", err, string(out))
-	}
-	iso := findFileByExt(dest, ".iso")
-	if iso == "" {
-		return "", fmt.Errorf("no ISO found in archive")
-	}
-	return iso, nil
-}
-
-func runIso2God(iso, out string) error {
-	o, err := exec.Command(filepath.Join(toolsDir, isoGodBin), iso, out).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("iso2god: %v | %s", err, string(o))
-	}
-	return nil
-}
-
-func createZipFromDir(dir, out string) error {
-	cmd := exec.Command(filepath.Join(toolsDir, sevenZipBin), "a", "-t7z", "-mx0", out, "*")
-	cmd.Dir = dir
-	o, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("7z: %v | %s", err, string(o))
-	}
-	return nil
-}
-
 func copyFileBuffered(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
@@ -2982,8 +3161,8 @@ func fetchEdgeEmuGames(browseURL string) ([]string, map[string]string, error) {
 		}
 		count := 0
 		for _, m := range reDownload.FindAllStringSubmatch(string(body), -1) {
-			fullPath := m[1]    // e.g. /download/nintendo-gameboy-advance/Game%20Name%20(USA).zip
-			encoded := m[2]    // e.g. Game%20Name%20(USA).zip
+			fullPath := m[1] // e.g. /download/nintendo-gameboy-advance/Game%20Name%20(USA).zip
+			encoded := m[2]  // e.g. Game%20Name%20(USA).zip
 
 			// URL-decode the filename and strip .zip to get the display name
 			decoded, err := url.QueryUnescape(strings.ReplaceAll(encoded, "+", "%2B"))
@@ -3115,7 +3294,7 @@ func processROM(gameName, sysid string) {
 	extDir := filepath.Join(toolsDir, "Temp", safeName+"_rom_ext")
 	os.RemoveAll(extDir)
 	defer os.RemoveAll(extDir)
-	if err := extractArchive(zipPath, extDir); err != nil {
+	if err := utils.ExtractArchive(zipPath, extDir); err != nil {
 		logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
 		return
 	}
@@ -3159,7 +3338,7 @@ func processROM(gameName, sysid string) {
 		logStatus(gameName, "Processing", "Archiving for HTTP transfer...")
 		archiveName := safeName + ".7z"
 		archiveDest := filepath.Join(gameDir, archiveName)
-		if err := compressROMFile(romFile, archiveDest, gameName); err != nil {
+		if err := utils.CompressROMFile(romFile, archiveDest); err != nil {
 			logStatus(gameName, "Error", fmt.Sprintf("Compress: %v", err))
 			return
 		}
@@ -3186,21 +3365,6 @@ func findROMFiles(dir string) []string {
 		return nil
 	})
 	return files
-}
-
-// compressROMFile compresses a single ROM file to a .7z archive.
-// Runs 7z from the ROM's directory so the archive contains only the filename (no path).
-func compressROMFile(romFile, destArchive, gameName string) error {
-	logStatus(gameName, "Processing", "Compressing ROM...")
-	cmd := exec.Command(
-		filepath.Join(toolsDir, sevenZipBin),
-		"a", "-mx=1", "-mmt=on", destArchive, filepath.Base(romFile),
-	)
-	cmd.Dir = filepath.Dir(romFile)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("7z: %v: %s", err, string(out))
-	}
-	return nil
 }
 
 // updateGameINI_ROM writes a godsend.ini manifest for a ROM install.

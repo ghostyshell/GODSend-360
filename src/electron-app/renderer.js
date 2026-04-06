@@ -18,6 +18,13 @@ const romPathSaveBtn     = document.getElementById("romPathSaveBtn");
 const romPathResetBtn    = document.getElementById("romPathResetBtn");
 const cacheRefreshBtn    = document.getElementById("cacheRefreshBtn");
 const cacheRefreshStatus = document.getElementById("cacheRefreshStatus");
+const xboxIpEl               = document.getElementById("xboxIp");
+const ftpUserEl              = document.getElementById("ftpUser");
+const ftpPasswordEl          = document.getElementById("ftpPassword");
+const ftpScriptsPathEl       = document.getElementById("ftpScriptsPath");
+const ftpScriptsPathResetBtn = document.getElementById("ftpScriptsPathResetBtn");
+const ftpScriptsBtn          = document.getElementById("ftpScriptsBtn");
+const ftpScriptsStatus       = document.getElementById("ftpScriptsStatus");
 const pageHome           = document.getElementById("page-home");
 const pageSettings       = document.getElementById("page-settings");
 
@@ -65,6 +72,12 @@ async function initialize() {
   iaConcurrencyValEl.textContent = String(concurrency);
 
   romPathEl.value = await window.godsendApi.getROMPath();
+
+  const xboxConn = await window.godsendApi.getXboxConnection();
+  xboxIpEl.value         = xboxConn.xboxIp         || "";
+  ftpUserEl.value        = xboxConn.ftpUser         || "";
+  ftpPasswordEl.value    = xboxConn.ftpPassword     || "";
+  ftpScriptsPathEl.value = xboxConn.ftpScriptsPath  || "";
 
   const lines = await window.godsendApi.getOutputBuffer();
   outputEl.textContent = lines.join("\n");
@@ -151,8 +164,50 @@ romPathResetBtn.addEventListener("click", async () => {
   romPathEl.value = await window.godsendApi.getROMPath();
 });
 
+ftpScriptsPathResetBtn.addEventListener("click", async () => {
+  ftpScriptsPathEl.value = await window.godsendApi.getFtpScriptsPathDefault();
+});
+
+ftpScriptsBtn.addEventListener("click", async () => {
+  const xboxIp = xboxIpEl.value.trim();
+  if (!xboxIp) {
+    ftpScriptsStatus.textContent = "Enter the Xbox IP address first.";
+    return;
+  }
+  ftpScriptsBtn.disabled = true;
+  ftpScriptsStatus.textContent = "Starting…";
+  try {
+    // Save all connection settings before uploading so they persist across sessions.
+    await window.godsendApi.setXboxConnection({
+      xboxIp,
+      ftpUser:        ftpUserEl.value.trim(),
+      ftpPassword:    ftpPasswordEl.value,
+      ftpScriptsPath: ftpScriptsPathEl.value.trim(),
+    });
+    const r = await window.godsendApi.ftpAuroraScripts({
+      xboxIp,
+      ftpUser:        ftpUserEl.value.trim(),
+      ftpPassword:    ftpPasswordEl.value,
+      ftpScriptsPath: ftpScriptsPathEl.value.trim(),
+    });
+    ftpScriptsStatus.textContent = r.ok
+      ? "Aurora scripts uploaded successfully."
+      : `Failed: ${r.error || "unknown error"}`;
+  } catch (err) {
+    ftpScriptsStatus.textContent = `Failed: ${err.message || "unknown error"}`;
+  } finally {
+    ftpScriptsBtn.disabled = false;
+  }
+});
+
 // ── Live output ──
 
 window.godsendApi.onOutput((line) => appendLine(line));
+
+// ── FTP progress ──
+
+window.godsendApi.onFtpProgress((msg) => {
+  ftpScriptsStatus.textContent = msg;
+});
 
 initialize().catch((err) => appendLine(`[ERROR] UI init failed: ${err.message}`));
