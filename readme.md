@@ -48,9 +48,9 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 #### Windows tray app (Electron) + backend
 
-- **What:** Run the Go HTTP server from your PC with a small UI, live log output, and settings.
-- **How:** Open GODsend from the Start Menu; use the tray icon for the window. Restart the backend from the home screen; optional **Start with Windows** in Settings.
-- **How it works:** Electron spawns `godsend` with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings.
+- **What:** Run the Go HTTP server from your PC with a small UI, live log output, and settings. One-click upload of Aurora scripts to the Xbox via FTP with live per-file progress.
+- **How:** Open GODsend from the Start Menu; use the tray icon for the window. Restart the backend from the home screen; optional **Start with Windows** in Settings. In Settings → **Xbox connection**, enter your Xbox IP and click **FTP Aurora Scripts to Xbox** — your PC's IP is patched into `GODSend.ini` automatically and upload progress is shown file-by-file.
+- **How it works:** Electron spawns `godsend` with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings. The FTP upload streams `godsend-ftp-progress` IPC events to the renderer so the button reflects real progress rather than a static label.
 
 #### Internet Archive account & parallel downloads
 
@@ -78,9 +78,15 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 #### Browse & install: Xbox 360 / original Xbox disc libraries (Internet Archive)
 
-- **What:** Redump-style ISO libraries converted for Aurora.
-- **How:** Main menu → **Xbox 360 Redump ISOs** or **Original Xbox Redump ISOs** → letter folder → title → destination drive → HTTP or FTP → confirm download/processing → install when **Ready**.
-- **How it works:** Backend downloads the ISO (or uses your local copy), converts it to GOD format natively (no external tools required), stages under `Ready/`, then either serves files over HTTP for the script to pull or pushes them over FTP to the paths you registered.
+- **What:** Redump-style ISO libraries converted for Aurora. After choosing transfer mode (HTTP/FTP) the script offers **GOD**, **DLC** (content install), or **XEX** for every title — pick the install layout that matches the disc.
+- **How:** Main menu → **Xbox 360 Redump ISOs** or **Original Xbox Redump ISOs** → letter folder → title → destination drive → HTTP or FTP → install type → confirm → install when **Ready**. A **[Recommended]** label appears when the server can determine the correct layout from the disc.
+- **How it works:** Backend downloads the ISO (or uses your local copy), converts it to GOD format natively (no external tools required), stages under `Ready/`, then either serves files over HTTP for the script to pull or pushes them over FTP to the paths you registered. Title names are resolved from XboxUnity → XboxDB → an embedded title list and used to name the GOD folder on the Xbox (e.g. `Open Season - 5454082A`) so Aurora shows the correct title.
+
+#### Multi-disc game support
+
+- **What:** Correct handling of multi-disc games where Disc 2 (or later) is DLC or bonus content rather than a standalone game — the server recommends the right install method per disc.
+- **How:** When triggering a Disc 2+ title the Aurora menu shows **GOD** or **Content** options with a **[Recommended]** label. Select the recommended option; for content discs the files land in `Content\0000000000000000\{TitleID}\00000002\` on the chosen drive. Disc 1 is always installed as GOD in the normal flow.
+- **How it works:** `/disc-info` checks the disc against a 40+ title compatibility table (`discCompatTable`) that maps each game's Title ID to the correct install method. Content discs often carry a generic placeholder Title ID (`FFED2000`) in their `default.xex`; the server automatically reads the real Title ID from the STFS/CON packages on the disc (header offset `0x0360`) so the content lands in the right folder even without manual input. Covered games include Borderlands (GOTY), Borderlands 2 (GOTY), Call of Duty, Mass Effect, Red Dead Redemption, Skyrim, L.A. Noire, and many more.
 
 #### Browse & install: XBLA, digital (No-Intro), DLC, Xbox Live Indie Games, 360 game archives
 
@@ -94,17 +100,28 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 - **How:** After picking a game, choose **HTTP (Download & Extract)** or **FTP (Direct Transfer - More Reliable)**.
 - **How it works:** **HTTP:** the console downloads from `/files/...` and Aurora’s script extracts/places files (ZIP/7z handling on-console where applicable). **FTP:** you register the console IP with `/register`; the server uploads directly to Aurora’s FTP server to the drive you selected, so the script only waits for completion.
 
-#### Install layouts: GOD, XEX folder, raw content, ROMs
+#### Install layouts: GOD, XEX folder, content (DLC), raw, ROMs
 
-- **What:** Different on-disk layouts depending on title type.
-- **How:** After **HTTP vs FTP**, the script asks **every** **Xbox 360 / Original / Local / Games Archive** title for **GOD / DLC / XEX** — **GOD** (ISO→GOD), **DLC** (content tree from ISO to `Content\…\00000002\`), **XEX** (loose `default.xex` folder in the downloaded archive). The server manifest matches that choice. **`/disc-info`** may mark a **[Recommended]** row when it can probe or hint. Follow prompts until success, then **Settings → Content → Scan** in Aurora (or launch RetroArch for ROMs).
-- **How it works:** **GOD:** script downloads manifest + `.7z` parts into `Games on Demand` layout. **XEX:** extracts an archive under `[drive]\XEX\...`. **Raw:** downloads a `.bin`/package into the path from the manifest (DLC often forces **Hdd1:**). **ROM:** extracts under a configurable retro root (see below).
+- **What:** Different on-disk layouts depending on title type. The backend handles all conversion and packaging natively — no external tools required.
+- **How:** After **HTTP vs FTP**, the script asks **every** **Xbox 360 / Original / Local / Games Archive** title for **GOD / DLC / XEX**. Follow prompts until success, then **Settings → Content → Scan** in Aurora (or launch RetroArch for ROMs).
+- **How it works:**
+  - **GOD** — ISO is converted to Games on Demand format; script downloads manifest + `.7z` parts into the `Games on Demand` folder structure (`GOD\{Name} - {TitleID}\{TitleID}\00007000\`).
+  - **DLC (Content)** — Content files are extracted from the ISO and placed in `Content\0000000000000000\{TitleID}\00000002\` on the target drive. The correct Title ID is resolved from the disc's content packages automatically (see Multi-disc game support above).
+  - **XEX** — The backend walks the XDVDFS filesystem for `default.xex`/`default.xbe` and extracts that game root to a loose folder under `[drive]\XEX\...`.
+  - **Raw** — A `.bin`/package is downloaded directly into the path specified in the manifest (DLC-type content forces **Hdd1:**).
+  - **ROM** — Archive is extracted under `[drive]\<ROM root>\<system folder>\` (configurable via Settings).
 
 #### Retro ROMs (EdgeEmu, many systems)
 
 - **What:** Browse and install classic ROM sets scraped from EdgeEmu-compatible metadata (dozens of consoles/handhelds).
 - **How:** **Retro ROMs** → pick system → folder → title → drive → HTTP or FTP → same wait/install flow as other libraries.
 - **How it works:** Backend fetches/builds per-system ROM lists (`rom_*` platforms), downloads archives when triggered, and emits a **rom**-type manifest with a drive-relative `rompath`. The script extracts under `[drive]\<ROM root>\<system folder>\`, where **ROM install path** in Settings sets the root (default `Emulators\RetroArch\roms`, passed to the backend as `GODSEND_ROM_PATH`).
+
+#### Persistent server logs
+
+- **What:** Daily rotating log files that capture all backend activity — useful for diagnosing failed installs, FTP errors, IA download issues, or anything else that goes wrong.
+- **How:** Logs are written automatically to `%APPDATA%\GODsend\logs\godsend-server-YYYY-MM-DD.log`. On the home screen, click **Open logs folder** to jump straight to today's file in File Explorer.
+- **How it works:** Each session opens with a banner that records app/Electron versions, OS, hostname, primary IPv4, `GODSEND_HOME`, backend executable path, effective Transfer folder, and all `GODSEND_*` environment variables (IA secrets redacted). Backend stdout/stderr are tagged `BACKEND_OUT`/`BACKEND_ERR`; UI events (FTP upload steps, cache refresh triggers, config saves, IA login) are tagged separately. Lines use ISO 8601 timestamps with PID so multi-process output is unambiguous.
 
 #### Developer / diagnostics
 
