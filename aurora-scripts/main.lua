@@ -1,6 +1,6 @@
 scriptTitle       = "GODSend Store"
 scriptAuthor      = "Nesquin/david12549 & ghosty99"
-scriptVersion     = "8.2.3"
+scriptVersion     = "8.2.4"
 scriptDescription = "Browse and install Xbox 360, Original, Digital (XBLA/DLC), and Retro ROMs via EdgeEmu!"
 scriptIcon        = "icon\\icon.xur"
 scriptPermissions = { "http", "filesystem" }
@@ -48,7 +48,7 @@ function main()
     -- Step 3: Main menu loop.
     while true do
         Menu.ResetMenu()
-        Menu.SetTitle("GODSend Store v8.2.3")
+        Menu.SetTitle("GODSend Store v8.2.4")
 
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Server Queue & Status  (Active Tasks)",            {action = "SHOW_QUEUE"}))
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Local Library  (Your Transfer Folder ISOs)",       {action = "BROWSE_LOCAL"}))

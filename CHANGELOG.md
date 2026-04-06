@@ -11,6 +11,17 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.2.5] — 2026-04-06
+
+### Fixed
+- **Content disc placeholder TitleID (`FFED2000`)** — Many publishers ship Add-On Content Discs whose `default.xex` carries a generic placeholder Title ID (`0xFFED2000`) instead of the parent game's real Title ID. The server now probes the STFS/CON content packages embedded in the disc (`content/0000000000000000/…/00000002/`): each package's STFS header at offset `0x0360` contains the correct parent Title ID. If the probe finds a valid non-placeholder Title ID it is used as the install destination; if the probe returns nothing the server falls back to game-name heuristics and logs a warning. Previously content always installed to the placeholder folder `FFED2000/00000002`, which Aurora/FSD would never associate with the parent game. (`utils.ProbeContentPackageTitleID`, `isContentDiscPlaceholderTitleID`, `guessTitleIDFromMultiDiscName` updated in `main.go` / `utils/iso2god.go`)
+- **`guessTitleIDFromMultiDiscName`** — now matches "add-on content" in the game name for Borderlands GOTY, so the name-based fallback also works when the disc is titled "Borderlands - Game of the Year Edition (USA) (Add-On Content Disc)".
+
+### Changed
+- **Version** — **2.2.5** (root + Electron `package.json`, backend banner `GODSend Backend Server v2.2.5`). Aurora script bundle **8.2.4** (`main.lua` / menu title; no Lua logic changes).
+
+---
+
 ## [2.2.4] — 2026-04-06
 
 ### Fixed

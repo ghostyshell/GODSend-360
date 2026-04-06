@@ -401,10 +401,24 @@ func guessTitleIDFromMultiDiscName(name string) uint32 {
 	if strings.Contains(l, "borderlands") && strings.Contains(l, "pre-sequel") {
 		return 0
 	}
-	if strings.Contains(l, "borderlands") && (strings.Contains(l, "goty") || strings.Contains(l, "game of the year") || strings.Contains(l, "triple pack")) {
+	// "Add-On Content Disc" releases for Borderlands GOTY use placeholder XEX TitleID FFED2000;
+	// the content belongs under the main game's TitleID 545407E7.
+	if strings.Contains(l, "borderlands") && (strings.Contains(l, "goty") || strings.Contains(l, "game of the year") || strings.Contains(l, "triple pack") || strings.Contains(l, "add-on content")) {
 		return 0x545407E7
 	}
 	return 0
+}
+
+// isContentDiscPlaceholderTitleID returns true when the title ID read from a
+// content disc's XEX is a known publisher placeholder rather than the parent
+// game's real Title ID. In these cases the correct destination Title ID must be
+// derived from the game name instead.
+func isContentDiscPlaceholderTitleID(tid uint32) bool {
+	switch tid {
+	case 0xFFED2000: // Borderlands GOTY Add-On Content Disc (2K Games placeholder)
+		return true
+	}
+	return false
 }
 
 type XboxConnection struct {
@@ -529,7 +543,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.2.4         ║")
+	fmt.Println("║    GODSend Backend Server v2.2.5         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
@@ -2277,6 +2291,20 @@ func processContentInstallFromISO(gameName, safeName, isoPath string, xboxConn *
 		return
 	}
 	titleID := fmt.Sprintf("%08X", info.TitleID)
+	if isContentDiscPlaceholderTitleID(info.TitleID) {
+		// Probe the content packages embedded in the disc for the real Title ID.
+		// STFS/CON files carry the parent game's Title ID at header offset 0x0360,
+		// which is always correct regardless of game name.
+		if probed, err := utils.ProbeContentPackageTitleID(isoPath, info); err == nil && probed != 0 {
+			logf("Content install: placeholder TitleID %s resolved to %08X from content packages", titleID, probed)
+			titleID = fmt.Sprintf("%08X", probed)
+		} else if guessed := guessTitleIDFromMultiDiscName(gameName); guessed != 0 {
+			logf("Content install: placeholder TitleID %s overridden to %08X from game name", titleID, guessed)
+			titleID = fmt.Sprintf("%08X", guessed)
+		} else {
+			logf("Content install: WARNING — TitleID %s is a known placeholder; could not resolve parent title from content packages or game name %q — content may install to wrong folder", titleID, gameName)
+		}
+	}
 	logf("Content install: TitleID=%s disc=%d/%d", titleID, info.DiscNumber, info.DiscCount)
 
 	logStatus(gameName, "Processing", "Extracting content files from ISO...")
