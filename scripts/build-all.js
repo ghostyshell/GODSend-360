@@ -23,15 +23,46 @@ function runNodeScript(relPath, cwd = root) {
   }
 }
 
+function cleanWindowsPackagingArtifacts() {
+  const winUnpacked = path.join(dist, "win-unpacked");
+  if (fs.existsSync(winUnpacked)) {
+    console.log("\n[build-all] Removing stale dist/win-unpacked (avoids flaky NSIS 7z step)");
+    fs.rmSync(winUnpacked, { recursive: true, force: true });
+  }
+  for (const name of fs.existsSync(dist) ? fs.readdirSync(dist) : []) {
+    if (name.endsWith(".nsis.7z")) {
+      fs.unlinkSync(path.join(dist, name));
+    }
+  }
+}
+
 function npmRun(script) {
   console.log(`\n[build-all] npm run ${script} (in src/electron-app)`);
-  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-  const r = spawnSync(npmCmd, ["run", script], {
-    stdio: "inherit",
-    cwd: electronDir,
-    env: process.env,
-    shell: false,
-  });
+  // Windows: spawnSync cannot run .cmd without shell (silent failure / exit 1). Use npm-cli.js + node.
+  const npmCli = path.join(
+    path.dirname(process.execPath),
+    "node_modules",
+    "npm",
+    "bin",
+    "npm-cli.js"
+  );
+  const r = fs.existsSync(npmCli)
+    ? spawnSync(node, [npmCli, "run", script], {
+        stdio: "inherit",
+        cwd: electronDir,
+        env: process.env,
+        windowsHide: process.platform === "win32",
+      })
+    : spawnSync("npm", ["run", script], {
+        stdio: "inherit",
+        cwd: electronDir,
+        env: process.env,
+        shell: false,
+      });
+  if (r.error) {
+    console.error("[build-all] npm spawn failed:", r.error.message);
+    process.exit(1);
+  }
   if (r.status !== 0) {
     process.exit(r.status ?? 1);
   }
@@ -54,6 +85,7 @@ console.log(`\n[build-all] node ${path.relative(root, syncIcon)}`);
     console.log(
       "\n[build-all] Windows host: building NSIS only. Run `npm run build` on Linux or macOS to produce the AppImage, or enable Windows Developer Mode if you need AppImage locally."
     );
+    cleanWindowsPackagingArtifacts();
     npmRun("build:nsis");
   } else if (platform === "linux") {
     npmRun("build:linux");

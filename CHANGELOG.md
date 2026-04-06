@@ -9,6 +9,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [2.2.1] — 2026-04-06
+
 ### Added
 - **`scripts/build-go-all.js`** — cross-compiles the Go server for Windows, Linux, and macOS (amd64/arm64) into `dist/`; uses `cwd` + `shell: false` so paths with spaces work; copies darwin/arm64 → `godsend-mac` for Electron/mac defaults.
 - **`scripts/build-all.js`** — full pipeline: Go all targets, `sync-assets-icon`, then OS-specific Electron (see Changed).
@@ -19,10 +23,12 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 - **`npm run build`** now runs `node scripts/build-all.js`: all Go targets, then Electron for the **host OS** — **NSIS** on Windows, **AppImage** on Linux, **AppImage** plus **arm64 and x64 DMGs** on macOS. **`npm run build:win`** is unchanged (Windows Go + NSIS only). **`AGENTS.md`** and **`readme.md`** describe the split.
 - **macOS DMG** artifact names include **`${arch}`** so arm64 and x64 builds do not overwrite each other.
+- Aurora script bundle version **8.1.1** (`main.lua`).
 
 ### Fixed
 - **AppImage on Windows** — unified build skips Linux AppImage on Windows (electron-builder symlink step needs Developer Mode / admin); build AppImage on Linux or macOS, or run `npm run build:wl` in `src/electron-app` if symlink creation is enabled.
-- **Node `DEP0190`** — `build-all.js` invokes **`npm.cmd`** with **`shell: false`** instead of `shell: true` when spawning `npm run`.
+- **`npm run build` on Windows** — `build-all.js` no longer spawns `npm.cmd` with `shell: false` (Node cannot execute `.cmd` that way, so the Electron step exited immediately with code 1). It now runs **`npm-cli.js` via the same `node` binary**; falls back to `npm` on Unix if that path is missing.
+- **NSIS / 7-Zip flake** — before Windows NSIS, `build-all.js` removes **`dist/win-unpacked`** and **`dist/*.nsis.7z`** so electron-builder does not archive a half-written or stale tree (fixes intermittent “cannot find GODsend.exe / godsend-backend.exe” from `7za`).
 
 ---
 
