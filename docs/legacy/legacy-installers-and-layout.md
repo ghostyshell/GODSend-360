@@ -37,7 +37,7 @@ In this repository, the same pieces are organised as:
 
 ### Following the spirit of the old guides
 
-You can still follow the high-level steps from the legacy PDF:
+You can still follow the high-level steps from the [legacy Windows install guide](godsend-windows-install-guide.md):
 
 1. **Install or build the backend**
    - Use the modern installer produced by `npm run build`, or build `dist/godsend.exe` directly with Go.
@@ -50,11 +50,8 @@ You can still follow the high-level steps from the legacy PDF:
    - Enable the FTP server in Aurora settings so the backend can push content (FTP mode).
    - Configure content paths and run a content scan so GOD/XEX/DLC installs appear.
 
-### PDF guide
+### Legacy Windows install guide (Markdown)
 
-Place the legacy PDF (for example, `godsend windows install guide.pdf`) in:
+The full homelab-era Windows installer walkthrough and FAQ live in:
 
-- `docs/godsend-windows-install-guide.pdf`
-
-and open it directly when you need the full, illustrated Windows installer walkthrough and FAQ.
-
+- [`godsend-windows-install-guide.md`](godsend-windows-install-guide.md)

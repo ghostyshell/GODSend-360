@@ -24,11 +24,13 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 
 - **Entry point**
   - `main.go`: process startup, HTTP handler registration (for now), environment/config wiring, banner printing.
+  - `embed_titles.go` + `data/iso2god_titles.jsonl`: embeds the iso2god-rs title list and registers it with `services` at init.
+- **`services/title_lookup.go`**: Title ID → display name for LIVE CON title, FTP GOD folder names, and INI (`services.LookupTitleName`: XboxUnity → XboxDB JSON API → embedded iso2god-rs title list).
 - **`utils/`** (`package utils`)
-  - `iso2god.go`: pure-Go ISO→GOD conversion, archive extract/create, and disc metadata probe (`ProbeISODiscInfo`). Imported by `main`.
+  - `iso2god.go`: pure-Go ISO→GOD conversion, archive extract/create, and disc metadata probe (`ProbeISODiscInfo`). Imported by `main`. LIVE CON seed: `utils/data/empty_live.bin` (same file as iso2god-rs), embedded at build time.
 - **Domain & services**
   - `models/`: pure domain types and repository-like interfaces (e.g. `Game`, `Platform`, `JobStatus`, `GameRepository`, `QueueRepository`).
-  - `services/`: service interfaces coordinating application use-cases (e.g. `GameService`). Future concrete implementations should live here or under `infrastructure/` as appropriate.
+  - `services/`: service interfaces and shared application helpers (e.g. `GameService`, `LookupTitleName` in `title_lookup.go`). Future concrete implementations should live here or under `infrastructure/` as appropriate.
 - **Infrastructure & interfaces**
   - `infrastructure/`: environment/config resolution, filesystem paths, external process integration, FTP/IA clients.
   - `interfaces/http/`: HTTP router construction and request handlers that adapt the domain/services to concrete HTTP endpoints.
@@ -49,6 +51,7 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 - **Renderer bridge**
   - `preload.js`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`).
   - `renderer.js`: DOM-only UI and interaction logic, built on the preload API; no direct Node/Electron imports.
+- **Server file logging** (`infrastructure/serverLog.js`): appends backend stdout/stderr and session/context lines to `%APPDATA%\<app>\logs\godsend-server-YYYY-MM-DD.log`; wired from `services/backendClient.js` and `app/bootstrap.js` (IPC `logs:get-info`, `logs:open-folder`).
 - **Build scripts**
   - `scripts/sync-assets-icon.js`: pre-build script to normalise tray/icon artwork (`npm run build:win`).
   - `scripts/after-pack-win-icon.js`: `electron-builder` `afterPack` hook for embedding the icon into the Windows executable.
@@ -181,7 +184,7 @@ When making changes to Electron or the backend, prefer:
   - Avoid heavy allocations or deep recursion in hot paths.
   - Use `pcall` around operations that can throw from the host (e.g. `Http.*`, `IniFile`, `FileSystem`, `ZipFile`, `Script` UI calls).
 - Keep cross-module state centralised in `state.lua`.
-- Prefer defensive parsing for HTTP responses (`jsonField`, `validateResponse`) over brittle patterns.
+- Prefer defensive parsing for HTTP responses (`jsonField`, `validateResponse`) over brittle patterns; use **`sanitizeManifestValue`** / **`sanitizeIniTitleName`** on `IniFile.ReadValue` results that become paths, URLs, or filenames (NUL/control tails from Aurora).
 - When adding new functionality:
   - Add low-level helpers to `http_client.lua` or `services.lua`.
   - Add menu flows to `menu.lua`, calling into those helpers instead of duplicating HTTP logic.

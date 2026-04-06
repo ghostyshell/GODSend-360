@@ -1,6 +1,10 @@
 // Package utils — Pure-Go ISO→GOD converter and archive helpers (iso2god.go).
 //
 // Replaces the bundled iso2god.exe and 7z.exe binaries entirely.
+// Xbox 360/Original disc access uses the game-partition offset (XSF/XGD1/XGD2/XGD3)
+// and XDVDFS (2048-byte sectors) — the same on-disc layout tools like
+// [XboxDev/extract-xiso](https://github.com/XboxDev/extract-xiso) read for extract/create;
+// there is no separate “raw ISO” byte read path for console game data.
 //
 // ISO→GOD pipeline (RunIso2GodNative):
 //   1. Detect XGD disc format (XSF / XGD1 / XGD2 / XGD3)
@@ -11,11 +15,10 @@
 //   6. Build inter-partition MHT hash chain
 //   7. Write STFS/LIVE CON header file
 //
-// Output layout under outDir:
-//   {TitleID}/
-//     {MediaID}/
-//       Data0000  …  DataNNNN   ← STFS data partitions
-//       {MediaID}               ← STFS/LIVE CON header (no extension)
+// Output layout under outDir (matches github.com/iliazeus/iso2god-rs file_layout):
+//   {TitleID}/00007000/{MediaID}.data/Data0000 … DataNNNN   (Xbox 360 GOD)
+//   {TitleID}/00007000/{MediaID}                            ← CON (no extension)
+//   Original Xbox: 00005000, folder {TitleID}.data, CON name = TitleID.
 //
 // Archive helpers replace all exec.Command("7z …") calls:
 //   extractArchive   — read ZIP / 7z / RAR archives
@@ -28,16 +31,27 @@ package utils
 import (
 	"archive/zip"
 	"crypto/sha1"
+	_ "embed"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/bodgit/sevenzip"
 	"github.com/nwaples/rardecode"
 )
+
+//go:embed data/empty_live.bin
+var emptyLIVEBin []byte
+
+func init() {
+	if len(emptyLIVEBin) != conHeaderSz {
+		panic(fmt.Sprintf("iso2god: embedded data/empty_live.bin: want %d bytes, got %d", conHeaderSz, len(emptyLIVEBin)))
+	}
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Constants
@@ -133,11 +147,16 @@ type TitleExecInfo struct {
 // RunIso2GodNative converts an Xbox 360 (or Original Xbox) disc ISO into
 // Games-on-Demand format entirely in Go; no external binary is required.
 //
-// Output under outDir:
+// Output under outDir (same tree as iliazeus/iso2god-rs):
 //
-//	{TitleID}/{MediaID}/Data0000 … DataNNNN
-//	{TitleID}/{MediaID}/{MediaID}           ← STFS/LIVE CON header
-func RunIso2GodNative(isoPath, outDir string) error {
+//	{TitleID}/00007000/{MediaID}.data/Data0000 …   (Xbox 360)
+//	{TitleID}/00007000/{MediaID}                  ← STFS/LIVE CON header
+//	Original Xbox uses 00005000 and {TitleID}.data / CON name = TitleID.
+//
+// resolveDisplayTitle, if non-nil, is called with the Title ID from the ISO so
+// the LIVE header gets UTF-16 display title fields at 0x411 and 0x1691 (same as
+// iso2god-rs with_game_title). Pass nil to leave those slots zero.
+func RunIso2GodNative(isoPath, outDir string, resolveDisplayTitle func(titleID uint32) string) error {
 	f, err := os.Open(isoPath)
 	if err != nil {
 		return fmt.Errorf("iso2god: open %s: %w", isoPath, err)
@@ -168,10 +187,13 @@ func RunIso2GodNative(isoPath, outDir string) error {
 		mediaIDStr = titleIDStr // XBE has no separate media ID
 	}
 
-	// 4. Prepare output directory.
-	// Layout: outDir/{TitleID}/{MediaID} (CON header file) + Data0000… alongside it.
-	// All files sit flat inside the TitleID folder — no MediaID subfolder.
-	dataDir := filepath.Join(outDir, titleIDStr)
+	// 4. Prepare output directory (iso2god-rs layout: content-type folder + ".data" bundle).
+	contentTypeStr := "00007000"
+	if info.IsOriginalXbox {
+		contentTypeStr = "00005000"
+	}
+	innerBase := filepath.Join(outDir, titleIDStr, contentTypeStr)
+	dataDir := filepath.Join(innerBase, mediaIDStr+".data")
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return fmt.Errorf("iso2god: mkdir: %w", err)
 	}
@@ -205,9 +227,14 @@ func RunIso2GodNative(isoPath, outDir string) error {
 		return fmt.Errorf("iso2god: MHT chain: %w", err)
 	}
 
-	// 8. Write STFS/LIVE CON header.
-	conPath := filepath.Join(dataDir, mediaIDStr)
-	if err := writeConHeader(conPath, info, blockCount, partCount, partSizes, mhtHash); err != nil {
+	displayTitle := ""
+	if resolveDisplayTitle != nil {
+		displayTitle = strings.TrimSpace(resolveDisplayTitle(info.TitleID))
+	}
+
+	// 8. Write STFS/LIVE CON header (sibling of {MediaID}.data, not inside it).
+	conPath := filepath.Join(innerBase, mediaIDStr)
+	if err := writeConHeader(conPath, info, blockCount, partCount, partSizes, mhtHash, displayTitle); err != nil {
 		return fmt.Errorf("iso2god: CON header: %w", err)
 	}
 
@@ -581,7 +608,7 @@ func writePartMHT(dataDir string, idx uint64, mht *godHashList) error {
 
 // writeConHeader creates the 45 056-byte STFS/LIVE metadata header file that
 // Aurora/FSD uses to identify and launch a GOD game.
-func writeConHeader(path string, info *TitleExecInfo, blockCount, partCount uint64, partSizes []int64, mhtHash [20]byte) error {
+func writeConHeader(path string, info *TitleExecInfo, blockCount, partCount uint64, partSizes []int64, mhtHash [20]byte, displayTitle string) error {
 	buf := emptyLIVEHeader()
 
 	var contentType uint32
@@ -626,50 +653,65 @@ func writeConHeader(path string, info *TitleExecInfo, blockCount, partCount uint
 	totalSz := lastSz + int64(partCount-1)*fullPartBytes
 	binary.BigEndian.PutUint32(buf[0x03A4:], uint32(totalSz/0x100))
 
-	// No thumbnail icon.
-	binary.BigEndian.PutUint32(buf[0x1712:], 0)
-	binary.BigEndian.PutUint32(buf[0x1716:], 0)
+	// Display title (UTF-16 BE + NUL), same offsets as iso2god-rs ConHeaderBuilder::with_game_title.
+	if displayTitle != "" {
+		writeLIVETitleUTF16BE(buf, displayTitle)
+	}
 
-	// Finalise: ensure reserved bytes are zero, then SHA-1 over 0x0344…end.
+	// Thumbnail: iso2god-rs only touches 0x1712+ when with_game_icon(Some) is used; otherwise
+	// empty_live.bin values remain — do not zero here (would diverge from RS).
+
+	// Finalise: match iso2god-rs ConHeaderBuilder::finalize (then SHA-1 over 0x0344..0x0b000).
+	buf[0x035B] = 0
+	buf[0x035F] = 0
 	buf[0x0391] = 0
-	digest := sha1.Sum(buf[0x0344:])
+	digest := sha1.Sum(buf[0x0344 : 0x0b000])
 	copy(buf[0x032C:], digest[:])
 
 	return os.WriteFile(path, buf, 0644)
 }
 
-// emptyLIVEHeader returns the 45 056-byte base template that matches the
-// empty_live.bin shipped with iso2god-rs.  Non-zero fields are reconstructed
-// from the documented binary layout; all other bytes are zero.
-func emptyLIVEHeader() []byte {
-	buf := make([]byte, conHeaderSz)
+const (
+	liveTitleSlot1Off   = 0x0411
+	liveTitleSlot1Bytes = 0x1691 - liveTitleSlot1Off
+	liveTitleSlot2Off   = 0x1691
+	liveTitleSlot2Bytes = 0x1712 - liveTitleSlot2Off // stops before PNG size fields
+)
 
-	// "LIVE" signature
-	copy(buf[0:], "LIVE")
+// writeLIVETitleUTF16BE writes the same two title regions as iso2god-rs (full string
+// in slot 1; same string truncated to slot 2 if needed).
+func writeLIVETitleUTF16BE(buf []byte, title string) {
+	writeUTF16BENullTerminated(buf, liveTitleSlot1Off, liveTitleSlot1Bytes, title)
+	writeUTF16BENullTerminated(buf, liveTitleSlot2Off, liveTitleSlot2Bytes, title)
+}
 
-	// License-descriptor reserved area (8 × 0xFF at 0x022C)
-	for i := 0x022C; i < 0x0234; i++ {
-		buf[i] = 0xFF
+func writeUTF16BENullTerminated(buf []byte, offset, maxBytes int, s string) {
+	if maxBytes < 2 || offset < 0 || offset+maxBytes > len(buf) {
+		return
 	}
+	units := utf16.Encode([]rune(s))
+	maxUnits := (maxBytes - 2) / 2
+	if len(units) > maxUnits {
+		units = units[:maxUnits]
+	}
+	for len(units) > 0 && isUTF16HighSurrogate(units[len(units)-1]) {
+		units = units[:len(units)-1]
+	}
+	pos := 0
+	for _, u := range units {
+		binary.BigEndian.PutUint16(buf[offset+pos:], u)
+		pos += 2
+	}
+	binary.BigEndian.PutUint16(buf[offset+pos:], 0)
+}
 
-	// Pre-fill content type as GamesOnDemand; overwritten by writeConHeader.
-	binary.BigEndian.PutUint32(buf[0x0344:], 0x00007000)
+func isUTF16HighSurrogate(u uint16) bool { return u >= 0xD800 && u <= 0xDBFF }
 
-	// Metadata version = 2
-	binary.BigEndian.PutUint32(buf[0x0348:], 0x00000002)
-
-	// Volume-descriptor info bytes (observed from empty_live.bin)
-	buf[0x0342] = 0xAD
-	buf[0x0343] = 0x0E
-	buf[0x0379] = 0x24
-	buf[0x037A] = 0x05
-	buf[0x037B] = 0x05
-	buf[0x037C] = 0x11
-
-	// Content flags byte — confirmed 0x01 from empty_live.bin hex dump
-	buf[0x03AC] = 0x01
-
-	return buf
+// emptyLIVEHeader returns a copy of iliazeus/iso2god-rs `src/god/empty_live.bin` (embedded).
+func emptyLIVEHeader() []byte {
+	out := make([]byte, conHeaderSz)
+	copy(out, emptyLIVEBin)
+	return out
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1039,6 +1081,60 @@ func ExtractXDVDFSContentToDir(isoPath, destDir string, info *TitleExecInfo) err
 	}
 
 	return xdvdfsExtractRecursive(f, partOff, dSec, dSz, destDir)
+}
+
+// findXEXRootDirRecursive returns the XDVDFS directory (sector/size) that contains
+// default.xex or default.xbe, searching subdirectories depth-first.
+func findXEXRootDirRecursive(f *os.File, partOff uint64, dirSec, dirSz uint32) (uint32, uint32, bool) {
+	entries := readXDVDFSDirTable(f, partOff, dirSec, dirSz)
+	for _, e := range entries {
+		if e.isDir() {
+			continue
+		}
+		ln := strings.ToLower(e.name)
+		if ln == "default.xex" || ln == "default.xbe" {
+			return dirSec, dirSz, true
+		}
+	}
+	for _, e := range entries {
+		if !e.isDir() {
+			continue
+		}
+		if ds, dz, ok := findXEXRootDirRecursive(f, partOff, e.sector, e.size); ok {
+			return ds, dz, true
+		}
+	}
+	return 0, 0, false
+}
+
+// ExtractXEXFolderFromISO extracts the XDVDFS directory tree that contains default.xex
+// (Xbox 360) or default.xbe (Original Xbox) into destDir — equivalent to a loose XEX
+// folder layout for FTP/HTTP install.
+func ExtractXEXFolderFromISO(isoPath, destDir string) error {
+	f, err := os.Open(isoPath)
+	if err != nil {
+		return fmt.Errorf("xexFromISO: open: %w", err)
+	}
+	defer f.Close()
+	partOff, err := detectXGDPartition(f)
+	if err != nil {
+		return fmt.Errorf("xexFromISO: partition: %w", err)
+	}
+	rootSector, rootSize, err := readXDVDFSVolDesc(f, partOff)
+	if err != nil {
+		return fmt.Errorf("xexFromISO: volDesc: %w", err)
+	}
+	xSec, xSz, ok := findXEXRootDirRecursive(f, partOff, rootSector, rootSize)
+	if !ok {
+		return fmt.Errorf("xexFromISO: no default.xex or default.xbe in ISO")
+	}
+	if err := os.RemoveAll(destDir); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
+	}
+	return xdvdfsExtractRecursive(f, partOff, xSec, xSz, destDir)
 }
 
 // xdvdfsExtractRecursive recursively copies an XDVDFS directory tree into destDir.

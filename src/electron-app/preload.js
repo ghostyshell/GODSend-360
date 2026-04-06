@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("godsendApi", {
+  getLogsInfo: () => ipcRenderer.invoke("logs:get-info"),
+  openLogsFolder: () => ipcRenderer.invoke("logs:open-folder"),
   getStartupEnabled: () => ipcRenderer.invoke("startup:get"),
   setStartupEnabled: (enabled) => ipcRenderer.invoke("startup:set", enabled),
   getOutputBuffer: () => ipcRenderer.invoke("godsend:get-buffer"),

@@ -150,6 +150,107 @@ function showError(errorKey, extraInfo)
     Script.ShowMessageBox(err.title, msg, "OK")
 end
 
+-- Lua-owned copy: Aurora may reuse host buffers; sub(1,#s) forces a distinct string.
+local function copyLuaString(s)
+    if not s or type(s) ~= "string" or s == "" then return s end
+    return string.sub(s, 1, #s)
+end
+
+-- Byte-wise rebuild so native UI (e.g. ShowPopupList rows) does not show text from a buffer
+-- later overwritten when the next Http.Get URL is prepared (same class of bug as httpGet copy).
+local function detachHostString(s)
+    if type(s) ~= "string" or s == "" then return s end
+    local n = #s
+    local parts = {}
+    for i = 1, n do
+        parts[i] = string.char(string.byte(s, i))
+    end
+    return table.concat(parts)
+end
+
+-- Redump titles often end with ")." before ".iso". Aurora sometimes appends another ".",
+-- producing ".." at the end — collapse those. Do not strip a single trailing "." (legitimate).
+local function collapseDuplicateTrailingDots(s)
+    while #s >= 2 and s:sub(-2, -1) == ".." do
+        s = s:sub(1, -2)
+    end
+    local ff = "\239\188\142" -- U+FF0E fullwidth full stop (UTF-8)
+    while #s >= 3 and s:sub(-3, -1) == ff do
+        s = s:sub(1, -4)
+    end
+    return s
+end
+
+-- IniFile.ReadValue / downloaded manifest lines: Aurora often appends NUL tails or
+-- control bytes so paths and URLs get junk suffixes (wrong filenames on disk).
+function sanitizeManifestValue(s)
+    if not s or type(s) ~= "string" then return "" end
+    s = string.sub(s, 1, #s)
+    if s:sub(1, 3) == "\239\187\191" then s = s:sub(4) end -- UTF-8 BOM
+    local z = s:find("\0", 1, true)
+    if z then s = s:sub(1, z - 1) end
+    s = s:gsub("%c", "")
+    local m = s:match("^%s*(.-)%s*$")
+    return m or s
+end
+
+-- titlename field: same as manifest plus duplicate-trailing-dot collapse (browse titles).
+function sanitizeIniTitleName(s)
+    s = sanitizeManifestValue(s)
+    if s == "" then return s end
+    return collapseDuplicateTrailingDots(s)
+end
+
+-- Strip NUL padding and C0 control characters Aurora sometimes leaves on Http.Get
+-- bodies and ShowPopupList return values (causes local ISO name mismatches on PC).
+-- Also strip a leaked browse URL tail (host buffer reuse: e.g. "...USA)228:8080/browse?platform=local").
+function sanitizeGameNameFromHost(s)
+    if not s or type(s) ~= "string" then return "" end
+    s = copyLuaString(s)
+    -- Strip leaked GODsend browse URL (host buffer reuse). Align with Go browseURLLeakPattern:
+    -- optional scheme, dotted host or short host:port, then /browse?platform=…
+    s = s:gsub("https?://[%d%.]+:%d+/browse%?platform=[%w_]+", "")
+    s = s:gsub("%d+:%d+/browse%?platform=[%w_]+", "")
+    local z = s:find("\0", 1, true)
+    if z then s = s:sub(1, z - 1) end
+    s = s:gsub("%c", "")
+    local m = s:match("^%s*(.-)%s*$")
+    s = m or s
+    s = collapseDuplicateTrailingDots(s)
+    -- Letter-jump / quick-search: Aurora can append one ASCII letter after ")", e.g. "Open Season (USA)q"
+    for _ = 1, 8 do
+        local t = s:gsub("%)([a-zA-Z])$", ")")
+        if t == s then break end
+        s = t
+    end
+    return detachHostString(s)
+end
+
+-- Truncate browse/HTTP text at first NUL (oversized Aurora response buffers).
+function sanitizeBrowseBody(s)
+    if not s or type(s) ~= "string" then return s end
+    s = copyLuaString(s)
+    local z = s:find("\0", 1, true)
+    if z then return s:sub(1, z - 1) end
+    return s
+end
+
+-- Encode a game title for the `game=` query parameter. Go parses queries as
+-- application/x-www-form-urlencoded, where '+' is a space. If Http.UrlEncode
+-- leaves literal '+' in the output and the name has no spaces, re-encode '+' as %2B
+-- so filenames like "A+B" still match on the server.
+function encodeGameQueryParam(name)
+    if not name or name == "" then return nil end
+    name = sanitizeGameNameFromHost(name)
+    if name == "" then return nil end
+    local e = Http.UrlEncode(name)
+    if not e then return nil end
+    if not name:find(" ", 1, true) and e:find("+", 1, true) then
+        e = e:gsub("%+", "%%2B")
+    end
+    return e
+end
+
 -- ── Time / formatting helpers (global so services.lua can call getTime) ──────
 function getTime()
     local ok, t = pcall(Aurora.GetTime)
@@ -182,7 +283,15 @@ end
 function httpGet(url)
     local ok, r = pcall(Http.Get, url)
     if not ok then return nil, "HTTP request threw an error" end
-    if r and r.Success then return r.OutputData, nil end
+    if r and r.Success then
+        local out = r.OutputData
+        if type(out) == "string" and #out > 0 then
+            -- Force a Lua-owned copy: Aurora may reuse host buffers so strings alias
+            -- the next URL/response (game titles can pick up "228:8080/browse?platform=...").
+            out = string.sub(out, 1, #out)
+        end
+        return out, nil
+    end
     if r and r.StatusCode then
         return nil, "HTTP " .. tostring(r.StatusCode)
     end

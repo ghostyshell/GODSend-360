@@ -191,7 +191,7 @@ function showQueue()
                         "\nMsg: "   .. tostring(e.message), "OK")
                 end
             elseif sub.Selected and sub.Selected.Key == 2 then
-                local enc = Http.UrlEncode(e.game)
+                local enc = encodeGameQueryParam(e.game)
                 if enc then
                     local rm, rmErr = httpGet(SERVER_BASE .. "/queue/remove?game=" .. enc)
                     if rm and (rm:find("removed") or rm:find("status")) then
@@ -309,16 +309,21 @@ function browseROMLibrary(platform, sysName)
         return
     end
 
+    list_data = sanitizeBrowseBody(list_data)
+
     local buckets    = {}
     local bucketKeys = {}
     for game in list_data:gmatch("([^|]+)") do
-        local firstChar = string.upper(string.sub(game, 1, 1))
-        if string.match(firstChar, "%d") then firstChar = "#" end
-        if not buckets[firstChar] then
-            buckets[firstChar] = {}
-            table.insert(bucketKeys, firstChar)
+        game = sanitizeGameNameFromHost(game)
+        if game ~= "" then
+            local firstChar = string.upper(string.sub(game, 1, 1))
+            if string.match(firstChar, "%d") then firstChar = "#" end
+            if not buckets[firstChar] then
+                buckets[firstChar] = {}
+                table.insert(bucketKeys, firstChar)
+            end
+            table.insert(buckets[firstChar], game)
         end
-        table.insert(buckets[firstChar], game)
     end
 
     if #bucketKeys == 0 then
@@ -350,8 +355,8 @@ function browseROMLibrary(platform, sysName)
         local g = Script.ShowPopupList(title .. " > " .. selectedKey,
                                        "Select Game", gamesInBucket)
         if g and not g.Canceled then
-            local cleanName = gamesInBucket[g.Selected.Key]
-            if not cleanName then break end
+            local cleanName = sanitizeGameNameFromHost(gamesInBucket[g.Selected.Key])
+            if not cleanName or cleanName == "" then break end
 
             -- Drive picker
             local drives = {
@@ -427,24 +432,11 @@ function browseROMLibrary(platform, sysName)
     end
 end
 
--- ── Multi-disc helpers ────────────────────────────────────────────────────────
+-- ── Install method (GOD / DLC / XEX) ───────────────────────────────────────────
 
--- Returns true when a game name looks like a Disc 2 or higher.
-local function isMultiDiscGame(name)
-    local lower = name:lower()
-    return lower:match("disc%s*[2-9]")
-        or lower:match("disk%s*[2-9]")
-        or lower:match("%(disc%s*[2-9]%)")
-        or lower:match("%(disk%s*[2-9]%)")
-        or lower:match("cd%s*[2-9]")
-        or lower:match("%(cd%s*[2-9]%)")
-        or false
-end
-
--- Asks the server for a disc-info recommendation for a locally cached ISO.
--- Returns "god", "content", or nil (if no local ISO or server unreachable).
+-- Optional [Recommended] from /disc-info (Transfer ISO probe or filename hint).
 local function getDiscRecommendation(gameName)
-    local enc = Http.UrlEncode(gameName)
+    local enc = encodeGameQueryParam(gameName)
     if not enc then return nil end
     local json, _ = httpGet(SERVER_BASE .. "/disc-info?game=" .. enc)
     if not json then return nil end
@@ -453,34 +445,31 @@ local function getDiscRecommendation(gameName)
     return rec, notes
 end
 
--- Shows the install-type picker for a Disc 2+ game.
--- Returns "god", "content", or nil (user cancelled).
-local function pickInstallType(gameName)
-    local rec, notes = getDiscRecommendation(gameName)
-
-    local godLabel     = "GOD  — Convert to Games-on-Demand (same as Disc 1)"
-    local contentLabel = "Content  — Install to Content\\0000000000000000\\{TitleID}\\00000002\\"
-
-    if rec == "god" then
-        godLabel = godLabel .. "  [Recommended]"
-    elseif rec == "content" then
-        contentLabel = contentLabel .. "  [Recommended]"
+-- GOD = ISO to GOD; DLC = content partition to Content\...\00000002\; XEX = loose default.xex folder.
+-- Shown for every title on Xbox 360 / Original / Local / Games Archive libraries.
+-- Returns "god", "content", "xex", or nil if cancelled.
+local function pickInstallMethod(gameName, platform)
+    if platform == "games" or platform == "xbox360" or platform == "xbox" or platform == "local" then
+        local rec, notes = getDiscRecommendation(gameName)
+        local g = "GOD  — ISO to Games on Demand"
+        local d = "DLC  — Content folder (from ISO content tree)"
+        local x = "XEX  — Loose folder (default.xex in archive)"
+        if rec == "god" then
+            g = g .. "  [Recommended]"
+        elseif rec == "content" then
+            d = d .. "  [Recommended]"
+        end
+        local sub = "How should the server package this title?"
+        if notes and notes ~= "" then
+            sub = sub .. "\n\n" .. notes
+        end
+        local r = Script.ShowPopupList("Install Method", sub, { g, d, x })
+        if not r or r.Canceled then return nil end
+        if r.Selected.Key == 1 then return "god" end
+        if r.Selected.Key == 2 then return "content" end
+        return "xex"
     end
-
-    local hint = notes and ("\n\nNote: " .. notes) or ""
-    local options = { godLabel, contentLabel }
-
-    local r = Script.ShowPopupList(
-        "Disc 2 Install Method",
-        "Choose how to install this disc" .. hint,
-        options)
-
-    if not r or r.Canceled then return nil end
-    if r.Selected.Key == 1 then
-        return "god"
-    else
-        return "content"
-    end
+    return "god"
 end
 
 -- ── Library browser ───────────────────────────────────────────────────────────
@@ -512,18 +501,23 @@ function browseLibrary(platform)
             return
         end
 
+        list_data = sanitizeBrowseBody(list_data)
+
         local buckets    = {}
         local bucketKeys = {}
 
         for game in list_data:gmatch("([^|]+)") do
-            local firstChar = string.upper(string.sub(game, 1, 1))
-            if string.match(firstChar, "%d") then firstChar = "#" end
+            game = sanitizeGameNameFromHost(game)
+            if game ~= "" then
+                local firstChar = string.upper(string.sub(game, 1, 1))
+                if string.match(firstChar, "%d") then firstChar = "#" end
 
-            if not buckets[firstChar] then
-                buckets[firstChar] = {}
-                table.insert(bucketKeys, firstChar)
+                if not buckets[firstChar] then
+                    buckets[firstChar] = {}
+                    table.insert(bucketKeys, firstChar)
+                end
+                table.insert(buckets[firstChar], game)
             end
-            table.insert(buckets[firstChar], game)
         end
 
         if #bucketKeys == 0 then
@@ -573,8 +567,8 @@ function browseLibrary(platform)
                                            "Select Game", gamesInBucket)
 
             if g and not g.Canceled then
-                local cleanName = gamesInBucket[g.Selected.Key]
-                if not cleanName then break end
+                local cleanName = sanitizeGameNameFromHost(gamesInBucket[g.Selected.Key])
+                if not cleanName or cleanName == "" then break end
 
                 -- DLC always installs to Hdd1 — skip the drive picker for DLC only
                 local driveReady = false
@@ -594,32 +588,20 @@ function browseLibrary(platform)
                 end
 
                 if driveReady then
-                    -- Multi-disc picker: show GOD vs Content for Disc 2+ on disc platforms
-                    local isDiscPlatform = (platform == "xbox360" or platform == "xbox"
-                        or platform == "local" or platform == "games")
-                    local installTypeOk = true
-                    if isDiscPlatform and isMultiDiscGame(cleanName) then
-                        local picked = pickInstallType(cleanName)
-                        if not picked then
-                            installTypeOk = false  -- user cancelled
-                        else
-                            gInstallType = picked
-                        end
-                    else
-                        gInstallType = "god"
-                    end
-
-                if installTypeOk then
                     local transferModes = {
                         "HTTP (Download & Extract)",
                         "FTP (Direct Transfer - More Reliable)"
                     }
 
                     local tm = Script.ShowPopupList("Transfer Method:",
-                                                    "Choose how to install", transferModes)
+                                                    "Choose how files reach the console", transferModes)
 
                     if tm and not tm.Canceled then
                         gTransferMode = (tm.Selected.Key == 1) and "http" or "ftp"
+
+                        local method = pickInstallMethod(cleanName, platform)
+                        if method then
+                            gInstallType = method
 
                         Script.SetStatus("Checking status...")
                         local state, msg = getGameStatus(cleanName)
@@ -698,8 +680,8 @@ function browseLibrary(platform)
                                     "Unexpected error during installation:\n" .. tostring(installErr))
                             end
                         end
-                    end
-                end -- if installTypeOk
+                        end -- if method (install type chosen)
+                    end -- if transfer popup not canceled
                 end -- if driveReady
             end
         end

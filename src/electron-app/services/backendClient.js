@@ -4,6 +4,17 @@ const {
   prepareWritableRuntime,
 } = require("../infrastructure/fileSystem");
 const {
+  appendBackendSessionStart,
+  appendBackendSessionEnd,
+  appendBackendStdout,
+  appendBackendStderr,
+  appendAppLine,
+  appendAppEvent,
+  getPrimaryIPv4,
+  getAppVersion,
+  getLogInfo,
+} = require("../infrastructure/serverLog");
+const {
   getConfiguredTransferFolder,
   getDefaultTransferFolder,
   buildGodsendEnv,
@@ -28,10 +39,20 @@ function getProcess() {
   return godsendProcess;
 }
 
-function addOutputLine(line) {
+/**
+ * @param {"ui"|"out"|"err"} stream - ui = Electron messages; out/err = raw backend streams (also file-logged).
+ */
+function addOutputLine(line, stream = "ui") {
   outputBuffer.push(line);
   if (outputBuffer.length > maxBufferLines) {
     outputBuffer = outputBuffer.slice(outputBuffer.length - maxBufferLines);
+  }
+  if (stream === "out") {
+    appendBackendStdout(line);
+  } else if (stream === "err") {
+    appendBackendStderr(line);
+  } else {
+    appendAppLine(line);
   }
   if (mainWindowRef && !mainWindowRef.isDestroyed()) {
     mainWindowRef.webContents.send("godsend-output", line);
@@ -50,22 +71,42 @@ function startGodsend() {
   const transferNote =
     getConfiguredTransferFolder() || getDefaultTransferFolder(writableRoot);
 
+  const childEnv = buildGodsendEnv(writableRoot);
   addOutputLine(`[INFO] Starting: ${godsendExePath}`);
   addOutputLine(`[INFO] Data dir (GODSEND_HOME): ${writableRoot}`);
   addOutputLine(`[INFO] Local Transfer folder: ${transferNote}`);
+  addOutputLine(`[INFO] Server logs: ${getLogInfo().logsDirectory}`);
+
+  appendBackendSessionStart({
+    appVersion: getAppVersion(),
+    writableRoot,
+    godsendExePath,
+    transferFolder: transferNote,
+    env: childEnv,
+    localIPv4: getPrimaryIPv4(),
+  });
 
   godsendProcess = spawn(godsendExePath, [], {
     cwd: writableRoot,
     windowsHide: true,
-    env: buildGodsendEnv(writableRoot),
+    env: childEnv,
   });
+
+  appendAppEvent("BACKEND", `spawned pid=${godsendProcess.pid}`);
+
+  let sessionEnded = false;
+  const endBackendSession = (reason, code, signal) => {
+    if (sessionEnded) return;
+    sessionEnded = true;
+    appendBackendSessionEnd(reason, code, signal);
+  };
 
   godsendProcess.stdout.on("data", (data) => {
     data
       .toString()
       .split(/\r?\n/)
       .forEach((line) => {
-        if (line.trim().length > 0) addOutputLine(line);
+        if (line.trim().length > 0) addOutputLine(line, "out");
       });
   });
 
@@ -74,16 +115,18 @@ function startGodsend() {
       .toString()
       .split(/\r?\n/)
       .forEach((line) => {
-        if (line.trim().length > 0) addOutputLine(`[ERR] ${line}`);
+        if (line.trim().length > 0) addOutputLine(`[ERR] ${line}`, "err");
       });
   });
 
   godsendProcess.on("error", (error) => {
+    endBackendSession("spawn_error", null, null);
     addOutputLine(`[ERROR] Failed to start process: ${error.message}`);
     godsendProcess = null;
   });
 
   godsendProcess.on("close", (code, signal) => {
+    endBackendSession("process_exit", code, signal);
     addOutputLine(
       `[INFO] Process closed (code=${code}, signal=${signal || "none"})`
     );
@@ -93,6 +136,7 @@ function startGodsend() {
 
 function stopGodsend() {
   if (!godsendProcess) return;
+  appendAppEvent("BACKEND", "stop requested (kill)");
   addOutputLine("[INFO] Stopping process...");
   godsendProcess.kill();
 }

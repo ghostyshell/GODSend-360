@@ -1,6 +1,6 @@
 package services
 
-import "godsend/src/server/models"
+import "godsend/models"
 
 // GameService coordinates game browsing, triggering downloads, and status checks.
 type GameService interface {

@@ -11,7 +11,7 @@ function getGameStatus(gameName)
         return "Error", "Invalid game name"
     end
 
-    local encodedName = Http.UrlEncode(gameName)
+    local encodedName = encodeGameQueryParam(gameName)
     if not encodedName then
         return "Error", "Failed to encode game name"
     end
@@ -40,7 +40,7 @@ function triggerDownload(gameName, platform, installType)
         return false
     end
 
-    local encodedName = Http.UrlEncode(gameName)
+    local encodedName = encodeGameQueryParam(gameName)
     if not encodedName then
         showError("TRIGGER_FAILED", "Failed to encode game name")
         return false
@@ -86,7 +86,7 @@ function registerForFTP(gameName, platform, installType)
         return false
     end
 
-    local encodedName = Http.UrlEncode(gameName)
+    local encodedName = encodeGameQueryParam(gameName)
     if not encodedName then
         showError("FTP_REGISTER_FAILED", "Failed to encode game name")
         return false
@@ -261,18 +261,20 @@ local function parseManifest(iniPath, gameName)
     local ini = IniFile.LoadFile(iniPath)
     if not ini then return nil, nil, nil, nil, nil end
 
-    local titleID   = ini:ReadValue(gameName, "titleid",   "")
-    local mediaID   = ini:ReadValue(gameName, "mediaid",   "")
-    local titleName = ini:ReadValue(gameName, "titlename", "")
+    local titleID = sanitizeManifestValue(ini:ReadValue(gameName, "titleid", ""))
+    titleID = titleID:gsub("[^0-9A-Fa-f]", ""):upper()
+    local mediaID = sanitizeManifestValue(ini:ReadValue(gameName, "mediaid", ""))
+    mediaID = mediaID:gsub("[^0-9A-Fa-f]", ""):upper()
+    local titleName = sanitizeIniTitleName(ini:ReadValue(gameName, "titlename", ""))
     local parts = {}
     local dlcs  = {}
 
-    local p1 = ini:ReadValue(gameName, "dataurl", "")
+    local p1 = sanitizeManifestValue(ini:ReadValue(gameName, "dataurl", ""))
     if p1 ~= "" then table.insert(parts, p1) end
 
     local i = 2
     while true do
-        local p = ini:ReadValue(gameName, "dataurlpart" .. i, "")
+        local p = sanitizeManifestValue(ini:ReadValue(gameName, "dataurlpart" .. i, ""))
         if p == "" then break end
         table.insert(parts, p)
         i = i + 1
@@ -280,7 +282,7 @@ local function parseManifest(iniPath, gameName)
 
     i = 1
     while true do
-        local d = ini:ReadValue(gameName, "dlc_" .. i, "")
+        local d = sanitizeManifestValue(ini:ReadValue(gameName, "dlc_" .. i, ""))
         if d == "" then break end
         table.insert(dlcs, d)
         i = i + 1
@@ -305,6 +307,12 @@ function installGame(gameName)
 
     -- HTTP MODE: download logic with full error handling.
     Script.SetStatus("Fetching Manifest...")
+
+    gameName = sanitizeGameNameFromHost(gameName)
+    if gameName == "" then
+        showError("MANIFEST_FAILED", "Invalid game name")
+        return
+    end
 
     local safeName = sanitizeForUrl(gameName)
     if not safeName or safeName == "" then
@@ -331,12 +339,13 @@ function installGame(gameName)
         return
     end
 
-    local installType = ini:ReadValue(gameName, "type", "god")
+    local installType = sanitizeManifestValue(ini:ReadValue(gameName, "type", "god"))
+    if installType == "" then installType = "god" end
 
     -- === PATH 0: XEX FOLDER INSTALL ===
     if installType == "xex" then
-        local folderName = ini:ReadValue(gameName, "foldername", gameName)
-        local xexPart    = ini:ReadValue(gameName, "dataurl", "")
+        local folderName = sanitizeManifestValue(ini:ReadValue(gameName, "foldername", gameName))
+        local xexPart    = sanitizeManifestValue(ini:ReadValue(gameName, "dataurl", ""))
             :gsub("%%20", " "):gsub("%%28", "("):gsub("%%29", ")")
 
         if xexPart == "" then
@@ -396,9 +405,9 @@ function installGame(gameName)
 
     -- === PATH 1: ROM INSTALL ===
     if installType == "rom" then
-        local archiveUrl = ini:ReadValue(gameName, "dataurl", "")
+        local archiveUrl = sanitizeManifestValue(ini:ReadValue(gameName, "dataurl", ""))
             :gsub("%%20", " "):gsub("%%28", "("):gsub("%%29", ")")
-        local romPath    = ini:ReadValue(gameName, "rompath", "")
+        local romPath    = sanitizeManifestValue(ini:ReadValue(gameName, "rompath", ""))
 
         if archiveUrl == "" or romPath == "" then
             showError("MANIFEST_EMPTY", "ROM manifest missing dataurl or rompath")
@@ -453,9 +462,9 @@ function installGame(gameName)
 
     -- === PATH 2: DIGITAL/XBLA/DLC (RAW) INSTALL ===
     if installType == "raw" then
-        local rawFile   = ini:ReadValue(gameName, "filename", ""):gsub("%s+", "")
-        local relPath   = ini:ReadValue(gameName, "path",     ""):gsub("%s+", "")
-        local forcedDrive = ini:ReadValue(gameName, "drive",  ""):gsub("%s+", "")
+        local rawFile     = sanitizeManifestValue(ini:ReadValue(gameName, "filename", ""))
+        local relPath     = sanitizeManifestValue(ini:ReadValue(gameName, "path",     ""))
+        local forcedDrive = sanitizeManifestValue(ini:ReadValue(gameName, "drive",      ""))
 
         if rawFile == "" or relPath == "" then
             showError("MANIFEST_EMPTY", "Raw manifest missing filename or path")
@@ -557,9 +566,10 @@ function installGame(gameName)
 
     -- === PATH: CONTENT INSTALL (Disc 2 / DLC) ===
     if installType == "content" then
-        local titleID = ini:ReadValue(gameName, "titleid", ""):gsub("%s+", "")
-        local relPath = ini:ReadValue(gameName, "path",    ""):gsub("%s+", "")
-        local dataUrl = ini:ReadValue(gameName, "dataurl", "")
+        local titleID = sanitizeManifestValue(ini:ReadValue(gameName, "titleid", ""))
+        titleID = titleID:gsub("[^0-9A-Fa-f]", ""):upper()
+        local relPath = sanitizeManifestValue(ini:ReadValue(gameName, "path", ""))
+        local dataUrl = sanitizeManifestValue(ini:ReadValue(gameName, "dataurl", ""))
             :gsub("%%20", " "):gsub("%%28", "("):gsub("%%29", ")")
 
         if titleID == "" or relPath == "" or dataUrl == "" then

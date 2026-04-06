@@ -1,18 +1,18 @@
 {
   "name": "godsend-electron",
-  "version": "2.2.1",
+  "version": "2.2.4",
   "description": "Minimal Electron UI for running and monitoring godsend.exe",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:win": "node scripts/sync-assets-icon.js && electron-builder --win nsis",
-    "build:nsis": "electron-builder --win nsis",
-    "build:wl": "electron-builder --win nsis --linux AppImage",
-    "build:mac": "electron-builder --mac dmg",
-    "build:mac:arm": "electron-builder --mac dmg --arm64",
-    "build:mac:dmg:arm64": "electron-builder --mac dmg --arm64",
-    "build:mac:dmg:x64": "electron-builder --mac dmg --x64",
-    "build:linux": "electron-builder --linux AppImage"
+    "build:win": "node scripts/sync-assets-icon.js && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis",
+    "build:nsis": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis",
+    "build:wl": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis --linux AppImage",
+    "build:mac": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg",
+    "build:mac:arm": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64",
+    "build:mac:dmg:arm64": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64",
+    "build:mac:dmg:x64": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --x64",
+    "build:linux": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage"
   },
   "keywords": [
     "electron",

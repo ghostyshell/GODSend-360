@@ -617,6 +617,17 @@ if files then
 end
 ```
 
+### Quirk: `Http.Get` response body aliases host memory
+```lua
+// CAUSE: Aurora may reuse the same buffer for the next URL/response; game titles or
+// browse lists derived from r.OutputData can pick up a trailing fragment like
+// "228:8080/browse?platform=local" without a separator.
+// FIX: GODsend's `httpGet()` does string.sub(out, 1, #out) to force a Lua-owned copy;
+// sanitizeGameNameFromHost() copies again, strips accidental browse URL suffixes, and
+// collapses duplicate trailing "." / fullwidth "．" (Aurora list UI) without removing
+// the single legitimate "." before ".iso" in Redump names. Prefer httpGet over raw Http.Get.
+```
+
 ### Error: Files extract as 0 bytes
 ```lua
 // CAUSE: Files >350MB in archive

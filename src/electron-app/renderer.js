@@ -27,6 +27,8 @@ const ftpScriptsBtn          = document.getElementById("ftpScriptsBtn");
 const ftpScriptsStatus       = document.getElementById("ftpScriptsStatus");
 const pageHome           = document.getElementById("page-home");
 const pageSettings       = document.getElementById("page-settings");
+const logPathHint        = document.getElementById("logPathHint");
+const openLogsBtn        = document.getElementById("openLogsBtn");
 
 // ── Page navigation ──
 
@@ -82,6 +84,12 @@ async function initialize() {
   const lines = await window.godsendApi.getOutputBuffer();
   outputEl.textContent = lines.join("\n");
   outputEl.scrollTop = outputEl.scrollHeight;
+
+  const logInfo = await window.godsendApi.getLogsInfo();
+  if (logInfo && logPathHint) {
+    logPathHint.textContent = `Log: ${logInfo.currentLogFile || ""}`;
+    logPathHint.title = logInfo.logsDirectory || "";
+  }
 }
 
 // ── Home page ──
@@ -91,6 +99,15 @@ restartBtn.addEventListener("click", async () => {
 });
 
 settingsBtn.addEventListener("click", () => showPage(pageSettings));
+
+if (openLogsBtn) {
+  openLogsBtn.addEventListener("click", async () => {
+    const r = await window.godsendApi.openLogsFolder();
+    if (r && !r.ok && r.error) {
+      appendLine(`[ERROR] Could not open logs folder: ${r.error}`);
+    }
+  });
+}
 
 // ── Settings page ──
 
@@ -191,7 +208,7 @@ ftpScriptsBtn.addEventListener("click", async () => {
       ftpScriptsPath: ftpScriptsPathEl.value.trim(),
     });
     ftpScriptsStatus.textContent = r.ok
-      ? "Aurora scripts uploaded successfully."
+      ? `Aurora scripts uploaded successfully to ${r.remotePath || "(path unknown)"}.`
       : `Failed: ${r.error || "unknown error"}`;
   } catch (err) {
     ftpScriptsStatus.textContent = `Failed: ${err.message || "unknown error"}`;

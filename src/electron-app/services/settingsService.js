@@ -84,7 +84,8 @@ function getConfiguredFtpPassword() {
 }
 
 function getDefaultFtpScriptsPath() {
-  return "/Hdd1/Aurora/User/Scripts/Utilities/GODSend";
+  // Aurora expects `Scripts/Utility` (singular) on most setups; USB FTP often shows an extra `Apps` segment.
+  return "/Hdd1/Aurora/User/Scripts/Utility/GODSend";
 }
 
 function getConfiguredFtpScriptsPath() {

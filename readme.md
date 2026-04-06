@@ -35,7 +35,7 @@ The Aurora scripts are bundled with the installer. The easiest way to install th
 1. Enable Aurora's FTP server: **Aurora → Settings → Network → Enable FTP**.
 2. In the GODsend app, open **⚙ Settings** → scroll to **Xbox connection**.
 3. Enter your **Xbox IP address** and your **PC's IP address**, then click **Save**.
-4. Click **FTP Aurora Scripts to Xbox** — the scripts are uploaded automatically to `Hdd1:\Aurora\User\Scripts\Utilities\GODsend\` and `GODSend.ini` is patched with your PC's IP.
+4. Click **FTP Aurora Scripts to Xbox** — the scripts are uploaded to the path you set (default `Hdd1:\Aurora\User\Scripts\Utility\GODSend\`; on USB FTP often shows `Usb0:\Apps\Aurora\User\Scripts\Utility\GODSend\`), and `GODSend.ini` is patched with your PC's IP.
 5. Launch **GODsend** from Aurora → Scripts.
 
 Alternatively, copy the `aurora-scripts/` folder from the GODsend install directory to the Xbox manually via FTP, then edit `GODSend.ini` to set `ip=` to your PC's IP.
@@ -97,7 +97,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 #### Install layouts: GOD, XEX folder, raw content, ROMs
 
 - **What:** Different on-disk layouts depending on title type.
-- **How:** You do not pick the layout manually — it comes from the server-generated manifest. Follow the script prompts until it reports success, then **Settings → Content → Scan** in Aurora (or launch RetroArch for ROMs).
+- **How:** After **HTTP vs FTP**, the script asks **every** **Xbox 360 / Original / Local / Games Archive** title for **GOD / DLC / XEX** — **GOD** (ISO→GOD), **DLC** (content tree from ISO to `Content\…\00000002\`), **XEX** (loose `default.xex` folder in the downloaded archive). The server manifest matches that choice. **`/disc-info`** may mark a **[Recommended]** row when it can probe or hint. Follow prompts until success, then **Settings → Content → Scan** in Aurora (or launch RetroArch for ROMs).
 - **How it works:** **GOD:** script downloads manifest + `.7z` parts into `Games on Demand` layout. **XEX:** extracts an archive under `[drive]\XEX\...`. **Raw:** downloads a `.bin`/package into the path from the manifest (DLC often forces **Hdd1:**). **ROM:** extracts under a configurable retro root (see below).
 
 #### Retro ROMs (EdgeEmu, many systems)
@@ -231,6 +231,7 @@ Open the settings page (⚙ button) to configure:
 - **Internet Archive account** — log in with your archive.org credentials; session cookies are stored locally, your password is never saved
 - **Parallel download connections** — concurrent range-request workers per IA download (1–7, default 5)
 - **Xbox connection** — enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your PC's IP is detected automatically
+- **Server log files** — the app appends to a daily file under `%APPDATA%\GODsend\logs\` (folder name may be `godsend-electron` on some builds): timestamped backend stdout/stderr, session banner (paths, `GODSEND_*` env summary with secrets redacted, host IP), and notable UI actions (FTP upload steps, cache refresh, config changes). On the home screen use **Open logs folder** to show today’s file in File Explorer.
 
 ### Aurora script (`aurora-scripts/GODSend.ini`)
 
@@ -257,7 +258,7 @@ If the IP changes after installation, edit `godsend_config.ini` in the script di
 
 **Manually:**
 
-1. Copy all the contents of the `aurora-scripts/` folder (from the GODsend install directory or repo) to the Xbox at `HDD1:\Aurora\User\Scripts\Utilities\GODsend\`
+1. Copy all the contents of the `aurora-scripts/` folder (from the GODsend install directory or repo) to the Xbox at `HDD1:\Aurora\User\Scripts\Utility\GODSend\` (or the same path under your USB device if Aurora runs from USB, often including an `Apps` segment in FTP paths)
 2. Edit `GODSend.ini` — set `ip=` to your PC's local IP address
 3. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
 4. Launch GODsend from Aurora → Scripts
@@ -324,8 +325,8 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 ### Legacy Windows installer docs
 Older Windows installers and guides (for example, “GODSend Homelab Edition – Windows Installation Guide”) are still useful as historical context and screenshots.
 
-- A summary of how the legacy layout maps to this repo lives in `docs/legacy-installers-and-layout.md`.
-- The original PDF guide is expected at `docs/godsend-windows-install-guide.pdf` (copy your local PDF there) and can be opened directly for the full walkthrough.
+- A summary of how the legacy layout maps to this repo lives in [`docs/legacy/legacy-installers-and-layout.md`](docs/legacy/legacy-installers-and-layout.md).
+- The full legacy Windows walkthrough (formerly a PDF) is in [`docs/legacy/godsend-windows-install-guide.md`](docs/legacy/godsend-windows-install-guide.md).
 
 Useful external references (for additional background and prebuilt installers):
 

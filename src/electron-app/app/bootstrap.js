@@ -1,4 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const {
+  getLogInfo,
+  openLogsFolder,
+  appendAppEvent,
+} = require("../infrastructure/serverLog");
 const http = require("http");
 const os = require("os");
 const path = require("path");
@@ -97,6 +102,9 @@ function registerIpcHandlers() {
     return shouldEnable;
   });
 
+  ipcMain.handle("logs:get-info", () => getLogInfo());
+  ipcMain.handle("logs:open-folder", () => openLogsFolder());
+
   ipcMain.handle("godsend:get-buffer", () => getOutputBuffer());
   ipcMain.handle("godsend:start", () => { startGodsend(); return true; });
   ipcMain.handle("godsend:stop", () => { stopGodsend(); return true; });
@@ -121,6 +129,10 @@ function registerIpcHandlers() {
   ipcMain.handle("config:set-transfer-folder", (_event, folder) => {
     const f = typeof folder === "string" ? folder.trim() : "";
     writeConfig({ transferFolder: f });
+    appendAppEvent(
+      "CONFIG",
+      `transferFolder set to ${f ? path.resolve(f) : "(default runtime/Transfer)"}; restarting backend`
+    );
     restartGodsendIfRunning();
     return getConfiguredTransferFolder();
   });
@@ -145,17 +157,21 @@ function registerIpcHandlers() {
         iaAuthorization: "",
       });
       restartGodsendIfRunning();
+      appendAppEvent("IA_LOGIN", `ok email=${email}`);
       return { ok: true, screenname, email };
     } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      appendAppEvent("IA_LOGIN", `failed: ${msg}`);
       return {
         ok: false,
-        error: err && err.message ? err.message : String(err),
+        error: msg,
       };
     }
   });
 
   ipcMain.handle("config:ia-logout", () => {
     writeConfig({ iaCookie: "", iaAuthorization: "", iaScreenname: "" });
+    appendAppEvent("IA_LOGIN", "logout; session cleared");
     restartGodsendIfRunning();
     return true;
   });
@@ -167,6 +183,7 @@ function registerIpcHandlers() {
   ipcMain.handle("config:set-ia-concurrency", (_event, value) => {
     const n = Math.max(1, Math.min(7, parseInt(value, 10) || 4));
     writeConfig({ iaConcurrency: n });
+    appendAppEvent("CONFIG", `iaConcurrency=${n}`);
     restartGodsendIfRunning();
     return n;
   });
@@ -178,23 +195,38 @@ function registerIpcHandlers() {
   ipcMain.handle("config:set-rom-path", (_event, value) => {
     const v = typeof value === "string" ? value.trim() : "";
     writeConfig({ romPath: v });
+    appendAppEvent("CONFIG", `romPath=${v || "(default)"}`);
     restartGodsendIfRunning();
     return getConfiguredROMPath();
   });
 
   ipcMain.handle("config:cache-refresh", (_event, platform) => {
     const p = typeof platform === "string" && platform ? platform : "all";
+    appendAppEvent("CACHE", `refresh requested platform=${p}`);
     return new Promise((resolve) => {
       const req = http.get(
         `http://localhost:8080/cache-refresh?platform=${encodeURIComponent(p)}`,
         (res) => {
           let data = "";
           res.on("data", (chunk) => { data += chunk; });
-          res.on("end", () => resolve({ ok: true, data }));
+          res.on("end", () => {
+            appendAppEvent(
+              "CACHE",
+              `refresh http status=${res.statusCode} bodyLen=${data.length}`
+            );
+            resolve({ ok: true, data });
+          });
         }
       );
-      req.on("error", (err) => resolve({ ok: false, error: err.message }));
-      req.setTimeout(5000, () => { req.destroy(); resolve({ ok: false, error: "timeout" }); });
+      req.on("error", (err) => {
+        appendAppEvent("CACHE", `refresh error: ${err.message}`);
+        resolve({ ok: false, error: err.message });
+      });
+      req.setTimeout(5000, () => {
+        req.destroy();
+        appendAppEvent("CACHE", "refresh error: timeout");
+        resolve({ ok: false, error: "timeout" });
+      });
     });
   });
 
@@ -238,6 +270,7 @@ function registerIpcHandlers() {
 
     // Send live status updates to the renderer window.
     const sendProgress = (msg) => {
+      appendAppEvent("FTP", msg);
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("godsend-ftp-progress", msg);
       }
@@ -289,8 +322,10 @@ function registerIpcHandlers() {
         }
         done++;
       }
-      return { ok: true };
+      appendAppEvent("FTP", `upload complete host=${xboxIp} path=${remotePath}`);
+      return { ok: true, remotePath };
     } catch (err) {
+      appendAppEvent("FTP", `error: ${err.message || String(err)}`);
       return { ok: false, error: err.message || String(err) };
     } finally {
       client.close();
@@ -302,6 +337,10 @@ function registerIpcHandlers() {
 function bootstrapApp() {
   app.whenReady().then(() => {
     app.setAppUserModelId("com.abbu.godsend");
+    appendAppEvent(
+      "LIFECYCLE",
+      `app ready userData=${app.getPath("userData")} logDir=${getLogInfo().logsDirectory}`
+    );
 
     createMainWindow();
     createTray(mainWindow, {
@@ -321,6 +360,7 @@ function bootstrapApp() {
 
   app.on("before-quit", () => {
     isQuitting = true;
+    appendAppEvent("LIFECYCLE", "application before-quit");
   });
 
   app.on("window-all-closed", (event) => {

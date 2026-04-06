@@ -20,9 +20,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/jlaffaye/ftp"
 
+	"godsend/services"
 	"godsend/utils"
 )
 
@@ -289,9 +292,20 @@ var (
 	gamePartsMap          sync.Map
 	copyBuffer            []byte
 	xboxConnections       sync.Map
-	// installTypeMap stores the user-selected install type per game: "god" or "content"
+	// installTypeMap stores the user-selected install type per game: "god", "content", or "xex"
 	installTypeMap sync.Map
 )
+
+func lookupInstallType(gameName string) string {
+	it := "god"
+	if v, ok := installTypeMap.Load(gameName); ok {
+		it = strings.ToLower(strings.TrimSpace(v.(string)))
+	}
+	if it != "god" && it != "content" && it != "xex" {
+		return "god"
+	}
+	return it
+}
 
 // ==========================================
 // MULTI-DISC COMPAT TABLE
@@ -352,6 +366,45 @@ func discCompat(titleID uint32, discNumber byte) discCompatRec {
 		return rec
 	}
 	return discCompatRec{installType: "content", notes: "Default: Disc 2+ is typically content"}
+}
+
+// Redump-style names often use [DVD2] instead of "Disc 2"; Lua menu uses the same idea.
+var multiDiscNamePatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)\bdisc\s*[2-9]\b`),
+	regexp.MustCompile(`(?i)\bdisk\s*[2-9]\b`),
+	regexp.MustCompile(`(?i)\bcd\s*[2-9]\b`),
+	regexp.MustCompile(`(?i)\(disc\s*[2-9]\)`),
+	regexp.MustCompile(`(?i)\(disk\s*[2-9]\)`),
+	regexp.MustCompile(`(?i)\(cd\s*[2-9]\)`),
+	regexp.MustCompile(`(?i)\[dvd\s*[2-9]\]`),
+	regexp.MustCompile(`(?i)\[dvd[2-9]\]`),
+	regexp.MustCompile(`(?i)\bdvd\s*[2-9]\b`),
+	regexp.MustCompile(`(?i)\[cd\s*[2-9]\]`),
+}
+
+func isMultiDiscGameName(name string) bool {
+	for _, re := range multiDiscNamePatterns {
+		if re.MatchString(name) {
+			return true
+		}
+	}
+	return false
+}
+
+// guessTitleIDFromMultiDiscName maps common IA/Redump strings to Title IDs for /disc-info
+// when there is no ISO in Transfer yet (filename-only hint).
+func guessTitleIDFromMultiDiscName(name string) uint32 {
+	l := strings.ToLower(name)
+	if strings.Contains(l, "borderlands 2") && (strings.Contains(l, "goty") || strings.Contains(l, "game of the year") || strings.Contains(l, "triple pack")) {
+		return 0x5454087C
+	}
+	if strings.Contains(l, "borderlands") && strings.Contains(l, "pre-sequel") {
+		return 0
+	}
+	if strings.Contains(l, "borderlands") && (strings.Contains(l, "goty") || strings.Contains(l, "game of the year") || strings.Contains(l, "triple pack")) {
+		return 0x545407E7
+	}
+	return 0
 }
 
 type XboxConnection struct {
@@ -476,7 +529,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.2.1         ║")
+	fmt.Println("║    GODSend Backend Server v2.2.4         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
@@ -1034,6 +1087,51 @@ func liveSearchIA(gameName, platform string) (IAGameEntry, error) {
 // LOCAL TRANSFER FOLDER HELPERS
 // ==========================================
 
+var (
+	// Aurora host buffer reuse can concatenate a browse URL onto a title, e.g.
+	// "Open Season (USA)228:8080/browse?platform=local" or with full host prefix.
+	browseURLLeakPattern = regexp.MustCompile(
+		`https?://[\d.]+:\d+/browse\?platform=[a-zA-Z0-9_]+|` +
+			`\d{1,3}(?:\.\d{1,3}){3}:\d+/browse\?platform=[a-zA-Z0-9_]+|` +
+			`\d+:\d+/browse\?platform=[a-zA-Z0-9_]+`, // leftmost of these wins; covers "228:8080/..." after title
+	)
+	// Aurora letter-jump can leave one ASCII letter after ")", e.g. "Open Season (USA)q"
+	trailingParenJumpLetter = regexp.MustCompile(`\)([a-zA-Z])$`)
+)
+
+// normalizeClientGameName strips junk Aurora sometimes sends on the `game` query param:
+// NUL-terminated buffer tail, C0 controls (e.g. 0x08), invalid UTF-8 bytes, and accidental
+// GODsend browse URL tails from Http buffer reuse so local ISO basenames still match.
+func normalizeClientGameName(s string) string {
+	s = strings.TrimSpace(s)
+	if loc := browseURLLeakPattern.FindStringIndex(s); loc != nil {
+		s = strings.TrimSpace(s[:loc[0]])
+	}
+	if i := strings.IndexByte(s, 0); i >= 0 {
+		s = strings.TrimSpace(s[:i])
+	}
+	s = strings.ToValidUTF8(s, "")
+	s = strings.TrimFunc(s, unicode.IsControl)
+	for len(s) > 0 {
+		r, sz := utf8.DecodeLastRuneInString(s)
+		if r == utf8.RuneError && sz == 1 {
+			s = s[:len(s)-1]
+			continue
+		}
+		if unicode.IsControl(r) || r == '\uFFFD' {
+			s = s[:len(s)-sz]
+			continue
+		}
+		break
+	}
+	s = strings.ReplaceAll(s, "\u00A0", " ")
+	s = strings.TrimSpace(s)
+	for i := 0; i < 8 && trailingParenJumpLetter.MatchString(s); i++ {
+		s = strings.TrimSpace(trailingParenJumpLetter.ReplaceAllString(s, ")"))
+	}
+	return s
+}
+
 func scanTransferFolder() []string {
 	entries, err := os.ReadDir(transferDir)
 	if err != nil {
@@ -1053,20 +1151,57 @@ func scanTransferFolder() []string {
 	return games
 }
 
-func findLocalISO(gameName string) string {
+func normalizeLocalBasename(s string) string {
+	s = strings.TrimSpace(strings.ReplaceAll(s, "\uFF0E", "."))
+	s = strings.ReplaceAll(s, "\u00A0", " ")
+	return s
+}
+
+// findLocalISOExact matches the ISO basename (no extension) case-insensitively.
+func findLocalISOExact(gameName string) string {
 	entries, err := os.ReadDir(transferDir)
 	if err != nil {
 		return ""
 	}
-	lower := strings.ToLower(gameName)
+	want := normalizeLocalBasename(gameName)
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".iso") {
 			continue
 		}
-		if strings.ToLower(strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))) == lower {
+		base := normalizeLocalBasename(strings.TrimSuffix(e.Name(), filepath.Ext(e.Name())))
+		if strings.EqualFold(base, want) {
 			return filepath.Join(transferDir, e.Name())
 		}
 	}
+	return ""
+}
+
+func findLocalISO(gameName string) string {
+	gameName = strings.TrimSpace(gameName)
+	if gameName == "" {
+		return ""
+	}
+	if p := findLocalISOExact(gameName); p != "" {
+		return p
+	}
+	if strings.Contains(gameName, " ") {
+		if p := findLocalISOExact(strings.ReplaceAll(gameName, " ", "+")); p != "" {
+			logf("LOCAL ISO: matched %q using space→+ fallback (query '+' vs filename)", gameName)
+			return p
+		}
+	}
+	entries, _ := os.ReadDir(transferDir)
+	var isoNames []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".iso") {
+			continue
+		}
+		isoNames = append(isoNames, e.Name())
+		if len(isoNames) >= 24 {
+			break
+		}
+	}
+	logf("LOCAL ISO miss: query=%q transferDir=%s isoFiles=%v", gameName, transferDir, isoNames)
 	return ""
 }
 
@@ -1227,7 +1362,7 @@ func handleCacheRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRegister(w http.ResponseWriter, r *http.Request) {
-	gameName := r.URL.Query().Get("game")
+	gameName := normalizeClientGameName(r.URL.Query().Get("game"))
 	xboxIP := r.URL.Query().Get("ip")
 	drive := r.URL.Query().Get("drive")
 	platform := r.URL.Query().Get("platform")
@@ -1249,8 +1384,11 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	if platform == "" {
 		platform = "xbox360"
 	}
-	installType := r.URL.Query().Get("install_type")
+	installType := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("install_type")))
 	if installType == "" {
+		installType = "god"
+	}
+	if installType != "god" && installType != "content" && installType != "xex" {
 		installType = "god"
 	}
 	installTypeMap.Store(gameName, installType)
@@ -1263,7 +1401,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleTrigger(w http.ResponseWriter, r *http.Request) {
-	gameName := r.URL.Query().Get("game")
+	gameName := normalizeClientGameName(r.URL.Query().Get("game"))
 	platform := r.URL.Query().Get("platform")
 	if gameName == "" {
 		jsonError(w, 400, "Missing game parameter")
@@ -1272,8 +1410,11 @@ func handleTrigger(w http.ResponseWriter, r *http.Request) {
 	if platform == "" {
 		platform = "xbox360"
 	}
-	installType := r.URL.Query().Get("install_type")
+	installType := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("install_type")))
 	if installType == "" {
+		installType = "god"
+	}
+	if installType != "god" && installType != "content" && installType != "xex" {
 		installType = "god"
 	}
 	installTypeMap.Store(gameName, installType)
@@ -1321,6 +1462,7 @@ func handleTrigger(w http.ResponseWriter, r *http.Request) {
 		}
 		// Local Transfer list (platform=local): never use Internet Archive
 		if platform == "local" {
+			logf("LOCAL UNAVAILABLE: no .iso match for %q in %s (check URL encoding for & + # in filenames)", gameName, transferDir)
 			logStatus(gameName, "Error", "No ISO in Transfer folder for \""+gameName+"\"")
 			jsonSuccess(w, map[string]string{
 				"status":  "local_unavailable",
@@ -1360,7 +1502,7 @@ func handleTrigger(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleStatus(w http.ResponseWriter, r *http.Request) {
-	gameName := r.URL.Query().Get("game")
+	gameName := normalizeClientGameName(r.URL.Query().Get("game"))
 	if gameName == "" {
 		jsonError(w, 400, "Missing game parameter")
 		return
@@ -1376,29 +1518,51 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 // handleDiscInfo probes a local ISO in the Transfer folder and returns disc
 // metadata along with a compat-table install recommendation.
 func handleDiscInfo(w http.ResponseWriter, r *http.Request) {
-	gameName := r.URL.Query().Get("game")
+	gameName := normalizeClientGameName(r.URL.Query().Get("game"))
 	if gameName == "" {
 		jsonError(w, 400, "Missing game parameter")
 		return
 	}
 	iso := findLocalISO(gameName)
-	if iso == "" {
+	if iso != "" {
+		info, err := utils.ProbeISODiscInfo(iso)
+		if err != nil {
+			jsonError(w, 500, fmt.Sprintf("Disc probe failed: %v", err))
+			return
+		}
+		rec := discCompat(info.TitleID, info.DiscNumber)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"disc_number":    info.DiscNumber,
+			"disc_count":     info.DiscCount,
+			"title_id":       fmt.Sprintf("%08X", info.TitleID),
+			"recommendation": rec.installType,
+			"notes":          rec.notes,
+			"probed":         true,
+		})
+		return
+	}
+	// No Transfer-folder ISO yet (typical for IA-only installs) — filename-based hint for Disc 2+.
+	if !isMultiDiscGameName(gameName) {
 		jsonError(w, 404, "No local ISO found for this game")
 		return
 	}
-	info, err := utils.ProbeISODiscInfo(iso)
-	if err != nil {
-		jsonError(w, 500, fmt.Sprintf("Disc probe failed: %v", err))
-		return
+	tid := guessTitleIDFromMultiDiscName(gameName)
+	rec := discCompat(tid, 2)
+	note := rec.notes
+	if tid == 0 {
+		note = note + " (Title ID unknown from name — optional: copy ISO to PC Transfer for an exact probe)"
+	} else {
+		note = note + " (Title ID guessed from game name)"
 	}
-	rec := discCompat(info.TitleID, info.DiscNumber)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"disc_number":    info.DiscNumber,
-		"disc_count":     info.DiscCount,
-		"title_id":       fmt.Sprintf("%08X", info.TitleID),
+		"disc_number":    2,
+		"disc_count":     0,
+		"title_id":       fmt.Sprintf("%08X", tid),
 		"recommendation": rec.installType,
-		"notes":          rec.notes,
+		"notes":          note,
+		"probed":         false,
 	})
 }
 
@@ -1446,7 +1610,7 @@ func handleQueueRemove(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, 405, "Use GET or POST /queue/remove?game=GameName (omit game to clear all)")
 		return
 	}
-	game := strings.TrimSpace(r.URL.Query().Get("game"))
+	game := normalizeClientGameName(r.URL.Query().Get("game"))
 	if game == "" {
 		var keys []string
 		jobQueue.Range(func(k, _ interface{}) bool {
@@ -1866,10 +2030,44 @@ func processLocalISO(gameName, isoPath string) {
 		xboxConn = &cc
 	}
 
-	// Check install type — "content" routes to content-folder install, not GOD.
-	installType := "god"
-	if it, ok := installTypeMap.Load(gameName); ok {
-		installType = it.(string)
+	installType := lookupInstallType(gameName)
+	if installType == "xex" {
+		xexDir := filepath.Join(toolsDir, "Temp", safeName+"_xex")
+		os.RemoveAll(xexDir)
+		logStatus(gameName, "Processing", "Extracting XEX layout from ISO...")
+		if err := utils.ExtractXEXFolderFromISO(isoPath, xexDir); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("XEX from ISO: %v", err))
+			return
+		}
+		defer os.RemoveAll(xexDir)
+
+		gameDir := filepath.Join(toolsDir, "Ready", safeName)
+		os.MkdirAll(gameDir, 0755)
+		folderName := safeName
+		if xboxConn != nil && xboxConn.Mode == "ftp" {
+			if err := ftpTransferXEX(xexDir, folderName, xboxConn, gameName); err != nil {
+				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+				return
+			}
+			os.RemoveAll(gameDir)
+			logStatus(gameName, "Ready", "FTP Transfer Complete!")
+		} else {
+			partName := fmt.Sprintf("%s_Part1.7z", safeName)
+			if err := utils.CreateZipFromDir(xexDir, filepath.Join(gameDir, partName)); err != nil {
+				logStatus(gameName, "Error", fmt.Sprintf("Archive XEX: %v", err))
+				return
+			}
+			gamePartsMap.Store(gameName, []string{partName})
+			updateGameINI_XEX(gameDir, gameName, folderName, partName)
+			logStatus(gameName, "Ready", "Ready to Install")
+		}
+		if gs, ok := jobQueue.Load(gameName); ok && gs.(GameStatus).State == "Ready" {
+			if err := os.Remove(isoPath); err == nil {
+				logf("Cleanup: deleted source ISO: %s", filepath.Base(isoPath))
+			}
+		}
+		logf("=== Complete (local XEX from ISO): %s ===", gameName)
+		return
 	}
 	if installType == "content" {
 		processContentInstallFromISO(gameName, safeName, isoPath, xboxConn)
@@ -1887,7 +2085,7 @@ func processLocalISO(gameName, isoPath string) {
 	logStatus(gameName, "Processing", "Converting ISO to GOD...")
 	godDir := filepath.Join(toolsDir, "Temp", safeName+"_GOD")
 	os.MkdirAll(godDir, 0755)
-	if err := utils.RunIso2GodNative(isoPath, godDir); err != nil {
+	if err := utils.RunIso2GodNative(isoPath, godDir, iso2GodResolveDisplayTitle); err != nil {
 		logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err))
 		os.RemoveAll(godDir)
 		return
@@ -1949,6 +2147,50 @@ func processGame(gameName, platform string) {
 		return
 	}
 
+	installType := lookupInstallType(gameName)
+
+	// XEX: full archive extract, find folder containing default.xex (same idea as Games Archive).
+	if installType == "xex" {
+		extDir := filepath.Join(toolsDir, "Temp", safeName+"_ext")
+		os.RemoveAll(extDir)
+		logStatus(gameName, "Processing", "Extracting archive for XEX...")
+		if err := utils.ExtractArchive(archivePath, extDir); err != nil {
+			os.Remove(archivePath)
+			logf("ERROR [%s]: XEX extract failed: %v", gameName, err)
+			logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
+			return
+		}
+		os.Remove(archivePath)
+		defer os.RemoveAll(extDir)
+
+		xexFolder := findXEXFolder(extDir)
+		if xexFolder == "" {
+			logStatus(gameName, "Error", "No default.xex in archive — XEX needs a loose folder rip. Use GOD or DLC for ISO-only Redump releases.")
+			return
+		}
+		folderName := filepath.Base(xexFolder)
+		logStatus(gameName, "Processing", fmt.Sprintf("XEX folder: %s", folderName))
+		if xboxConn != nil && xboxConn.Mode == "ftp" {
+			if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
+				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+			} else {
+				os.RemoveAll(gameDir)
+				logStatus(gameName, "Ready", "FTP Transfer Complete!")
+			}
+		} else {
+			partName := fmt.Sprintf("%s_Part1.7z", safeName)
+			if err := utils.CreateZipFromDir(xexFolder, filepath.Join(gameDir, partName)); err != nil {
+				logStatus(gameName, "Error", fmt.Sprintf("Archive XEX: %v", err))
+				return
+			}
+			gamePartsMap.Store(gameName, []string{partName})
+			updateGameINI_XEX(gameDir, gameName, folderName, partName)
+			logStatus(gameName, "Ready", "Ready to Install")
+		}
+		logf("=== Complete (Redump XEX): %s ===", gameName)
+		return
+	}
+
 	logStatus(gameName, "Processing", "Extracting ISO...")
 	isoPath, err := utils.ExtractISO(archivePath, safeName, filepath.Join(toolsDir, "Temp"))
 	os.Remove(archivePath)
@@ -1958,11 +2200,6 @@ func processGame(gameName, platform string) {
 		return
 	}
 
-	// Check install type — "content" routes to content-folder install, not GOD.
-	installType := "god"
-	if it, ok := installTypeMap.Load(gameName); ok {
-		installType = it.(string)
-	}
 	if installType == "content" {
 		processContentInstallFromISO(gameName, safeName, isoPath, xboxConn)
 		os.Remove(isoPath)
@@ -1972,7 +2209,7 @@ func processGame(gameName, platform string) {
 	logStatus(gameName, "Processing", "Converting to GOD...")
 	godDir := filepath.Join(toolsDir, "Temp", safeName+"_GOD")
 	os.MkdirAll(godDir, 0755)
-	if err := utils.RunIso2GodNative(isoPath, godDir); err != nil {
+	if err := utils.RunIso2GodNative(isoPath, godDir, iso2GodResolveDisplayTitle); err != nil {
 		logf("ERROR [%s]: iso2god failed: %v", gameName, err)
 		logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err))
 		os.Remove(isoPath)
@@ -1995,7 +2232,7 @@ func processGame(gameName, platform string) {
 func finalizeGOD(gameName, safeName, gameDir, godDir, titleID, mediaID string, xboxConn *XboxConnection) {
 	// Resolve the real title name from XboxUnity once — used for both FTP and HTTP paths.
 	logStatus(gameName, "Processing", "Looking up title name...")
-	resolvedName := lookupTitleName(titleID) // may be empty — callers fall back gracefully
+	resolvedName := services.LookupTitleName(titleID) // may be empty — callers fall back gracefully
 
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
 		logStatus(gameName, "Processing", "FTP Transfer starting...")
@@ -2193,17 +2430,55 @@ func processGenericGame(gameName string) {
 		return
 	}
 
-	// Detect content type
+	installType := lookupInstallType(gameName)
+
 	isoPath := findFileByExt(extDir, ".iso")
 	xexFolder := findXEXFolder(extDir)
 
-	switch {
-	case isoPath != "":
-		// ISO found → standard iso2god pipeline
+	// XEX: loose-folder Game Archives layout (user must pick this when the RAR has no ISO).
+	if installType == "xex" {
+		if xexFolder == "" {
+			logStatus(gameName, "Error", "XEX install needs a loose game folder in the archive. Try GOD (ISO) or DLC (Disc 2 content ISO).")
+			return
+		}
+		folderName := filepath.Base(xexFolder)
+		logStatus(gameName, "Processing", fmt.Sprintf("XEX folder: %s", folderName))
+		if xboxConn != nil && xboxConn.Mode == "ftp" {
+			if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
+				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+			} else {
+				os.RemoveAll(gameDir)
+				logStatus(gameName, "Ready", "FTP Transfer Complete!")
+			}
+		} else {
+			partName := fmt.Sprintf("%s_Part1.7z", safeName)
+			if err := utils.CreateZipFromDir(xexFolder, filepath.Join(gameDir, partName)); err != nil {
+				logStatus(gameName, "Error", fmt.Sprintf("Archive XEX: %v", err))
+				return
+			}
+			gamePartsMap.Store(gameName, []string{partName})
+			updateGameINI_XEX(gameDir, gameName, folderName, partName)
+			logStatus(gameName, "Ready", "Ready to Install")
+		}
+		return
+	}
+
+	// DLC / Content: XDVDFS content tree → Content\...\00000002\ (same as Redump online flow).
+	if installType == "content" {
+		if isoPath == "" {
+			logStatus(gameName, "Error", "DLC/content install needs an ISO. Pick XEX if this release is a loose-folder rip.")
+			return
+		}
+		processContentInstallFromISO(gameName, safeName, isoPath, xboxConn)
+		return
+	}
+
+	// GOD (default): ISO → Games on Demand.
+	if isoPath != "" {
 		logStatus(gameName, "Processing", "ISO detected, converting to GOD...")
 		godDir := filepath.Join(toolsDir, "Temp", safeName+"_GOD")
 		os.MkdirAll(godDir, 0755)
-		if err := utils.RunIso2GodNative(isoPath, godDir); err != nil {
+		if err := utils.RunIso2GodNative(isoPath, godDir, iso2GodResolveDisplayTitle); err != nil {
 			logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err))
 			os.RemoveAll(godDir)
 			return
@@ -2215,33 +2490,14 @@ func processGenericGame(gameName string) {
 			return
 		}
 		finalizeGOD(gameName, safeName, gameDir, godDir, titleID, mediaID, xboxConn)
-
-	case xexFolder != "":
-		// XEX folder found → zip and serve as type=xex
-		folderName := filepath.Base(xexFolder)
-		logStatus(gameName, "Processing", fmt.Sprintf("XEX folder detected: %s", folderName))
-		if xboxConn != nil && xboxConn.Mode == "ftp" {
-			if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
-			} else {
-				os.RemoveAll(gameDir) // always empty in FTP mode
-				logStatus(gameName, "Ready", "FTP Transfer Complete!")
-			}
-		} else {
-			// Package the XEX folder contents as a 7z archive
-			partName := fmt.Sprintf("%s_Part1.7z", safeName)
-			if err := utils.CreateZipFromDir(xexFolder, filepath.Join(gameDir, partName)); err != nil {
-				logStatus(gameName, "Error", fmt.Sprintf("Archive XEX: %v", err))
-				return
-			}
-			gamePartsMap.Store(gameName, []string{partName})
-			updateGameINI_XEX(gameDir, gameName, folderName, partName)
-			logStatus(gameName, "Ready", "Ready to Install")
-		}
-
-	default:
-		logStatus(gameName, "Error", "No ISO or XEX content found in archive")
+		return
 	}
+
+	if xexFolder != "" {
+		logStatus(gameName, "Error", "No ISO in archive. Choose Install method: XEX for this folder layout, or use a Redump-style ISO release.")
+		return
+	}
+	logStatus(gameName, "Error", "No ISO or XEX content found in archive")
 	logf("=== Complete (Generic): %s ===", gameName)
 }
 
@@ -2561,54 +2817,17 @@ func updateGameINI_XEX(gameDir, gameName, folderName, partFile string) {
 	w.Flush()
 }
 
-// ==========================================
-// XBOXUNITY TITLE NAME LOOKUP
-// API: http://xboxunity.net/Resources/Lib/TitleList.php?search=<TITLEID>
-// Returns the real title name for a given TitleID hex string.
-// Falls back to empty string on any error so callers degrade gracefully.
-// ==========================================
-
-func lookupTitleName(titleID string) string {
-	apiURL := "http://xboxunity.net/Resources/Lib/TitleList.php?search=" + titleID
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", apiURL, nil)
-	if err != nil {
-		logf("XboxUnity: request build error: %v", err)
-		return ""
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
-	resp, err := client.Do(req)
-	if err != nil {
-		logf("XboxUnity: request failed for %s: %v", titleID, err)
-		return ""
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		logf("XboxUnity: HTTP %d for %s", resp.StatusCode, titleID)
-		return ""
-	}
-	var result struct {
-		Items []struct {
-			Name string `json:"Name"`
-		} `json:"Items"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		logf("XboxUnity: JSON decode error for %s: %v", titleID, err)
-		return ""
-	}
-	if len(result.Items) > 0 && result.Items[0].Name != "" {
-		logf("XboxUnity: resolved %s → %s", titleID, result.Items[0].Name)
-		return result.Items[0].Name
-	}
-	logf("XboxUnity: no result for %s", titleID)
-	return ""
+// iso2GodResolveDisplayTitle maps Title ID → display string for the LIVE CON
+// header UTF-16 title slots (same chain as services.LookupTitleName).
+func iso2GodResolveDisplayTitle(titleID uint32) string {
+	return services.LookupTitleName(fmt.Sprintf("%08X", titleID))
 }
 
 // godFolderName returns the directory name to use inside the GOD folder.
-// Format: "<TitleName> - <TitleID>" if XboxUnity resolves the name,
+// Format: "<TitleName> - <TitleID>" if services.LookupTitleName resolves the name,
 // otherwise falls back to "Title - <TitleID>" to preserve old behaviour.
 func godFolderName(titleID string) string {
-	if name := lookupTitleName(titleID); name != "" {
+	if name := services.LookupTitleName(titleID); name != "" {
 		return sanitizeFilename(name) + " - " + titleID
 	}
 	return "Title - " + titleID
@@ -2674,8 +2893,8 @@ func bucketAndZip(src, dest, gameName, safeName string) (string, string, error) 
 }
 
 func detectGodStructure(godDir string) (string, string, error) {
-	// Layout: godDir/{TitleID}/{MediaID} (CON header file) + Data0000… alongside it.
-	// The MediaID file is the one that is not named Data*.
+	// New layout (iso2god-rs): godDir/{TitleID}/{00007000|00005000}/{CON name} + {CON}.data/Data*
+	// Legacy: godDir/{TitleID}/Data* + CON file flat in TitleID folder.
 	entries, err := os.ReadDir(godDir)
 	if err != nil {
 		return "", "", err
@@ -2685,17 +2904,60 @@ func detectGodStructure(godDir string) (string, string, error) {
 			continue
 		}
 		titleID := e.Name()
-		subs, err := os.ReadDir(filepath.Join(godDir, titleID))
+		titlePath := filepath.Join(godDir, titleID)
+		subs, err := os.ReadDir(titlePath)
 		if err != nil {
 			continue
 		}
 		for _, s := range subs {
-			if !s.IsDir() && !strings.HasPrefix(s.Name(), "Data") {
-				return titleID, s.Name(), nil
+			if !s.IsDir() {
+				continue
 			}
+			ct := s.Name()
+			if len(ct) != 8 || !isHexString(ct) {
+				continue
+			}
+			ctPath := filepath.Join(titlePath, ct)
+			ctEntries, err := os.ReadDir(ctPath)
+			if err != nil {
+				continue
+			}
+			for _, f := range ctEntries {
+				if f.IsDir() {
+					continue
+				}
+				n := f.Name()
+				if strings.HasPrefix(strings.ToUpper(n), "DATA") {
+					continue
+				}
+				return titleID, n, nil
+			}
+		}
+		for _, s := range subs {
+			if s.IsDir() {
+				continue
+			}
+			n := s.Name()
+			if strings.HasPrefix(strings.ToUpper(n), "DATA") {
+				continue
+			}
+			return titleID, n, nil
 		}
 	}
 	return "", "", fmt.Errorf("GOD structure not found")
+}
+
+func isHexString(s string) bool {
+	for _, c := range s {
+		switch {
+		case c >= '0' && c <= '9':
+		case c >= 'A' && c <= 'F':
+		case c >= 'a' && c <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func parseXboxHeader(path string) (string, uint32) {

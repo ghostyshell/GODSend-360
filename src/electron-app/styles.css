@@ -71,6 +71,29 @@ button:hover {
   flex-shrink: 0;
 }
 
+.home-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #8b93a3;
+}
+
+.log-path-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.text-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
 #output {
   flex: 1;
   min-height: 0;
