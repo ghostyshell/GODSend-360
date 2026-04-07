@@ -278,4 +278,6 @@ async function main() {
   console.log("\nAll done.\n");
 }
 
-main().catch((e) => { console.error("ERROR:", e.message); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => { console.error("ERROR:", e.message); process.exit(1); });
