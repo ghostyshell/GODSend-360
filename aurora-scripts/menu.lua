@@ -370,12 +370,12 @@ function browseROMLibrary(platform, sysName)
                 gInstallDrive = drives[dr.Selected.Key]
 
                 local transferModes = {
-                    "HTTP (Download & Extract)",
-                    "FTP (Direct Transfer - More Reliable)"
+                    "FTP (Direct Transfer - More Reliable)",
+                    "HTTP (Download & Extract)"
                 }
                 local tm = Script.ShowPopupList("Transfer Method:", "Choose how to install", transferModes)
                 if tm and not tm.Canceled then
-                    gTransferMode = (tm.Selected.Key == 1) and "http" or "ftp"
+                    gTransferMode = (tm.Selected.Key == 1) and "ftp" or "http"
 
                     Script.SetStatus("Checking status...")
                     local state, msg = getGameStatus(cleanName)
@@ -607,15 +607,15 @@ function browseLibrary(platform)
 
                 if driveReady then
                     local transferModes = {
-                        "HTTP (Download & Extract)",
-                        "FTP (Direct Transfer - More Reliable)"
+                        "FTP (Direct Transfer - More Reliable)",
+                        "HTTP (Download & Extract)"
                     }
 
                     local tm = Script.ShowPopupList("Transfer Method:",
                                                     "Choose how files reach the console", transferModes)
 
                     if tm and not tm.Canceled then
-                        gTransferMode = (tm.Selected.Key == 1) and "http" or "ftp"
+                        gTransferMode = (tm.Selected.Key == 1) and "ftp" or "http"
 
                         local method = pickInstallMethod(cleanName, platform)
                         if method then
