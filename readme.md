@@ -12,13 +12,18 @@ GODsend 360 is a local-network game management system for Xbox 360 consoles runn
 
 ### 1. Download the installer
 
-Go to the [GODsend 360 v2.4.2 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.4.2) and download:
+Go to the [GODsend 360 v2.4.6 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.4.6) and download the installer for your platform:
 
-- **[`godsend-Setup-2.4.2.exe`](https://gitgud.io/api/v4/projects/ghosty99%2Fgodsend-360/packages/generic/installer/2.4.2/godsend-Setup-2.4.2.exe)** — Windows installer for the Electron tray app + backend (Aurora scripts are bundled)
+| Platform | File |
+|---|---|
+| **Windows** | [`godsend-Setup-2.4.6.exe`](https://gitgud.io/-/project/46780/uploads/fad7731a6479582dcfe2cb7c14d737c9/godsend-Setup-2.4.6.exe) |
+| **macOS (Apple Silicon)** | `godsend-2.4.6-arm64.dmg` |
+| **macOS (Intel)** | `godsend-2.4.6-x64.dmg` |
+| **Linux** | `godsend-2.4.6.AppImage` |
 
 ### 2. Install the Electron app
 
-1. Run `godsend-Setup-2.4.2.exe` and follow the installer prompts.
+1. Run the installer for your platform and follow the prompts (Windows: `godsend-Setup-2.4.6.exe`; macOS: open the `.dmg`; Linux: make the `.AppImage` executable and run it).
 2. Launch **GODsend** from the Start Menu — the tray icon appears in the system tray.
 
 ### 3. Configure Internet Archive (IA) in the app
