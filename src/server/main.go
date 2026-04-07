@@ -619,7 +619,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.4.5         ║")
+	fmt.Println("║    GODSend Backend Server v2.4.6         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
@@ -1477,7 +1477,7 @@ func downloadViaTorrent(platform, destDir, gameName string, entry MinervaEntry) 
 	if err != nil {
 		return "", fmt.Errorf("aria2c pipe: %w", err)
 	}
-	cmd.Stderr = cmd.Stdout // merge so we capture everything
+	cmd.Stderr = cmd.Stdout // merge stderr into the same pipe
 
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("aria2c start: %w", err)
@@ -1487,21 +1487,46 @@ func downloadViaTorrent(platform, destDir, gameName string, entry MinervaEntry) 
 	//   [#abc123 195MiB/6504MiB(3%) CN:67 DL:9.9MiB ETA:31m]
 	summaryRe := regexp.MustCompile(`\[#\S+\s+([\d.]+\S+)/([\d.]+\S+)\((\d+)%\)[^\]]*DL:([\d.]+\S+)[^\]]*ETA:(\S+)\]`)
 
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if m := summaryRe.FindStringSubmatch(line); m != nil {
-			pct := m[3]
-			dl := m[4]
-			eta := m[5]
-			msg := fmt.Sprintf("Torrenting (Minerva): %s%% @ %s/s ETA %s", pct, dl, eta)
-			logf("TORRENT [%s]: %s", gameName, msg)
-			logStatus(gameName, "Processing", msg)
+	// Drain aria2c output in a goroutine so the pipe never fills and deadlocks cmd.Wait().
+	// aria2c uses bare \r (carriage return) to redraw inline progress — bufio.ScanLines
+	// only splits on \n/\r\n, so \r-only sequences accumulate until the buffer limit is
+	// hit, Scan() returns false, and cmd.Wait() deadlocks (aria2c blocked on pipe write).
+	// Custom split handles both \r and \n; 1 MB buffer covers any bursts between summaries.
+	doneCh := make(chan struct{})
+	go func() {
+		defer close(doneCh)
+		sc := bufio.NewScanner(stdout)
+		sc.Buffer(make([]byte, 1<<20), 1<<20)
+		sc.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+			for i, b := range data {
+				if b == '\n' || b == '\r' {
+					adv := i + 1
+					if b == '\r' && adv < len(data) && data[adv] == '\n' {
+						adv++ // consume \r\n as one unit
+					}
+					return adv, data[:i], nil
+				}
+			}
+			if atEOF && len(data) > 0 {
+				return len(data), data, nil
+			}
+			return 0, nil, nil
+		})
+		for sc.Scan() {
+			line := sc.Text()
+			if m := summaryRe.FindStringSubmatch(line); m != nil {
+				pct, dl, eta := m[3], m[4], m[5]
+				msg := fmt.Sprintf("Torrenting (Minerva): %s%% @ %s/s ETA %s", pct, dl, eta)
+				logf("TORRENT [%s]: %s", gameName, msg)
+				logStatus(gameName, "Processing", msg)
+			}
 		}
-	}
+	}()
 
-	if err := cmd.Wait(); err != nil {
-		return "", fmt.Errorf("aria2c: %w", err)
+	waitErr := cmd.Wait()
+	<-doneCh // ensure pipe is fully drained before proceeding
+	if waitErr != nil {
+		return "", fmt.Errorf("aria2c: %w", waitErr)
 	}
 
 	// Walk the short temp dir to find the downloaded file.

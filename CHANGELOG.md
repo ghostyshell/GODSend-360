@@ -11,6 +11,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.4.6] — 2026-04-08
+
+### Fixed
+- **Minerva torrent progress stops at 98–99%** — aria2c's inline progress uses bare `\r` (carriage return), which `bufio.ScanLines` does not split on. The `\r`-terminated bytes accumulate until the scanner's 64 KB buffer limit is hit, `Scan()` returns false, the read loop exits early, and no further progress is logged — leaving the Aurora UI showing stale status for the remaining download time. Fixed by running output reading in a goroutine (pipe is always drained), a custom split function treating both `\r` and `\n` as line boundaries, and a 1 MB scanner buffer.
+
+### Changed
+- **Version** — **2.4.6** (root + Electron `package.json`, backend banner).
+
+---
+
 ## [2.4.5] — 2026-04-07
 
 ### Changed
