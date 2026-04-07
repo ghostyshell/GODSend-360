@@ -28,3 +28,4 @@ src/electron-app/.webpack/
 src/electron-app/out/
 
 .claude/settings.local.json
+.gitlab-token
