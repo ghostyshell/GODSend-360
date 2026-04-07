@@ -34,7 +34,7 @@ function getGameStatus(gameName)
     return "Error", "Could not parse server response"
 end
 
-function triggerDownload(gameName, platform, installType)
+function triggerDownload(gameName, platform, installType, source)
     if not gameName or gameName == "" then
         showError("TRIGGER_FAILED", "No game name provided")
         return false
@@ -49,6 +49,9 @@ function triggerDownload(gameName, platform, installType)
     local url = SERVER_BASE .. "/trigger?game=" .. encodedName
         .. "&platform=" .. (platform or "xbox360")
         .. "&install_type=" .. (installType or gInstallType or "god")
+    if source and source ~= "" then
+        url = url .. "&source=" .. source
+    end
     local json, err = httpGet(url)
 
     if not json then
@@ -70,6 +73,14 @@ function triggerDownload(gameName, platform, installType)
         local msg = json:match('"message"%s*:%s*"([^"]*)"')
             or "No ISO found in the PC Transfer folder."
         Script.ShowMessageBox("Local Transfer", msg, "OK")
+        return false
+    end
+
+    -- Minerva source selected but game not found there.
+    if json:find("minerva_unavailable") then
+        local msg = json:match('"message"%s*:%s*"([^"]*)"')
+            or "Game not found in Minerva Archive."
+        Script.ShowMessageBox("Minerva", msg .. "\n\nTry again and choose Internet Archive.", "OK")
         return false
     end
 
@@ -151,7 +162,7 @@ function waitForProcessing(gameName)
                     "  Status: " .. liveMsg .. "\n\n" ..
                     "Background — the FTP transfer continues automatically.\n" ..
                     "  Your game will appear in Aurora when it finishes.\n\n" ..
-                    "Abort — return to menu (transfer still runs, install later)."
+                    "Back — return to menu (transfer still runs, install later)."
             else
                 promptBody =
                     "The server is still processing '" .. gameName .. "'.\n\n" ..
@@ -159,10 +170,10 @@ function waitForProcessing(gameName)
                     "Background — go back to the menu now.\n" ..
                     "  When ready, select the game again from the library\n" ..
                     "  to install it (or use Server Queue & Status).\n\n" ..
-                    "Abort — same as Background (server keeps going)."
+                    "Back — same as Background (server keeps going)."
             end
 
-            local choice = Script.ShowMessageBox(promptTitle, promptBody, "Background", "Abort")
+            local choice = Script.ShowMessageBox(promptTitle, promptBody, "Background", "Back")
 
             if choice and choice.Button == 1 then
                 return "backgrounded"

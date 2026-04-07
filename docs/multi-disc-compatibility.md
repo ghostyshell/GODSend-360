@@ -20,7 +20,7 @@ Adapted from [Iso2God by r4dius](https://github.com/r4dius/Iso2God) with additio
 | Alan Wake | 4D5308AB | Disc 2 is bonus content; install as Content to `00000002` |
 | Alpha Protocol | 555307DC | Disc 2 is bonus content |
 | Bayonetta | 5345082C / 53450833 | Disc 2 is bonus content; install as Content |
-| Borderlands: Game of the Year Edition | 545407E7 | GOTY Disc 2 is DLC/bonus content (same Title ID as base game); install as Content |
+| Borderlands: Game of the Year Edition | 545407E7 | GOTY Disc 2 / Add-On Content Disc is DLC/bonus content; install as Content. The Add-On Content Disc XEX carries placeholder TitleID `FFED2000` — server overrides to `545407E7` automatically. |
 | Borderlands 2: Game of the Year Edition | 5454087C | GOTY Disc 2 is DLC/bonus content (same Title ID as base game); install as Content |
 | Brutal Legend | 4541082F | Disc 2 is bonus content |
 | Call of Duty: Black Ops | 41560855 | Disc 2 (multiplayer/zombies); install as Content |
@@ -72,11 +72,11 @@ When installing Disc 2 as **Content**:
 - `00000002` is the standard subfolder code for secondary disc/DLC content
 - The file(s) from the Disc 2 ISO are placed directly in this folder
 
-Some Disc 2 ISOs contain their content under a path like:
+Some Add-On Content Discs (used by many publishers, e.g. 2K Games for Borderlands GOTY) carry a generic placeholder Title ID `FFED2000` in their `default.xex`, with content stored under:
 ```
-content\0000000000000000\FFED2000\FFFFFFFF\
+content\0000000000000000\FFED2000\00000002\
 ```
-These need to be extracted and placed at `00000002\` with the correct TitleID.
+The server automatically resolves the correct parent Title ID by reading the STFS header (offset `0x0360`) of the first content package in that directory. The resolved Title ID is used as the install destination so Aurora/FSD correctly associates the DLC with the parent game. A game-name heuristic is used as a fallback if the package probe fails.
 
 ---
 

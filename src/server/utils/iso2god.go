@@ -1083,6 +1083,102 @@ func ExtractXDVDFSContentToDir(isoPath, destDir string, info *TitleExecInfo) err
 	return xdvdfsExtractRecursive(f, partOff, dSec, dSz, destDir)
 }
 
+// ProbeContentPackageTitleID opens an ISO and reads the real Title ID from the
+// first STFS/CON content package in the content directory.
+//
+// Many publishers (e.g. 2K Games) ship Add-On Content Discs whose default.xex
+// carries a generic placeholder Title ID such as 0xFFED2000 rather than the
+// parent game's real Title ID. The individual content packages (CON/LIVE/PIRS
+// STFS files) embedded in content/0000000000000000/…/00000002/ always contain
+// the correct Title ID at STFS header offset 0x0360. This function reads that
+// value so the server can install to the right folder on the Xbox.
+//
+// Returns (0, nil) when no valid STFS package with a non-placeholder Title ID
+// is found (caller should fall back to game-name heuristics or warn).
+func ProbeContentPackageTitleID(isoPath string, info *TitleExecInfo) (uint32, error) {
+	f, err := os.Open(isoPath)
+	if err != nil {
+		return 0, fmt.Errorf("probeContentTitleID: open: %w", err)
+	}
+	defer f.Close()
+
+	partOff, err := detectXGDPartition(f)
+	if err != nil {
+		return 0, fmt.Errorf("probeContentTitleID: %w", err)
+	}
+	rootSector, rootSize, err := readXDVDFSVolDesc(f, partOff)
+	if err != nil {
+		return 0, fmt.Errorf("probeContentTitleID: volDesc: %w", err)
+	}
+
+	// Navigate content/0000000000000000/
+	cSec, cSz, ok := findInDir(f, partOff, rootSector, rootSize, "content")
+	if !ok {
+		return 0, nil
+	}
+	zSec, zSz, ok := findInDir(f, partOff, cSec, cSz, "0000000000000000")
+	if !ok {
+		return 0, nil
+	}
+
+	// Find TitleID subfolder (same fallback logic as ExtractXDVDFSContentToDir).
+	titleIDStr := fmt.Sprintf("%08X", info.TitleID)
+	tSec, tSz, ok := findInDir(f, partOff, zSec, zSz, titleIDStr)
+	if !ok {
+		if sec, sz, ok2 := findInDir(f, partOff, zSec, zSz, "FFED2000"); ok2 {
+			tSec, tSz = sec, sz
+		} else {
+			for _, e := range readXDVDFSDirTable(f, partOff, zSec, zSz) {
+				if e.isDir() {
+					tSec, tSz = e.sector, e.size
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return 0, nil
+			}
+		}
+	}
+
+	// Find 00000002 subfolder (standard secondary-disc content type code).
+	dSec, dSz, ok := findInDir(f, partOff, tSec, tSz, "00000002")
+	if !ok {
+		for _, e := range readXDVDFSDirTable(f, partOff, tSec, tSz) {
+			if e.isDir() {
+				dSec, dSz = e.sector, e.size
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return 0, nil
+		}
+	}
+
+	// Read the first 0x0364 bytes of each file in the directory and look for an
+	// STFS magic (CON /LIVE/PIRS) followed by a non-placeholder Title ID at 0x0360.
+	const stfsHeaderSize = 0x0364
+	for _, e := range readXDVDFSDirTable(f, partOff, dSec, dSz) {
+		if e.isDir() || e.size < stfsHeaderSize {
+			continue
+		}
+		data, err := readISOSlice(f, partOff, e.sector, e.size, stfsHeaderSize)
+		if err != nil || len(data) < stfsHeaderSize {
+			continue
+		}
+		magic := string(data[:4])
+		if magic != "CON " && magic != "LIVE" && magic != "PIRS" {
+			continue
+		}
+		tid := binary.BigEndian.Uint32(data[0x0360:])
+		if tid != 0 && tid != 0xFFED2000 {
+			return tid, nil
+		}
+	}
+	return 0, nil
+}
+
 // findXEXRootDirRecursive returns the XDVDFS directory (sector/size) that contains
 // default.xex or default.xbe, searching subdirectories depth-first.
 func findXEXRootDirRecursive(f *os.File, partOff uint64, dirSec, dirSz uint32) (uint32, uint32, bool) {

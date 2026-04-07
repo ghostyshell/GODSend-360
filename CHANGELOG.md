@@ -11,6 +11,109 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.4.5] — 2026-04-07
+
+### Changed
+- **Aurora script v10.0.0** — renamed the "Abort" button in the Background/Back modal to "Back" to better reflect that the server keeps running and nothing is cancelled.
+- **Version** — **2.4.5** (root + Electron `package.json`, backend banner, Aurora script `10.0.0`).
+
+---
+
+## [2.4.4] — 2026-04-07
+
+### Fixed
+- **Minerva torrent exit code 16** — aria2c's working directory is now a short OS temp path (`%TEMP%\gd-dl-*`) instead of the long install-relative path, avoiding Windows MAX_PATH failures on deep torrent subdirectories. File is moved to the job temp dir after download. Added `--file-allocation=none` to skip pre-allocation on large files.
+- **aria2c Windows Firewall prompt** — installer now adds `netsh` firewall rules for `aria2c.exe` (inbound + outbound) so Windows does not prompt for network access on first torrent download. Rules are removed on uninstall.
+- **Torrent progress not shown in backend terminal** — `logf` was missing from the aria2c progress scanner loop; terminal now shows `TORRENT [game]: x% @ y/s ETA z` every 3 s alongside the Aurora queue updates.
+
+### Changed
+- **Version** — **2.4.4** (root + Electron `package.json`, backend banner).
+
+---
+
+## [2.4.3] — 2026-04-07
+
+### Changed
+- **Minerva downloads via aria2c** — replaced the `anacrolix/torrent` BitTorrent client with bundled `aria2c` binaries. `scripts/download-aria2.js` fetches aria2c 1.37.0 for Windows (GitHub release), Linux x64, macOS arm64, and macOS x64 (Homebrew GHCR bottles) into `dist/tools/`. The installer bundles the platform binary next to `godsend-backend`. At runtime the backend fetches the collection `.torrent` via Go HTTPS, writes it to a temp file, and shells out to aria2c with `--select-file=<index>` — avoiding aria2c's Windows SSL issues while getting full peer connectivity.
+- **`build:server` script** — now runs `download-aria2.js` then builds the Go binary; old `ensure-minerva-torrent-zips.js` / `sync-minerva-torrent-zips-to-dist.js` calls removed.
+- **Version** — **2.4.3** (root + Electron `package.json`, backend banner).
+
+### Removed
+- **Torrent zip cache** — `cache/minerva_*.zip` files, `scripts/ensure-minerva-torrent-zips.js`, `scripts/fetch-minerva-torrent-zips.js`, `scripts/sync-minerva-torrent-zips-to-dist.js`, and the `jszip` dev dependency are all gone. The collection `.torrent` is fetched fresh on each download.
+- **`cmd/torrent-test`** — internal test tool removed now that the flow is validated.
+
+---
+
+## [2.4.2] — 2026-04-07
+
+### Fixed
+- **Minerva collection torrent cache** — torrents are stored on disk as zip archives (`minerva_xbox360.zip`, `minerva_xbox.zip`, `minerva_digital_torrent.zip`, `minerva_games_torrent.zip`) with a single inner entry `torrent` to reduce AV false positives on `.torrent` files. `downloadViaTorrent` now unpacks that zip before `metainfo.Load` (previously the bencode parser received raw PK zip bytes and failed). Added the missing `archive/zip` import.
+- **Upgrades from 2.4.1** — plain `minerva_*.torrent` files left in `cache/` are migrated into the zip layout on first use instead of re-downloading.
+
+### Changed
+- **Aurora script bundle** — `scriptVersion` **9.1.2** (main-menu title shows `GODsend 360 v9.1.2`).
+- **Version** — **2.4.2** (root + Electron `package.json`, lockfile roots, backend banner `GODSend Backend Server v2.4.2`, README install links). `AGENTS.md` Minerva torrent notes updated for the zip cache.
+
+---
+
+## [2.4.1] — 2026-04-07
+
+### Fixed
+- **Minerva torrent download** — replaced the broken `/rom?name=` per-file approach (which returned HTML, never a `.torrent`) with collection-torrent + selective-file download:
+  - Four collection `.torrent` files (`minerva_xbox360.torrent`, `minerva_xbox.torrent`, `minerva_digital.torrent`, `minerva_games.torrent`) are pre-bundled in `cache/` and included in the installer via the existing `extraFiles` glob.
+  - At runtime, `downloadViaTorrent` loads the cached collection torrent, locates the requested file by basename (`entry.FileName`), calls `file.Download()` on only that file (all other pieces remain at `PriorityNone`), and monitors per-file byte completion.
+  - If a torrent file is absent at runtime (manual install / upgrade), `ensureMinervaTorrent` downloads it from Minerva on demand.
+  - Each download runs in its own `Temp/<name>_torrent/` directory; the full tree is removed via `defer os.RemoveAll` after processing, avoiding conflicts between concurrent downloads.
+  - Removed dead `fetchTorrentFile`, `MinervaDownloadBase` constant, and stale `torrentURL` / `referer` wiring from the three `processMinerva*` functions.
+
+### Changed
+- **Aurora script bundle** — `scriptVersion` **9.1.1** (main-menu title shows `GODsend 360 v9.1.1`).
+- **Version** — **2.4.1** (root + Electron `package.json`, lockfile roots, backend banner `GODSend Backend Server v2.4.1`).
+
+---
+
+## [2.4.0] — 2026-04-07
+
+### Fixed
+- **Minerva torrent fetch** — `fetchTorrentFile` now sends a `Referer` header pointing to the platform's Minerva browse page; without it the server returned an HTML error page instead of the `.torrent` file, causing `bencode: syntax error (offset: 0): unknown value type '<'`.
+- **Minerva HTML entities** — Minerva No-Intro filenames containing `&#39;`, `&amp;`, etc. are now decoded to plain characters before being sent to clients (`decodeMinervaName`), so names like `'Splosion Man` display correctly.
+
+### Changed
+- **Separate source browse lists** — Minerva Archive and Internet Archive are now independently browsable.  Selecting any library from the main menu first shows a **"Download Source"** popup (`Minerva Archive` / `Internet Archive`); the chosen source controls both the game list fetched from `/browse` and the `source=` parameter forwarded to `/trigger`.  The previously merged/deduped combined list is retained as a backward-compat fallback when `source` is omitted.
+  - `/browse` now accepts `?source=minerva` or `?source=ia` to return each source's list independently.
+  - Source selection is scoped to the browse session — no additional prompt appears at download time.
+  - Main menu labels updated from `(Minerva | Internet Archive)` to `(Pick Source)`.
+  - `source=minerva` on `/trigger` returns `minerva_unavailable` instead of silently falling back to IA when the game is not in Minerva's index.
+- **Aurora script bundle** — `scriptVersion` **9.1.0** (main-menu title shows `GODsend 360 v9.1.0`).
+- **Version** — **2.4.0** (root + Electron `package.json`, lockfile roots, backend banner `GODSend Backend Server v2.4.0`).
+
+---
+
+## [2.3.1] — 2026-04-07
+
+### Changed
+- **Aurora script name** — `scriptTitle` and the main-menu title now use **GODsend 360** (replacing "GODSend Store") to match the project branding.
+- **Aurora script bundle** — `scriptVersion` **9.0.0** (main-menu title shows `GODsend 360 v9.0.0`).
+- **Version** — **2.3.1** (root + Electron `package.json`, lockfile roots, backend banner `GODSend Backend Server v2.3.1`).
+
+---
+
+## [2.3.0] — 2026-04-07
+
+### Added
+- **Minerva Archive source** — Xbox 360 ISOs, OG Xbox ISOs, XBLA, DLC (Addon), XBLIG, and Games are now sourced from [minerva-archive.org](https://minerva-archive.org/browse/) in addition to Internet Archive.  Download priority is: **local Transfer folder → Minerva → Internet Archive**.  The browse list merges Minerva entries first then IA (deduplicated).
+  - New `MinervaEntry` / `MinervaPlatformCache` types and a full cache stack (`buildMinervaCache`, `loadMinervaCacheFromDisk`, `saveMinervaCacheToDisk`, `findMinervaEntry`) mirroring the IA cache system.
+  - **BitTorrent download** — Minerva's `/rom?name=` endpoint serves `.torrent` files rather than direct downloads.  `downloadViaTorrent` (backed by `github.com/anacrolix/torrent`) fetches the `.torrent` file, then downloads the actual content via BitTorrent.  Progress is reported to the Lua polling loop via the existing `logStatus` mechanism.
+  - Three new processing functions: `processMinervaGame` (Redump ISO → GOD pipeline), `processMinervaGenericGame` (mixed archive pipeline), and `processMinervaDigital` (XBLA/DLC/XBLIG content pipeline).
+  - `handleCacheRefresh` now rebuilds Minerva caches alongside IA for both `?platform=all` and per-platform requests; `minerva_<platform>` prefix refreshes Minerva only.
+- **Pre-scrape script** (`scripts/scrape-minerva-cache.js`) — fetches all Minerva Xbox browse pages once and writes `cache/minerva_<platform>.json` files to the repo root.  Run with `npm run scrape:minerva` before building the installer so bundled caches are shipped day-one.  The existing `extraFiles` config in `electron-builder` already includes `cache/**/*`, so no packaging changes are needed.
+- **Lua menu labels updated** — all Xbox/XBLA/DLC/Games menu items now read "(Minerva | Internet Archive)" to reflect the dual-source backend.
+
+### Changed
+- **Version** — **2.3.0** (root + Electron `package.json`, lockfile roots, backend banner `GODSend Backend Server v2.3.0`). Aurora script bundle **8.3.0** (`main.lua` / menu title).
+
+---
+
 ## [2.2.5] — 2026-04-06
 
 ### Fixed

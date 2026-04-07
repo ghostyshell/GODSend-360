@@ -475,21 +475,38 @@ end
 -- ── Library browser ───────────────────────────────────────────────────────────
 
 function browseLibrary(platform)
+    -- For online platforms, pick source first so the list and trigger both use the same source.
+    local browseSource = ""
+    if platform ~= "local" then
+        local sourceItems = {"Minerva Archive", "Internet Archive"}
+        local sr = Script.ShowPopupList("Download Source:",
+            "Choose which library to browse", sourceItems)
+        if not sr or sr.Canceled then return end
+        browseSource = (sr.Selected.Key == 1) and "minerva" or "ia"
+    end
+
+    local sourceLabel = (browseSource == "minerva") and "Minerva" or
+                        (browseSource == "ia")      and "Internet Archive" or ""
+
     Script.SetStatus("Loading Library...")
-    local list_data, err = httpGet(SERVER_BASE .. "/browse?platform=" .. platform)
+    local browseURL = SERVER_BASE .. "/browse?platform=" .. platform
+    if browseSource ~= "" then
+        browseURL = browseURL .. "&source=" .. browseSource
+    end
+    local list_data, err = httpGet(browseURL)
     collectgarbage()
 
     if list_data then
-        -- Handle IA cache loading marker (format: __IA_LOADING__:loaded/total)
+        -- Handle cache loading marker (format: __IA_LOADING__:loaded/total)
         if list_data:sub(1, 14) == "__IA_LOADING__" then
             local loaded, total = list_data:match("__IA_LOADING__:(%d+)/(%d+)")
             local progressMsg = ""
             if loaded and total then
                 progressMsg = string.format("\nProgress: %s / %s collections fetched.", loaded, total)
             end
+            local srcName = sourceLabel ~= "" and sourceLabel or "the source"
             Script.ShowMessageBox("Library Loading",
-                "The Internet Archive game list is still loading\n" ..
-                "(fetching from archive.org for the first time).\n" ..
+                "The " .. srcName .. " game list is still loading.\n" ..
                 progressMsg .. "\n\n" ..
                 "Please go back and try again in a moment.\n" ..
                 "After the first load, the list is saved to disk.", "OK")
@@ -521,15 +538,15 @@ function browseLibrary(platform)
         end
 
         if #bucketKeys == 0 then
-            local emptyMsg = "No games found in this library."
+            local emptyMsg
             if platform == "local" then
                 emptyMsg = "No ISO files found in the Transfer folder.\n\n" ..
                     "Place your .iso files in the Transfer folder on\n" ..
                     "your PC next to godsend.exe, then try again."
             else
-                emptyMsg = "No games found in the Internet Archive library.\n\n" ..
-                    "The game list may still be loading (first launch\n" ..
-                    "takes ~60 seconds to fetch from archive.org).\n\n" ..
+                local srcName = sourceLabel ~= "" and sourceLabel or "this source"
+                emptyMsg = "No games found in " .. srcName .. ".\n\n" ..
+                    "The game list may still be loading.\n" ..
                     "Go back and try again in a moment.\n" ..
                     "Check the server console for connection errors."
             end
@@ -543,13 +560,14 @@ function browseLibrary(platform)
             return a < b
         end)
 
-        local title = "Xbox 360 Redump (Internet Archive)"
-        if platform == "xbox"    then title = "Original Xbox Redump (Internet Archive)" end
-        if platform == "digital" then title = "Digital / No-Intro (Internet Archive)" end
-        if platform == "xbla"    then title = "XBLA Arcade (Internet Archive)" end
-        if platform == "dlc"     then title = "DLC (Internet Archive - Hdd1)" end
-        if platform == "xblig"   then title = "Xbox Indie Games (Internet Archive)" end
-        if platform == "games"   then title = "Xbox 360 Games Archive (Internet Archive)" end
+        local src = sourceLabel ~= "" and (" (" .. sourceLabel .. ")") or ""
+        local title = "Xbox 360 Redump" .. src
+        if platform == "xbox"    then title = "Original Xbox Redump" .. src end
+        if platform == "digital" then title = "Digital / No-Intro" .. src end
+        if platform == "xbla"    then title = "XBLA Arcade" .. src end
+        if platform == "dlc"     then title = "DLC / Multi-Disc" .. src end
+        if platform == "xblig"   then title = "Xbox Indie Games" .. src end
+        if platform == "games"   then title = "Xbox 360 Games Archive" .. src end
         if platform == "local"   then title = "Local Library (Transfer Folder)" end
 
         while true do
@@ -640,7 +658,7 @@ function browseLibrary(platform)
                             if Script.ShowMessageBox("Transfer",
                                 "Game ready. Start FTP transfer to " .. gInstallDrive .. "?",
                                 "Yes", "No").Button == 1 then
-                                if triggerDownload(cleanName, platform, gInstallType) then
+                                if triggerDownload(cleanName, platform, gInstallType, browseSource) then
                                     Script.SetStatus("Starting FTP transfer...")
                                     Thread.Sleep(2000)
                                     waitResult = waitForProcessing(cleanName)
@@ -656,7 +674,7 @@ function browseLibrary(platform)
                             if Script.ShowMessageBox("Download",
                                 "Start " .. modeText .. " for " .. cleanName .. "?",
                                 "Yes", "No").Button == 1 then
-                                if triggerDownload(cleanName, platform, gInstallType) then
+                                if triggerDownload(cleanName, platform, gInstallType, browseSource) then
                                     Script.SetStatus("Starting...")
                                     Thread.Sleep(2000)
                                     waitResult = waitForProcessing(cleanName)

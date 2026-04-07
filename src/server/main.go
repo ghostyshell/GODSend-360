@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -23,6 +24,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"os/exec"
+
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/jlaffaye/ftp"
 
 	"godsend/services"
@@ -47,6 +51,9 @@ const (
 	TCPKeepAlive    = 30 * time.Second
 
 	IADownloadBase = "https://archive.org/download/"
+
+	// Minerva Archive browse base
+	MinervaBrowseBase = "https://minerva-archive.org/browse/"
 
 	// Parallel IA download settings
 	iaChunkRetries      = 3
@@ -136,6 +143,45 @@ var iaCollections = map[string][]string{
 		"XBOX_360_5", "XBOX_360_6",
 	},
 }
+
+// ==========================================
+// MINERVA ARCHIVE COLLECTION MAP
+// Source: https://minerva-archive.org/browse/
+// Xbox 360 ISOs (Redump), OG Xbox (Redump), and digital content (No-Intro).
+// Each entry is a single browse-page URL to scrape.
+// ==========================================
+var minervaPageURLs = map[string]string{
+	"xbox360": MinervaBrowseBase + "Redump/Microsoft%20-%20Xbox%20360/",
+	"xbox":    MinervaBrowseBase + "Redump/Microsoft%20-%20Xbox/",
+	// digital, xbla, dlc, xblig all share the No-Intro Digital page; tag-filters applied at build time.
+	"digital": MinervaBrowseBase + "No-Intro/Microsoft%20-%20Xbox%20360%20(Digital)/",
+	"xbla":    MinervaBrowseBase + "No-Intro/Microsoft%20-%20Xbox%20360%20(Digital)/",
+	"dlc":     MinervaBrowseBase + "No-Intro/Microsoft%20-%20Xbox%20360%20(Digital)/",
+	"xblig":   MinervaBrowseBase + "No-Intro/Microsoft%20-%20Xbox%20360%20(Digital)/",
+	"games":   MinervaBrowseBase + "No-Intro/Non-Redump%20-%20Microsoft%20-%20Xbox%20360/",
+}
+
+// minervaTagFilters: if non-empty, only filenames containing this substring are kept.
+var minervaTagFilters = map[string]string{
+	"xbla":  "(XBLA)",
+	"dlc":   "(Addon)",
+	"xblig": "(XBLIG)",
+}
+
+// minervaTorrentURLs: the collection-level .torrent file for each platform.
+// digital/xbla/dlc/xblig all share the No-Intro Digital torrent.
+var minervaTorrentURLs = map[string]string{
+	"xbox360": "https://minerva-archive.org/assets/Minerva_Myrient_v0.3/Minerva_Myrient%20-%20Redump%20-%20Microsoft%20-%20Xbox%20360.torrent",
+	"xbox":    "https://minerva-archive.org/assets/Minerva_Myrient_v0.3/Minerva_Myrient%20-%20Redump%20-%20Microsoft%20-%20Xbox.torrent",
+	"digital": "https://minerva-archive.org/assets/Minerva_Myrient_v0.3/Minerva_Myrient%20-%20No-Intro%20-%20Microsoft%20-%20Xbox%20360%20(Digital).torrent",
+	"xbla":    "https://minerva-archive.org/assets/Minerva_Myrient_v0.3/Minerva_Myrient%20-%20No-Intro%20-%20Microsoft%20-%20Xbox%20360%20(Digital).torrent",
+	"dlc":     "https://minerva-archive.org/assets/Minerva_Myrient_v0.3/Minerva_Myrient%20-%20No-Intro%20-%20Microsoft%20-%20Xbox%20360%20(Digital).torrent",
+	"xblig":   "https://minerva-archive.org/assets/Minerva_Myrient_v0.3/Minerva_Myrient%20-%20No-Intro%20-%20Microsoft%20-%20Xbox%20360%20(Digital).torrent",
+	"games":   "https://minerva-archive.org/assets/Minerva_Myrient_v0.3/Minerva_Myrient%20-%20No-Intro%20-%20Non-Redump%20-%20Microsoft%20-%20Xbox%20360.torrent",
+}
+
+// minervaHrefRe extracts the value of href="/rom?name=…" from Minerva browse pages.
+var minervaHrefRe = regexp.MustCompile(`href="(/rom\?name=[^"]+)"`)
 
 // ==========================================
 // ROM SYSTEMS (EdgeEmu — edgeemu.net)
@@ -257,6 +303,19 @@ type buildState struct {
 	state  string // "idle" "building" "ready" "error"
 }
 
+// MinervaEntry links a display name to its Minerva download path.
+type MinervaEntry struct {
+	FileName  string `json:"filename"`   // e.g. "007 - Blood Stone (USA, Europe).zip"
+	PathParam string `json:"path_param"` // URL-encoded path for /rom?name= query param
+}
+
+// MinervaPlatformCache is persisted to disk per platform.
+type MinervaPlatformCache struct {
+	Games     []string                `json:"games"`
+	Entries   map[string]MinervaEntry `json:"entries"` // lower(basename-no-ext) -> entry
+	BuildTime time.Time               `json:"build_time"`
+}
+
 var (
 	// in-memory game lists per platform
 	iaGameCache   = map[string][]string{}
@@ -273,6 +332,22 @@ var (
 	// prevent double-building the same platform
 	iaCacheBuilding = map[string]bool{}
 	iaCacheBuildMu  sync.Mutex
+
+	// in-memory Minerva game lists per platform
+	minervaGameCache   = map[string][]string{}
+	minervaGameCacheMu sync.RWMutex
+
+	// lower(basename-no-ext) -> MinervaEntry for fast Minerva download lookup
+	minervaEntryMap   = map[string]MinervaEntry{}
+	minervaEntryMapMu sync.RWMutex
+
+	// live build progress for Minerva platform caches
+	minervaBuildStates   = map[string]*buildState{}
+	minervaBuildStatesMu sync.Mutex
+
+	// prevent double-building the same Minerva platform cache
+	minervaCacheBuilding = map[string]bool{}
+	minervaCacheBuildMu  sync.Mutex
 )
 
 // ==========================================
@@ -281,6 +356,7 @@ var (
 
 var (
 	toolsDir              string
+	godsendExeDir         string // directory containing the godsend binary (bundled cache/ lives here when shipped)
 	transferDir           string // local ISO folder (default toolsDir/Transfer, or GODSEND_TRANSFER)
 	jobQueue              sync.Map
 	suppressedJobs        sync.Map // games removed via /queue/remove — ignore logStatus until next /trigger
@@ -543,7 +619,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.2.5         ║")
+	fmt.Println("║    GODSend Backend Server v2.4.5         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
@@ -577,6 +653,23 @@ func main() {
 				buildIAGameCache(p)
 			}(platform, delay)
 			delay += 800 * time.Millisecond
+		}
+	}
+
+	// Load Minerva caches from disk; build any that are missing in background.
+	minervaPlatforms := []string{"xbox360", "xbox", "digital", "xbla", "dlc", "xblig", "games"}
+	var minervaDelay time.Duration
+	for _, mp := range minervaPlatforms {
+		if loadMinervaCacheFromDisk(mp) {
+			logf("MINERVA CACHE: Loaded %s from disk", mp)
+		} else {
+			go func(p string, d time.Duration) {
+				if d > 0 {
+					time.Sleep(d)
+				}
+				buildMinervaCache(p)
+			}(mp, minervaDelay)
+			minervaDelay += 1200 * time.Millisecond
 		}
 	}
 
@@ -633,6 +726,7 @@ func setupPaths() error {
 		return fmt.Errorf("executable path: %w", err)
 	}
 	exDir := filepath.Dir(ex)
+	godsendExeDir = exDir
 	if v := strings.TrimSpace(os.Getenv("GODSEND_HOME")); v != "" {
 		abs, err := filepath.Abs(v)
 		if err != nil {
@@ -1018,6 +1112,428 @@ func buildIAGameCache(platform string) {
 }
 
 // ==========================================
+// MINERVA CACHE — DISK PERSISTENCE
+// ==========================================
+
+func minervaCacheFilePath(platform string) string {
+	return filepath.Join(toolsDir, "cache", "minerva_"+platform+".json")
+}
+
+func saveMinervaCacheToDisk(platform string, games []string, entries map[string]MinervaEntry) {
+	mc := MinervaPlatformCache{
+		Games:     games,
+		Entries:   entries,
+		BuildTime: time.Now(),
+	}
+	data, err := json.MarshalIndent(mc, "", "  ")
+	if err != nil {
+		logf("MINERVA CACHE SAVE ERROR %s: %v", platform, err)
+		return
+	}
+	if err := os.WriteFile(minervaCacheFilePath(platform), data, 0644); err != nil {
+		logf("MINERVA CACHE SAVE ERROR %s: %v", platform, err)
+		return
+	}
+	logf("MINERVA CACHE: Saved %s (%d games) to disk", platform, len(games))
+}
+
+func loadMinervaCacheFromDisk(platform string) bool {
+	data, err := os.ReadFile(minervaCacheFilePath(platform))
+	if err != nil {
+		return false
+	}
+	var mc MinervaPlatformCache
+	if err := json.Unmarshal(data, &mc); err != nil {
+		return false
+	}
+	if len(mc.Games) == 0 {
+		return false
+	}
+
+	minervaGameCacheMu.Lock()
+	minervaGameCache[platform] = mc.Games
+	minervaGameCacheMu.Unlock()
+
+	minervaEntryMapMu.Lock()
+	for k, v := range mc.Entries {
+		minervaEntryMap[k] = v
+	}
+	minervaEntryMapMu.Unlock()
+
+	setMinervaBuildState(platform, "ready", int32(len(mc.Games)), int32(len(mc.Games)))
+	return true
+}
+
+// ==========================================
+// MINERVA CACHE — BUILD STATE
+// ==========================================
+
+func getMinervaBuildState(platform string) *buildState {
+	minervaBuildStatesMu.Lock()
+	s, ok := minervaBuildStates[platform]
+	if !ok {
+		s = &buildState{state: "idle"}
+		minervaBuildStates[platform] = s
+	}
+	minervaBuildStatesMu.Unlock()
+	return s
+}
+
+func setMinervaBuildState(platform, state string, loaded, total int32) {
+	s := getMinervaBuildState(platform)
+	atomic.StoreInt32(&s.loaded, loaded)
+	atomic.StoreInt32(&s.total, total)
+	minervaBuildStatesMu.Lock()
+	s.state = state
+	minervaBuildStatesMu.Unlock()
+}
+
+// ==========================================
+// MINERVA CACHE — SCRAPE + BUILD
+// ==========================================
+
+// scrapeMinervaPage fetches one Minerva browse URL and returns file entries.
+// tagFilter, if non-empty, restricts results to filenames containing that substring.
+func scrapeMinervaPage(browseURL, tagFilter string) ([]MinervaEntry, error) {
+	client := &http.Client{Timeout: 120 * time.Second}
+	req, err := http.NewRequest("GET", browseURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch %s: %w", browseURL, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("fetch %s: HTTP %d", browseURL, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", browseURL, err)
+	}
+
+	matches := minervaHrefRe.FindAllSubmatch(body, -1)
+	var entries []MinervaEntry
+	for _, m := range matches {
+		hrefVal := string(m[1]) // e.g. "/rom?name=.%2FRedump%2F...%2FGame.zip"
+		const prefix = "/rom?name="
+		if !strings.HasPrefix(hrefVal, prefix) {
+			continue
+		}
+		pathParam := hrefVal[len(prefix):]
+		decoded, err := url.PathUnescape(pathParam)
+		if err != nil {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(decoded))
+		if ext != ".zip" && ext != ".7z" && ext != ".rar" {
+			continue
+		}
+		fileName := filepath.Base(decoded)
+		if tagFilter != "" && !strings.Contains(fileName, tagFilter) {
+			continue
+		}
+		entries = append(entries, MinervaEntry{
+			FileName:  fileName,
+			PathParam: pathParam,
+		})
+	}
+	return entries, nil
+}
+
+// buildMinervaCache scrapes the Minerva browse page for one platform and caches results.
+// Safe to call multiple times — deduplicates via minervaCacheBuilding guard.
+func buildMinervaCache(platform string) {
+	minervaCacheBuildMu.Lock()
+	if minervaCacheBuilding[platform] {
+		minervaCacheBuildMu.Unlock()
+		return
+	}
+	minervaCacheBuilding[platform] = true
+	minervaCacheBuildMu.Unlock()
+
+	defer func() {
+		minervaCacheBuildMu.Lock()
+		minervaCacheBuilding[platform] = false
+		minervaCacheBuildMu.Unlock()
+	}()
+
+	browseURL, ok := minervaPageURLs[platform]
+	if !ok {
+		return
+	}
+	tagFilter := minervaTagFilters[platform]
+
+	setMinervaBuildState(platform, "building", 0, 1)
+	logf("MINERVA CACHE: Building %s ...", platform)
+
+	entries, err := scrapeMinervaPage(browseURL, tagFilter)
+	if err != nil {
+		logf("MINERVA CACHE ERROR [%s]: %v", platform, err)
+		setMinervaBuildState(platform, "error", 0, 1)
+		return
+	}
+
+	newEntries := make(map[string]MinervaEntry, len(entries))
+	var allGames []string
+	for _, e := range entries {
+		name := strings.TrimSuffix(e.FileName, filepath.Ext(e.FileName))
+		lower := strings.ToLower(name)
+		if _, dup := newEntries[lower]; !dup {
+			newEntries[lower] = e
+			allGames = append(allGames, name)
+		}
+	}
+	sort.Strings(allGames)
+	setMinervaBuildState(platform, "ready", 1, 1)
+	logf("MINERVA CACHE: %s complete — %d games", platform, len(allGames))
+
+	minervaGameCacheMu.Lock()
+	minervaGameCache[platform] = allGames
+	minervaGameCacheMu.Unlock()
+
+	minervaEntryMapMu.Lock()
+	for k, v := range newEntries {
+		minervaEntryMap[k] = v
+	}
+	minervaEntryMapMu.Unlock()
+
+	saveMinervaCacheToDisk(platform, allGames, newEntries)
+}
+
+// ==========================================
+// MINERVA CACHE — LOOKUP
+// ==========================================
+
+// findMinervaEntry looks up a game in the Minerva cache.
+// Returns the entry and true if found, or false if not found.
+// Triggers a background cache build if the cache is empty for this platform.
+func findMinervaEntry(gameName, platform string) (MinervaEntry, bool) {
+	lower := strings.ToLower(gameName)
+
+	minervaEntryMapMu.RLock()
+	if e, ok := minervaEntryMap[lower]; ok {
+		minervaEntryMapMu.RUnlock()
+		return e, true
+	}
+	// Fuzzy: strip region tags and compare base names
+	baseName := strings.ToLower(strings.SplitN(gameName, " (", 2)[0])
+	for k, e := range minervaEntryMap {
+		if strings.Contains(k, lower) {
+			minervaEntryMapMu.RUnlock()
+			return e, true
+		}
+		kBase := strings.ToLower(strings.SplitN(k, " (", 2)[0])
+		if kBase == baseName {
+			minervaEntryMapMu.RUnlock()
+			return e, true
+		}
+	}
+	minervaEntryMapMu.RUnlock()
+
+	// Trigger a background build if the cache is empty for this platform
+	minervaGameCacheMu.RLock()
+	isEmpty := len(minervaGameCache[platform]) == 0
+	minervaGameCacheMu.RUnlock()
+	if isEmpty {
+		go buildMinervaCache(platform)
+	}
+	return MinervaEntry{}, false
+}
+
+// ==========================================
+// MINERVA TORRENT DOWNLOAD
+// ==========================================
+
+// fetchMinervaTorrent downloads the collection .torrent file for the given platform from Minerva.
+func fetchMinervaTorrent(platform string) ([]byte, error) {
+	torrentURL, ok := minervaTorrentURLs[platform]
+	if !ok {
+		return nil, fmt.Errorf("no torrent URL for platform %q", platform)
+	}
+	logf("TORRENT: Fetching collection torrent for %s...", platform)
+	req, err := http.NewRequest("GET", torrentURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := (&http.Client{Timeout: 120 * time.Second}).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download torrent: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("torrent HTTP %d", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+// aria2cBinary returns the path to the aria2c executable.
+// In production, aria2c is bundled next to the server binary by the installer.
+// Falls back to PATH so `go run .` still works during development.
+func aria2cBinary() (string, error) {
+	name := "aria2c"
+	if runtime.GOOS == "windows" {
+		name = "aria2c.exe"
+	}
+	bundled := filepath.Join(godsendExeDir, name)
+	if _, err := os.Stat(bundled); err == nil {
+		return bundled, nil
+	}
+	if p, err := exec.LookPath("aria2c"); err == nil {
+		return p, nil
+	}
+	return "", fmt.Errorf("aria2c not found — bundled binary missing and not in PATH")
+}
+
+// downloadViaTorrent uses aria2c to download a single file from the Minerva collection torrent.
+// It fetches the .torrent from Minerva's URL, finds the target file's 1-based index, then
+// shells out to aria2c with --select-file so only that file is downloaded.
+func downloadViaTorrent(platform, destDir, gameName string, entry MinervaEntry) (string, error) {
+	aria2c, err := aria2cBinary()
+	if err != nil {
+		return "", err
+	}
+
+	torrentURL, ok := minervaTorrentURLs[platform]
+	if !ok {
+		return "", fmt.Errorf("no torrent URL for platform %q", platform)
+	}
+
+	// Fetch torrent to find the 1-based file index aria2c needs.
+	torrentData, err := fetchMinervaTorrent(platform)
+	if err != nil {
+		return "", fmt.Errorf("fetch torrent: %w", err)
+	}
+	mi, err := metainfo.Load(bytes.NewReader(torrentData))
+	if err != nil {
+		return "", fmt.Errorf("parse .torrent: %w", err)
+	}
+	info, err := mi.UnmarshalInfo()
+	if err != nil {
+		return "", fmt.Errorf("torrent info: %w", err)
+	}
+
+	fileIndex := -1
+	var fileSize int64
+	for i, f := range info.UpvertedFiles() {
+		if strings.EqualFold(filepath.Base(filepath.Join(f.Path...)), entry.FileName) {
+			fileIndex = i + 1 // aria2c uses 1-based index
+			fileSize = f.Length
+			break
+		}
+	}
+	if fileIndex < 0 {
+		return "", fmt.Errorf("file %q not found in torrent", entry.FileName)
+	}
+
+	logf("TORRENT [%s]: aria2c downloading %s (%.0f MB) file-index=%d", gameName, entry.FileName, float64(fileSize)/1048576, fileIndex)
+	logStatus(gameName, "Processing", fmt.Sprintf("Torrenting (Minerva): starting... (%.0f MB)", float64(fileSize)/1048576))
+
+	// Write torrent to a temp file so aria2c doesn't need to re-fetch it via HTTPS.
+	// (aria2c on Windows has SSL issues fetching HTTPS URLs; Go has none.)
+	tf, err := os.CreateTemp("", "godsend-*.torrent")
+	if err != nil {
+		return "", fmt.Errorf("create temp torrent: %w", err)
+	}
+	torrentFile := tf.Name()
+	defer os.Remove(torrentFile)
+	if _, err := tf.Write(torrentData); err != nil {
+		tf.Close()
+		return "", fmt.Errorf("write temp torrent: %w", err)
+	}
+	tf.Close()
+
+	// aria2c nests output under <torrent-name>/path/… so the full path can exceed
+	// Windows MAX_PATH (260 chars) when destDir + torrent subdirs + filename are combined.
+	// Use a short-named OS temp dir as the aria2c working directory; move the finished
+	// file to destDir afterwards.
+	aria2cDir, err := os.MkdirTemp("", "gd-dl-*")
+	if err != nil {
+		return "", fmt.Errorf("create aria2c temp dir: %w", err)
+	}
+	defer os.RemoveAll(aria2cDir)
+
+	args := []string{
+		"--dir=" + aria2cDir,
+		"--select-file=" + strconv.Itoa(fileIndex),
+		"--seed-time=0",                    // stop seeding immediately after download
+		"--bt-remove-unselected-file=true", // don't keep unselected files
+		"--bt-max-peers=100",
+		"--follow-torrent=false", // torrent file is our input, don't re-fetch
+		"--file-allocation=none", // skip pre-allocation — avoids spurious ENOSPC on large files
+		"--console-log-level=warn",
+		"--summary-interval=3", // print progress every 3 s
+		"--human-readable=true",
+		torrentFile,
+	}
+	_ = torrentURL // URL was used to fetch; aria2c gets the temp file
+
+	cmd := exec.Command(aria2c, args...)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", fmt.Errorf("aria2c pipe: %w", err)
+	}
+	cmd.Stderr = cmd.Stdout // merge so we capture everything
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("aria2c start: %w", err)
+	}
+
+	// aria2c summary lines look like:
+	//   [#abc123 195MiB/6504MiB(3%) CN:67 DL:9.9MiB ETA:31m]
+	summaryRe := regexp.MustCompile(`\[#\S+\s+([\d.]+\S+)/([\d.]+\S+)\((\d+)%\)[^\]]*DL:([\d.]+\S+)[^\]]*ETA:(\S+)\]`)
+
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if m := summaryRe.FindStringSubmatch(line); m != nil {
+			pct := m[3]
+			dl := m[4]
+			eta := m[5]
+			msg := fmt.Sprintf("Torrenting (Minerva): %s%% @ %s/s ETA %s", pct, dl, eta)
+			logf("TORRENT [%s]: %s", gameName, msg)
+			logStatus(gameName, "Processing", msg)
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return "", fmt.Errorf("aria2c: %w", err)
+	}
+
+	// Walk the short temp dir to find the downloaded file.
+	var foundPath string
+	_ = filepath.Walk(aria2cDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		if strings.EqualFold(filepath.Base(path), entry.FileName) {
+			foundPath = path
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if foundPath == "" {
+		return "", fmt.Errorf("aria2c finished but %q not found under %s", entry.FileName, aria2cDir)
+	}
+
+	// Move the file to destDir (caller manages destDir lifetime).
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return "", fmt.Errorf("create dest dir: %w", err)
+	}
+	destFile := filepath.Join(destDir, filepath.Base(foundPath))
+	if err := os.Rename(foundPath, destFile); err != nil {
+		return "", fmt.Errorf("move downloaded file to dest: %w", err)
+	}
+
+	logf("TORRENT [%s]: Download complete (%.0f MB)", gameName, float64(fileSize)/1048576)
+	return destFile, nil
+}
+
+// ==========================================
 // CACHE — LOOKUP
 // ==========================================
 
@@ -1228,9 +1744,21 @@ func isGameReadyLocally(gameName string) bool {
 // HTTP HANDLERS
 // ==========================================
 
+// decodeMinervaName decodes HTML entities that appear in Minerva No-Intro filenames
+// (e.g. &#39; → ', &amp; → &) so the display name is clean.
+func decodeMinervaName(s string) string {
+	s = strings.ReplaceAll(s, "&#39;", "'")
+	s = strings.ReplaceAll(s, "&amp;", "&")
+	s = strings.ReplaceAll(s, "&lt;", "<")
+	s = strings.ReplaceAll(s, "&gt;", ">")
+	s = strings.ReplaceAll(s, "&quot;", "\"")
+	return s
+}
+
 func handleBrowse(w http.ResponseWriter, r *http.Request) {
 	platform := r.URL.Query().Get("platform")
-	logf("BROWSE: platform=%s", platform)
+	source := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("source"))) // "minerva", "ia", or "" (merged)
+	logf("BROWSE: platform=%s source=%s", platform, source)
 
 	// ROM platforms — served from edgeemu.net scrape cache
 	if strings.HasPrefix(platform, "rom_") {
@@ -1271,20 +1799,80 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Online — return cached list or loading marker with progress
+	// Source-specific browse — return only the requested source's list.
+	minervaGameCacheMu.RLock()
+	minervaCached := minervaGameCache[platform]
+	minervaGameCacheMu.RUnlock()
+
 	iaGameCacheMu.RLock()
-	cached, ok := iaGameCache[platform]
+	iaCached := iaGameCache[platform]
 	iaGameCacheMu.RUnlock()
 
-	if ok && len(cached) > 0 {
-		logf("BROWSE: Serving %d cached games for %s", len(cached), platform)
+	if source == "minerva" {
+		if len(minervaCached) > 0 {
+			decoded := make([]string, len(minervaCached))
+			for i, g := range minervaCached {
+				decoded[i] = decodeMinervaName(g)
+			}
+			logf("BROWSE: Serving %d Minerva games for %s", len(decoded), platform)
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Write([]byte(strings.Join(decoded, "|")))
+			return
+		}
+		go buildMinervaCache(platform)
+		logf("BROWSE: Minerva cache building for %s", platform)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write([]byte(strings.Join(cached, "|")))
+		fmt.Fprintf(w, "__IA_LOADING__:0/1")
 		return
 	}
 
-	// Not ready — trigger build (safe no-op if already running) and return progress
+	if source == "ia" {
+		if len(iaCached) > 0 {
+			logf("BROWSE: Serving %d IA games for %s", len(iaCached), platform)
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Write([]byte(strings.Join(iaCached, "|")))
+			return
+		}
+		go buildIAGameCache(platform)
+		s := getBuildState(platform)
+		loaded := atomic.LoadInt32(&s.loaded)
+		total := atomic.LoadInt32(&s.total)
+		if total == 0 {
+			total = int32(len(iaCollections[platform]))
+		}
+		logf("BROWSE: IA cache building for %s %d/%d", platform, loaded, total)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprintf(w, "__IA_LOADING__:%d/%d", loaded, total)
+		return
+	}
+
+	// No source specified — merged fallback (backward compat).
+	if len(minervaCached) > 0 || len(iaCached) > 0 {
+		seen := make(map[string]bool, len(minervaCached)+len(iaCached))
+		merged := make([]string, 0, len(minervaCached)+len(iaCached))
+		for _, g := range minervaCached {
+			key := strings.ToLower(decodeMinervaName(g))
+			if !seen[key] {
+				seen[key] = true
+				merged = append(merged, decodeMinervaName(g))
+			}
+		}
+		for _, g := range iaCached {
+			key := strings.ToLower(g)
+			if !seen[key] {
+				seen[key] = true
+				merged = append(merged, g)
+			}
+		}
+		logf("BROWSE: Serving %d merged games for %s (%d Minerva, %d IA)", len(merged), platform, len(minervaCached), len(iaCached))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte(strings.Join(merged, "|")))
+		return
+	}
+
+	// Nothing ready yet — trigger both builds and return a loading marker.
 	go buildIAGameCache(platform)
+	go buildMinervaCache(platform)
 
 	s := getBuildState(platform)
 	loaded := atomic.LoadInt32(&s.loaded)
@@ -1324,18 +1912,22 @@ func handleCacheStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
-// handleCacheRefresh triggers a fresh rebuild for one platform or all IA platforms.
-// ?platform=all  — rebuild all IA platforms (xbox360, digital, xbla, dlc, xblig, games, xbox)
-// ?platform=xbox360 — rebuild a single IA platform
+// handleCacheRefresh triggers a fresh rebuild for one platform or all platforms.
+// ?platform=all     — rebuild all IA + Minerva platforms
+// ?platform=xbox360 — rebuild a single IA + Minerva platform
+// ?platform=minerva_xbox360 — rebuild only the Minerva cache for one platform
 // ?platform=rom_nes — rebuild the ROM cache for one system
 // Returns immediately; the build runs in the background.
 func handleCacheRefresh(w http.ResponseWriter, r *http.Request) {
 	platform := r.URL.Query().Get("platform")
 
 	if platform == "" || platform == "all" {
-		logf("CACHE REFRESH: all IA platforms requested")
+		logf("CACHE REFRESH: all IA + Minerva platforms requested")
 		for p := range iaCollections {
 			go buildIAGameCache(p)
+		}
+		for p := range minervaPageURLs {
+			go buildMinervaCache(p)
 		}
 		// Also refresh any ROM system that already has a cache on disk
 		var romRefreshed []string
@@ -1351,6 +1943,18 @@ func handleCacheRefresh(w http.ResponseWriter, r *http.Request) {
 		}
 		logf("CACHE REFRESH: %d previously-used ROM systems queued", len(romRefreshed))
 		jsonSuccess(w, map[string]string{"status": "refreshing", "platforms": "all"})
+		return
+	}
+
+	if strings.HasPrefix(platform, "minerva_") {
+		p := strings.TrimPrefix(platform, "minerva_")
+		if _, ok := minervaPageURLs[p]; !ok {
+			jsonError(w, 400, "Unknown Minerva platform: "+p)
+			return
+		}
+		logf("CACHE REFRESH: Minerva %s", p)
+		go buildMinervaCache(p)
+		jsonSuccess(w, map[string]string{"status": "refreshing", "platform": platform})
 		return
 	}
 
@@ -1370,8 +1974,9 @@ func handleCacheRefresh(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, 400, "Unknown platform: "+platform)
 		return
 	}
-	logf("CACHE REFRESH: %s", platform)
+	logf("CACHE REFRESH: %s (IA + Minerva)", platform)
 	go buildIAGameCache(platform)
+	go buildMinervaCache(platform)
 	jsonSuccess(w, map[string]string{"status": "refreshing", "platform": platform})
 }
 
@@ -1417,6 +2022,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 func handleTrigger(w http.ResponseWriter, r *http.Request) {
 	gameName := normalizeClientGameName(r.URL.Query().Get("game"))
 	platform := r.URL.Query().Get("platform")
+	source := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("source"))) // "minerva", "ia", or ""
 	if gameName == "" {
 		jsonError(w, 400, "Missing game parameter")
 		return
@@ -1503,7 +2109,39 @@ func handleTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Online — dispatch by platform
+	// Minerva — check before IA (source priority: local → Minerva → Internet Archive)
+	// Skipped when source=="ia" (user explicitly chose Internet Archive).
+	if source != "ia" {
+		if _, hasMinervaPage := minervaPageURLs[platform]; hasMinervaPage {
+			if mEntry, ok := findMinervaEntry(gameName, platform); ok {
+				logf("TRIGGER: Minerva source for '%s' (%s)", gameName, platform)
+				switch platform {
+				case "digital", "xbla", "dlc", "xblig":
+					launcher(func() { processMinervaDigital(gameName, mEntry, platform) })
+				case "games":
+					launcher(func() { processMinervaGenericGame(gameName, mEntry) })
+				default: // xbox360, xbox
+					launcher(func() { processMinervaGame(gameName, mEntry, platform) })
+				}
+				jsonSuccess(w, map[string]string{"status": "triggered", "source": "minerva"})
+				return
+			}
+			if source == "minerva" {
+				logStatus(gameName, "Error", "Not found in Minerva Archive")
+				jsonSuccess(w, map[string]string{"status": "minerva_unavailable", "message": "Game not found in Minerva Archive."})
+				return
+			}
+		}
+	}
+
+	// source=="minerva" but platform has no Minerva page — treat as not found
+	if source == "minerva" {
+		logStatus(gameName, "Error", "Not found in Minerva Archive")
+		jsonSuccess(w, map[string]string{"status": "minerva_unavailable", "message": "Game not found in Minerva Archive."})
+		return
+	}
+
+	// Internet Archive — fallback when Minerva has no match, or source=="ia"
 	switch platform {
 	case "digital", "xbla", "dlc", "xblig":
 		launcher(func() { processDigital(gameName, platform) })
@@ -2272,6 +2910,298 @@ func finalizeGOD(gameName, safeName, gameDir, godDir, titleID, mediaID string, x
 		logStatus(gameName, "Ready", "Ready to Install")
 	}
 	logf("=== Complete: %s ===", gameName)
+}
+
+// ==========================================
+// MINERVA PROCESSING FUNCTIONS
+// ==========================================
+
+// processMinervaGame downloads and processes an Xbox 360 / Xbox disc ISO from Minerva.
+// The Minerva file is a .zip wrapping the Redump disc image; pipeline is identical to processGame.
+func processMinervaGame(gameName string, entry MinervaEntry, platform string) {
+	logf("=== Minerva ISO: %s (%s) ===", gameName, platform)
+	safeName := sanitizeFilename(gameName)
+	if safeName == "" {
+		logStatus(gameName, "Error", "Invalid game name")
+		return
+	}
+	var xboxConn *XboxConnection
+	if c, ok := xboxConnections.Load(gameName); ok {
+		cc := c.(XboxConnection)
+		xboxConn = &cc
+	}
+	gameDir := filepath.Join(toolsDir, "Ready", safeName)
+	os.MkdirAll(gameDir, 0755)
+
+	torrentDir := filepath.Join(toolsDir, "Temp", safeName+"_torrent")
+	os.MkdirAll(torrentDir, 0755)
+	defer os.RemoveAll(torrentDir)
+	logf("Minerva Torrent: %s → %s", gameName, entry.FileName)
+	logStatus(gameName, "Processing", "Starting Minerva torrent download...")
+	archivePath, err := downloadViaTorrent(platform, torrentDir, gameName, entry)
+	if err != nil {
+		logf("ERROR [%s]: Minerva torrent failed: %v", gameName, err)
+		logStatus(gameName, "Error", fmt.Sprintf("Minerva torrent: %v", err))
+		return
+	}
+
+	installType := lookupInstallType(gameName)
+
+	if installType == "xex" {
+		extDir := filepath.Join(toolsDir, "Temp", safeName+"_mext")
+		os.RemoveAll(extDir)
+		logStatus(gameName, "Processing", "Extracting archive for XEX...")
+		if err := utils.ExtractArchive(archivePath, extDir); err != nil {
+			os.Remove(archivePath)
+			logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
+			return
+		}
+		os.Remove(archivePath)
+		defer os.RemoveAll(extDir)
+		xexFolder := findXEXFolder(extDir)
+		if xexFolder == "" {
+			logStatus(gameName, "Error", "No default.xex found in Minerva archive")
+			return
+		}
+		folderName := filepath.Base(xexFolder)
+		if xboxConn != nil && xboxConn.Mode == "ftp" {
+			if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
+				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+			} else {
+				os.RemoveAll(gameDir)
+				logStatus(gameName, "Ready", "FTP Transfer Complete!")
+			}
+		} else {
+			partName := fmt.Sprintf("%s_Part1.7z", safeName)
+			if err := utils.CreateZipFromDir(xexFolder, filepath.Join(gameDir, partName)); err != nil {
+				logStatus(gameName, "Error", fmt.Sprintf("Archive XEX: %v", err))
+				return
+			}
+			gamePartsMap.Store(gameName, []string{partName})
+			updateGameINI_XEX(gameDir, gameName, folderName, partName)
+			logStatus(gameName, "Ready", "Ready to Install")
+		}
+		logf("=== Complete (Minerva XEX): %s ===", gameName)
+		return
+	}
+
+	logStatus(gameName, "Processing", "Extracting ISO...")
+	isoPath, err := utils.ExtractISO(archivePath, safeName, filepath.Join(toolsDir, "Temp"))
+	os.Remove(archivePath)
+	if err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
+		return
+	}
+
+	if installType == "content" {
+		processContentInstallFromISO(gameName, safeName, isoPath, xboxConn)
+		os.Remove(isoPath)
+		return
+	}
+
+	logStatus(gameName, "Processing", "Converting to GOD...")
+	godDir := filepath.Join(toolsDir, "Temp", safeName+"_MGOD")
+	os.MkdirAll(godDir, 0755)
+	if err := utils.RunIso2GodNative(isoPath, godDir, iso2GodResolveDisplayTitle); err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err))
+		os.Remove(isoPath)
+		os.RemoveAll(godDir)
+		return
+	}
+	os.Remove(isoPath)
+
+	titleID, mediaID, err := detectGodStructure(godDir)
+	if err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("GOD detect: %v", err))
+		os.RemoveAll(godDir)
+		return
+	}
+	logf("Minerva ISO: TitleID=%s MediaID=%s", titleID, mediaID)
+	finalizeGOD(gameName, safeName, gameDir, godDir, titleID, mediaID, xboxConn)
+}
+
+// processMinervaGenericGame handles the "games" platform from Minerva (Non-Redump mixed archives).
+func processMinervaGenericGame(gameName string, entry MinervaEntry) {
+	logf("=== Minerva Generic: %s ===", gameName)
+	safeName := sanitizeFilename(gameName)
+	if safeName == "" {
+		logStatus(gameName, "Error", "Invalid game name")
+		return
+	}
+	var xboxConn *XboxConnection
+	if c, ok := xboxConnections.Load(gameName); ok {
+		cc := c.(XboxConnection)
+		xboxConn = &cc
+	}
+	gameDir := filepath.Join(toolsDir, "Ready", safeName)
+	os.MkdirAll(gameDir, 0755)
+
+	torrentDir := filepath.Join(toolsDir, "Temp", safeName+"_torrent")
+	os.MkdirAll(torrentDir, 0755)
+	defer os.RemoveAll(torrentDir)
+	logStatus(gameName, "Processing", "Starting Minerva torrent download...")
+	archivePath, err := downloadViaTorrent("games", torrentDir, gameName, entry)
+	if err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Minerva torrent: %v", err))
+		return
+	}
+
+	logStatus(gameName, "Processing", "Extracting archive...")
+	extDir := filepath.Join(toolsDir, "Temp", safeName+"_mgext")
+	os.RemoveAll(extDir)
+	defer os.RemoveAll(extDir)
+	if err := utils.ExtractArchive(archivePath, extDir); err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
+		return
+	}
+
+	// Try ISO pipeline first
+	isoPath := findFileByExt(extDir, ".iso")
+	if isoPath != "" {
+		logStatus(gameName, "Processing", "Converting to GOD...")
+		godDir := filepath.Join(toolsDir, "Temp", safeName+"_MGGOD")
+		os.MkdirAll(godDir, 0755)
+		if err := utils.RunIso2GodNative(isoPath, godDir, iso2GodResolveDisplayTitle); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("GOD convert: %v", err))
+			os.RemoveAll(godDir)
+			return
+		}
+		titleID, mediaID, err := detectGodStructure(godDir)
+		if err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("GOD detect: %v", err))
+			os.RemoveAll(godDir)
+			return
+		}
+		finalizeGOD(gameName, safeName, gameDir, godDir, titleID, mediaID, xboxConn)
+		logf("=== Complete (Minerva Generic/ISO): %s ===", gameName)
+		return
+	}
+
+	// Fallback: look for a XEX folder
+	xexFolder := findXEXFolder(extDir)
+	if xexFolder == "" {
+		logStatus(gameName, "Error", "No ISO or XEX found in Minerva archive")
+		return
+	}
+	folderName := filepath.Base(xexFolder)
+	if xboxConn != nil && xboxConn.Mode == "ftp" {
+		if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+		} else {
+			os.RemoveAll(gameDir)
+			logStatus(gameName, "Ready", "FTP Transfer Complete!")
+		}
+	} else {
+		partName := fmt.Sprintf("%s_Part1.7z", safeName)
+		if err := utils.CreateZipFromDir(xexFolder, filepath.Join(gameDir, partName)); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("Archive XEX: %v", err))
+			return
+		}
+		gamePartsMap.Store(gameName, []string{partName})
+		updateGameINI_XEX(gameDir, gameName, folderName, partName)
+		logStatus(gameName, "Ready", "Ready to Install")
+	}
+	logf("=== Complete (Minerva Generic/XEX): %s ===", gameName)
+}
+
+// processMinervaDigital handles XBLA / DLC / XBLIG content from Minerva No-Intro Digital.
+func processMinervaDigital(gameName string, entry MinervaEntry, platform string) {
+	logf("=== Minerva Digital: %s (%s) ===", gameName, platform)
+	safeName := sanitizeFilename(gameName)
+	if safeName == "" {
+		logStatus(gameName, "Error", "Invalid game name")
+		return
+	}
+	var xboxConn *XboxConnection
+	if c, ok := xboxConnections.Load(gameName); ok {
+		cc := c.(XboxConnection)
+		xboxConn = &cc
+	}
+	gameDir := filepath.Join(toolsDir, "Ready", safeName)
+	os.MkdirAll(gameDir, 0755)
+
+	torrentDir := filepath.Join(toolsDir, "Temp", safeName+"_torrent")
+	os.MkdirAll(torrentDir, 0755)
+	defer os.RemoveAll(torrentDir)
+	logStatus(gameName, "Processing", "Starting Minerva torrent download...")
+	archivePath, err := downloadViaTorrent(platform, torrentDir, gameName, entry)
+	if err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Minerva torrent: %v", err))
+		return
+	}
+
+	logStatus(gameName, "Processing", "Extracting...")
+	extDir := filepath.Join(toolsDir, "Temp", safeName+"_mdext")
+	os.RemoveAll(extDir)
+	defer os.RemoveAll(extDir)
+	if err := utils.ExtractArchive(archivePath, extDir); err != nil {
+		logStatus(gameName, "Error", fmt.Sprintf("Extract: %v", err))
+		return
+	}
+
+	var contentFile, titleID, typeDir string
+	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
+		if e != nil || i.IsDir() || i.Size() <= 1024*1024 {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(p))
+		if ext == ".txt" || ext == ".nfo" || ext == ".jpg" {
+			return nil
+		}
+		tid, ct := parseXboxHeader(p)
+		if tid != "" {
+			contentFile = p
+			titleID = tid
+			typeDir = fmt.Sprintf("%08X", ct)
+			return io.EOF
+		}
+		return nil
+	})
+
+	if contentFile == "" {
+		logStatus(gameName, "Error", "No valid Xbox content found in Minerva archive")
+		return
+	}
+	logf("Minerva Digital: TitleID=%s Type=%s", titleID, typeDir)
+	finalName := filepath.Base(contentFile)
+
+	forcedDrive := ""
+	switch platform {
+	case "dlc", "xblig":
+		forcedDrive = "Hdd1"
+	}
+
+	if xboxConn != nil && xboxConn.Mode == "ftp" {
+		drive := forcedDrive
+		if drive == "" {
+			drive = strings.TrimSuffix(xboxConn.Drive, ":")
+		}
+		base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, typeDir)
+		fc, err := connectWithRetry(xboxConn.IP)
+		if err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
+			return
+		}
+		defer fc.Quit()
+		ftpMkdirAll(fc, base)
+		info, _ := os.Stat(contentFile)
+		var xfer int64
+		if err := ftpUploadFile(fc, contentFile, base+"/"+finalName, gameName, &xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("FTP upload: %v", err))
+		} else {
+			os.RemoveAll(gameDir)
+			logStatus(gameName, "Ready", "FTP Transfer Complete!")
+		}
+	} else {
+		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", titleID, typeDir)
+		if err := copyFileBuffered(contentFile, filepath.Join(gameDir, finalName)); err != nil {
+			logStatus(gameName, "Error", fmt.Sprintf("Copy: %v", err))
+		} else {
+			updateGameINI_Raw(gameDir, gameName, finalName, relPath, forcedDrive)
+			logStatus(gameName, "Ready", "Ready to Install")
+		}
+	}
+	logf("=== Complete (Minerva Digital): %s ===", gameName)
 }
 
 // ==========================================

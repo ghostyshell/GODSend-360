@@ -1,11 +1,11 @@
 {
   "name": "godsend-360",
-  "version": "2.2.5",
+  "version": "2.4.5",
   "private": true,
   "description": "GODsend — Go backend + Electron desktop app",
   "scripts": {
     "postinstall": "npm install --prefix src/electron-app",
-    "build:server": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\" && go build -C src/server -o ../../dist/godsend.exe .",
+    "build:server": "node scripts/download-aria2.js && go build -C src/server -o ../../dist/godsend.exe .",
     "build:server:mac": "mkdir -p dist && GOOS=darwin GOARCH=amd64 go build -C src/server -o ../../dist/godsend-mac .",
     "build:server:mac:arm": "mkdir -p dist && GOOS=darwin GOARCH=arm64 go build -C src/server -o ../../dist/godsend-mac .",
     "build:server:linux": "mkdir -p dist && GOOS=linux GOARCH=amd64 go build -C src/server -o ../../dist/godsend-linux .",
@@ -23,5 +23,6 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "devDependencies": {}
 }

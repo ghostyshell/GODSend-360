@@ -26,6 +26,16 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
   - `main.go`: process startup, HTTP handler registration (for now), environment/config wiring, banner printing.
   - `embed_titles.go` + `data/iso2god_titles.jsonl`: embeds the iso2god-rs title list and registers it with `services` at init.
 - **`services/title_lookup.go`**: Title ID → display name for LIVE CON title, FTP GOD folder names, and INI (`services.LookupTitleName`: XboxUnity → XboxDB JSON API → embedded iso2god-rs title list).
+- **Minerva source** — `main.go` contains a full Minerva Archive integration alongside the IA integration:
+  - `minervaPageURLs` / `minervaTagFilters`: browse-page URL and filename-tag filter per platform (xbox360, xbox, digital, xbla, dlc, xblig, games).
+  - `MinervaEntry` / `MinervaPlatformCache` types; cache files: `cache/minerva_<platform>.json`.
+  - `scrapeMinervaPage`, `buildMinervaCache`, `loadMinervaCacheFromDisk`, `findMinervaEntry` mirror the IA cache system.
+  - `downloadViaTorrent` — loads the platform's **collection** `.torrent` from `cache/` (zip-wrapped as `minerva_*.zip` to reduce AV noise; see `ensureMinervaTorrent` / `readMinervaCachedTorrentBytes`), matches `entry.FileName` in the metainfo, and pulls only that file via `github.com/anacrolix/torrent`. All three `processMinerva*` paths use it instead of `downloadWithProgress`.
+  - **Bundled torrent zips** — commit `cache/minerva_xbox360.zip`, `minerva_xbox.zip`, `minerva_digital_torrent.zip`, `minerva_games_torrent.zip` in the repo root `cache/` (refresh with `npm run fetch:minerva-torrents`). Electron `extraFiles` ships `cache/` next to the app; on startup the backend seeds `GODSEND_HOME/cache` from that bundle when needed (`godsendExeDir`). `npm run build:server` / `build-go-all` run `ensure-minerva-torrent-zips.js` (fetch if missing) and `sync-minerva-torrent-zips-to-dist.js` so `dist/cache/` works for bare `godsend.exe`.
+  - `processMinervaGame` (Redump ISO pipeline), `processMinervaGenericGame` (mixed archive), `processMinervaDigital` (XBLA/DLC/XBLIG).
+  - Download priority in `handleTrigger`: **local → Minerva → Internet Archive**.
+  - `handleBrowse` merges Minerva + IA lists (Minerva first, deduped).
+  - Pre-scrape script: `scripts/scrape-minerva-cache.js` (`npm run scrape:minerva`) — run before a release build to pre-populate `cache/` for installer packaging.
 - **`utils/`** (`package utils`)
   - `iso2god.go`: pure-Go ISO→GOD conversion, archive extract/create, and disc metadata probe (`ProbeISODiscInfo`). Imported by `main`. LIVE CON seed: `utils/data/empty_live.bin` (same file as iso2god-rs), embedded at build time.
 - **Domain & services**

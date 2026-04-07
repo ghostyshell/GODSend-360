@@ -14,6 +14,13 @@ const serverDir = path.join(root, "src", "server");
 
 fs.mkdirSync(dist, { recursive: true });
 
+// Download aria2c binaries for all platforms (skips if already present).
+{
+  const dl = path.join(__dirname, "download-aria2.js");
+  const r = spawnSync(process.execPath, [dl], { stdio: "inherit", cwd: root, env: process.env });
+  if (r.status !== 0) process.exit(r.status ?? 1);
+}
+
 const targets = [
   ["windows", "amd64", "godsend.exe"],
   ["linux", "amd64", "godsend-linux"],
@@ -47,3 +54,4 @@ if (process.platform !== "win32") {
   }
 }
 console.log("\n[build-go-all] dist/godsend-mac <- darwin/arm64 (use build:server:mac for Intel default)");
+
