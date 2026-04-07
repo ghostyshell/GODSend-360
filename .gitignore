@@ -1,6 +1,7 @@
 # Compiled binaries
 *.exe
 *.dll
+.DS_Store
 
 # Go build output (default layout: binary next to electron-app under src/)
 src/godsend_*
