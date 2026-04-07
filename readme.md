@@ -2,9 +2,11 @@
 
 GODsend 360 is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It consists of three parts:
 
-- **Go backend** — HTTP server running on your PC that fetches games from Internet Archive, converts ISOs to GOD format, and transfers them to the Xbox via FTP
-- **Electron app** — Windows desktop tray application wrapping the backend with a live terminal and settings UI
+- **Go backend** — HTTP server running on your PC that fetches games from Minerva Archive (via BitTorrent) or Internet Archive, converts ISOs to GOD format, and transfers them to the Xbox via FTP
+- **Electron app** — Windows/macOS/Linux desktop tray application wrapping the backend with a live terminal and settings UI
 - **Aurora Lua script** — runs on the Xbox and talks to the backend to browse, trigger downloads, and track progress
+
+Download priority for online libraries: **Local Transfer folder → Minerva Archive → Internet Archive**. An Internet Archive account is only needed if Minerva doesn't have the title you want.
 
 ---
 
@@ -26,12 +28,17 @@ Go to the [GODsend 360 v2.4.6 release](https://gitgud.io/ghosty99/godsend-360/-/
 1. Run the installer for your platform and follow the prompts (Windows: `godsend-Setup-2.4.6.exe`; macOS: open the `.dmg`; Linux: make the `.AppImage` executable and run it).
 2. Launch **GODsend** from the Start Menu — the tray icon appears in the system tray.
 
-### 3. Configure Internet Archive (IA) in the app
+### 3. Configure download sources (optional)
+
+Minerva Archive works out of the box with no account required — most games download immediately via BitTorrent.
+
+If you want Internet Archive as a fallback (or for titles not on Minerva):
 
 1. Click the tray icon and open the app window, then click the **⚙ Settings** button.
 2. Under **Internet Archive account**, click **Log in** and enter your [archive.org](https://archive.org) credentials. Your session cookie is stored locally — your password is never saved.
 3. Set **Parallel download connections** to your preferred value (default **5**, range 1–7).
-4. Optionally set a **Local Transfer folder** if you want to use pre-downloaded ISOs instead of fetching from IA.
+
+You can also set a **Local Transfer folder** if you want to install from `.iso` files you already have on your PC.
 
 ### 4. Install Aurora scripts on the Xbox
 
@@ -57,10 +64,16 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 - **How:** Open GODsend from the Start Menu; use the tray icon for the window. Restart the backend from the home screen; optional **Start with Windows** in Settings. In Settings → **Xbox connection**, enter your Xbox IP and click **FTP Aurora Scripts to Xbox** — your PC's IP is patched into `GODSend.ini` automatically and upload progress is shown file-by-file.
 - **How it works:** Electron spawns `godsend` with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings. The FTP upload streams `godsend-ftp-progress` IPC events to the renderer so the button reflects real progress rather than a static label.
 
-#### Internet Archive account & parallel downloads
+#### Minerva Archive (BitTorrent — no account needed)
 
-- **What:** Authenticated downloads from archive.org collections used for the built-in libraries.
-- **How:** Settings → **Internet Archive account** → **Log in**; adjust **Parallel download connections** (1–7).
+- **What:** Xbox 360, OG Xbox, XBLA, DLC, XBLIG, and Game Archive libraries sourced from [minerva-archive.org](https://minerva-archive.org) — no account or login required. Works out of the box.
+- **How:** When browsing any game library, select **Minerva Archive** as the source. Game lists are bundled in the installer so browsing is instant.
+- **How it works:** The backend fetches the Minerva collection torrent, finds the requested file's index, and uses the bundled `aria2c` binary to download only that file via BitTorrent (`--select-file`). Progress is reported to the Aurora queue display every 3 seconds. Firewall rules for `aria2c` are added automatically by the installer.
+
+#### Internet Archive account & parallel downloads (optional fallback)
+
+- **What:** Authenticated downloads from archive.org collections — useful for titles not available on Minerva.
+- **How:** Settings → **Internet Archive account** → **Log in**; adjust **Parallel download connections** (1–7). Select **Internet Archive** as the source when browsing.
 - **How it works:** The app stores session cookies locally (not your password), passes them to the backend, which fetches items with multiple range-request workers for faster ISO/archive retrieval.
 
 #### Local Transfer folder (your own ISOs)
@@ -81,11 +94,11 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 - **How:** Aurora → **Server Queue & Status** — refresh the list, open **Cache** for build state, **Clear ALL server jobs** or remove one job from its submenu.
 - **How it works:** The script polls `/queue` and `/cache-status`. Removals call `/queue/remove` (GET/POST), which deletes entries and suppresses stray status updates for cleared games.
 
-#### Browse & install: Xbox 360 / original Xbox disc libraries (Internet Archive)
+#### Browse & install: Xbox 360 / original Xbox disc libraries
 
-- **What:** Redump-style ISO libraries converted for Aurora. After choosing transfer mode (HTTP/FTP) the script offers **GOD**, **DLC** (content install), or **XEX** for every title — pick the install layout that matches the disc.
-- **How:** Main menu → **Xbox 360 Redump ISOs** or **Original Xbox Redump ISOs** → letter folder → title → destination drive → HTTP or FTP → install type → confirm → install when **Ready**. A **[Recommended]** label appears when the server can determine the correct layout from the disc.
-- **How it works:** Backend downloads the ISO (or uses your local copy), converts it to GOD format natively (no external tools required), stages under `Ready/`, then either serves files over HTTP for the script to pull or pushes them over FTP to the paths you registered. Title names are resolved from XboxUnity → XboxDB → an embedded title list and used to name the GOD folder on the Xbox (e.g. `Open Season - 5454082A`) so Aurora shows the correct title.
+- **What:** Redump-style ISO libraries from Minerva Archive or Internet Archive, converted for Aurora. After choosing transfer mode (HTTP/FTP) the script offers **GOD**, **DLC** (content install), or **XEX** for every title — pick the install layout that matches the disc.
+- **How:** Main menu → **Xbox 360 Redump ISOs** or **Original Xbox Redump ISOs** → pick source (Minerva / Internet Archive) → letter folder → title → destination drive → FTP or HTTP → install type → confirm → install when **Ready**. A **[Recommended]** label appears when the server can determine the correct layout from the disc.
+- **How it works:** Backend downloads the ISO from Minerva (via BitTorrent) or Internet Archive (parallel HTTP), or uses your local copy. Converts to GOD format natively (no external tools required), stages under `Ready/`, then either serves files over HTTP for the script to pull or pushes them over FTP to the paths you registered. Title names are resolved from XboxUnity → XboxDB → an embedded title list and used to name the GOD folder on the Xbox (e.g. `Open Season - 5454082A`) so Aurora shows the correct title.
 
 #### Multi-disc game support
 
@@ -95,9 +108,9 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 #### Browse & install: XBLA, digital (No-Intro), DLC, Xbox Live Indie Games, 360 game archives
 
-- **What:** Non-disc content (arcade packages, digital titles, DLC, indie games, pre-packed game archives) from curated Internet Archive collections.
-- **How:** Choose the matching main-menu entry → same browse flow; **DLC** skips drive pick and targets **Hdd1:** as required for that content.
-- **How it works:** Backend downloads and unpacks archives natively (no external tools required), writes a small `godsend.ini` manifest and payloads the script understands. Install type may be **GOD** (multi-part `.7z`), **raw** (single file into a content path), or **xex** as defined by the manifest.
+- **What:** Non-disc content (arcade packages, digital titles, DLC, indie games, pre-packed game archives) from Minerva Archive or Internet Archive.
+- **How:** Choose the matching main-menu entry → pick source (Minerva / Internet Archive) → same browse flow; **DLC** skips drive pick and targets **Hdd1:** as required for that content.
+- **How it works:** Backend downloads from Minerva (BitTorrent) or Internet Archive and unpacks archives natively (no external tools required), writes a small `godsend.ini` manifest and payloads the script understands. Install type may be **GOD** (multi-part `.7z`), **raw** (single file into a content path), or **xex** as defined by the manifest.
 
 #### HTTP vs FTP transfer mode
 
@@ -141,13 +154,18 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 ```
 [Xbox Aurora script] ──HTTP──▶ [Go backend on PC] ──FTP──▶ [Xbox HDD/USB]
                                       │
-                               Internet Archive
-                               (parallel download)
+                          ┌───────────┴────────────┐
+                    Minerva Archive           Internet Archive
+                    (BitTorrent via           (parallel HTTP,
+                     bundled aria2c)           optional account)
+                          │
+                   Local Transfer folder
+                   (your own ISOs, highest priority)
 ```
 
-1. The Aurora script on the Xbox browses game libraries sourced from Internet Archive metadata
-2. The user selects a title; the script sends a trigger request to the Go backend
-3. The backend downloads the ISO from Internet Archive using parallel range requests (5 workers by default, 1–7 configurable), or picks it up from the local Transfer folder if already present
+1. The Aurora script on the Xbox browses game libraries — lists are sourced from Minerva Archive (bundled in the installer) or Internet Archive metadata
+2. The user selects a title and a source; the script sends a trigger request to the Go backend
+3. The backend checks for a local ISO first, then downloads from Minerva Archive via BitTorrent (no account needed) or falls back to Internet Archive (parallel range requests, 1–7 workers, account required)
 4. For disc ISOs the backend converts to Games on Demand format using a pure Go implementation; XBLA/digital titles are extracted natively — no external tools required
 5. The finished game files are transferred to the Xbox over FTP using Aurora's built-in FTP server
 6. The Aurora script polls the backend for status and shows a live progress display; the game appears in Aurora when the transfer completes
