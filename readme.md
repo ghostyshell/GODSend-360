@@ -17,9 +17,9 @@ Go to the [GODsend 360 v2.4.6 release](https://gitgud.io/ghosty99/godsend-360/-/
 | Platform | File |
 |---|---|
 | **Windows** | [`godsend-Setup-2.4.6.exe`](https://gitgud.io/-/project/46780/uploads/fad7731a6479582dcfe2cb7c14d737c9/godsend-Setup-2.4.6.exe) |
-| **macOS (Apple Silicon)** | `godsend-2.4.6-arm64.dmg` |
-| **macOS (Intel)** | `godsend-2.4.6-x64.dmg` |
-| **Linux** | `godsend-2.4.6.AppImage` |
+| **macOS (Apple Silicon)** | [`godsend-2.4.6-arm64.dmg`](https://gitgud.io/ghosty99/godsend-360/uploads/fbe5ff08fa3870796ac11c968a3eb51d/godsend-2.4.6-arm64.dmg) |
+| **macOS (Intel)** | [`godsend-2.4.6-x64.dmg`](https://gitgud.io/ghosty99/godsend-360/uploads/b0b1177a66d94f62961d770c4778b615/godsend-2.4.6-x64.dmg) |
+| **Linux** | [`godsend-2.4.6.AppImage`](https://gitgud.io/ghosty99/godsend-360/uploads/f9d1b8160ea1f6ee4f97dd16259873a7/godsend-2.4.6.AppImage) |
 
 ### 2. Install the Electron app
 
