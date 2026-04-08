@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Cross-compile the Go server for Windows, Linux, and macOS (Intel + Apple Silicon).
- * Writes: godsend.exe, godsend-linux, godsend-darwin-amd64, godsend-darwin-arm64,
+ * Writes: godsend.exe, godsend-linux-x64, godsend-linux-arm64, godsend-darwin-amd64, godsend-darwin-arm64,
  * and copies arm64 -> godsend-mac (name expected by electron-builder mac + dev).
  */
 const { spawnSync } = require("child_process");
@@ -23,7 +23,8 @@ fs.mkdirSync(dist, { recursive: true });
 
 const targets = [
   ["windows", "amd64", "godsend.exe"],
-  ["linux", "amd64", "godsend-linux"],
+  ["linux", "amd64", "godsend-linux-x64"],
+  ["linux", "arm64", "godsend-linux-arm64"],
   ["darwin", "amd64", "godsend-darwin-amd64"],
   ["darwin", "arm64", "godsend-darwin-arm64"],
 ];

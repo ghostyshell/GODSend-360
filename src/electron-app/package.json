@@ -12,7 +12,9 @@
     "build:mac:arm": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64",
     "build:mac:dmg:arm64": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64",
     "build:mac:dmg:x64": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --x64",
-    "build:linux": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage"
+    "build:linux": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --x64 --arm64",
+    "build:linux:x64": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --x64",
+    "build:linux:arm64": "node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --arm64"
   },
   "keywords": [
     "electron",
@@ -119,17 +121,13 @@
       "category": "Utility",
       "extraFiles": [
         {
-          "from": "../../dist/godsend-linux",
+          "from": "../../dist/godsend-linux-${arch}",
           "to": "godsend-backend"
-        },
-        {
-          "from": "../../dist/tools/aria2c-linux",
-          "to": "aria2c"
         }
       ]
     },
     "appImage": {
-      "artifactName": "godsend-${version}.${ext}"
+      "artifactName": "godsend-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

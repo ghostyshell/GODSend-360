@@ -32,6 +32,7 @@ function getBundledResourcesRoot() {
 /** Go binary: packaged next to the app executable; name varies by OS. */
 function getGodsendExePath() {
   const isWin = process.platform === "win32";
+  const isArm64 = process.arch === "arm64";
   if (app.isPackaged) {
     const name = isWin ? "godsend-backend.exe" : "godsend-backend";
     return path.join(path.dirname(process.execPath), name);
@@ -41,7 +42,9 @@ function getGodsendExePath() {
     ? ["dist/godsend.exe"]
     : process.platform === "darwin"
     ? ["dist/godsend-mac"]
-    : ["dist/godsend-linux"];
+    : isArm64
+    ? ["dist/godsend-linux-arm64", "dist/godsend-linux-x64"]
+    : ["dist/godsend-linux-x64", "dist/godsend-linux-arm64"];
   for (const rel of devCandidates) {
     const p = path.join(repo, rel);
     if (fs.existsSync(p)) return p;

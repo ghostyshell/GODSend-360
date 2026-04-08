@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - **macOS app failed to launch / Linux missing bundled data** — the platform-specific `extraFiles` blocks in `src/electron-app/package.json` were overriding (not merging with) the top-level `extraFiles`, so cache, assets, and Aurora scripts were silently dropped from the mac and linux builds. On macOS the Go backend was also placed under `Contents/` instead of `Contents/MacOS/`, causing `spawn ENOENT` on launch. Fixed by moving shared data into `extraResources` (which lands in `Contents/Resources/` on mac and `<install>/resources/` on win/linux), pointing the mac backend at `MacOS/godsend-backend`, and adding `getBundledResourcesRoot()` (= `process.resourcesPath` when packaged) so cache/assets/aurora-scripts lookups resolve to the correct location across platforms. Resource files must live under `Resources/` on macOS or code-signing rejects the bundle.
+- **Linux arch build/run docs + dev binary lookup** — documented Linux `amd64` (`x64`) and `arm64` build/run commands plus distro-specific AppImage runtime dependencies in `readme.md`, added `build:server:linux:amd64` alias, and fixed Electron dev backend lookup to use `dist/godsend-linux-x64` / `dist/godsend-linux-arm64` instead of the old `dist/godsend-linux` path.
 
 ---
 

@@ -19,14 +19,26 @@ Go to the [GODsend 360 v2.4.6 release](https://gitgud.io/ghosty99/godsend-360/-/
 | Platform | File |
 |---|---|
 | **Windows** | [`godsend-Setup-2.4.6.exe`](https://gitgud.io/-/project/46780/uploads/fad7731a6479582dcfe2cb7c14d737c9/godsend-Setup-2.4.6.exe) |
-| **macOS (Apple Silicon)** | [`godsend-2.4.6-arm64.dmg`](https://gitgud.io/-/project/46780/uploads/f3fd36151a273a9827438500a959b679/godsend-2.4.6-arm64.dmg) |
-| **macOS (Intel)** | [`godsend-2.4.6-x64.dmg`](https://gitgud.io/-/project/46780/uploads/83692c1eea3b2f65f700b9aad3bb758b/godsend-2.4.6-x64.dmg) |
-| **Linux** | [`godsend-2.4.6.AppImage`](https://gitgud.io/-/project/46780/uploads/173b3a74bdf70c27b06ed095477cb37b/godsend-2.4.6.AppImage) |
+| **macOS (Apple Silicon)** | [`godsend-2.4.6-arm64.dmg`](https://gitgud.io/uploads/b554a5e085b53e6c6c81aa5bfebbe13b/godsend-2.4.6-arm64.dmg) |
+| **macOS (Intel)** | [`godsend-2.4.6-x64.dmg`](https://gitgud.io/uploads/51e0f801bc798cf0be63cd407e039e57/godsend-2.4.6-x64.dmg) |
+| **Linux (x64 / amd64)** | [`godsend-2.4.6-x86_64.AppImage`](https://gitgud.io/uploads/b38e326327307451b1071dce983b0ea4/godsend-2.4.6-x86_64.AppImage) |
+| **Linux (arm64)** | [`godsend-2.4.6-arm64.AppImage`](https://gitgud.io/uploads/6422940e6cb2f9043432c31fe75c5c42/godsend-2.4.6-arm64.AppImage) |
 
 ### 2. Install the Electron app
 
 1. Run the installer for your platform and follow the prompts (Windows: `godsend-Setup-2.4.6.exe`; macOS: open the `.dmg`; Linux: make the `.AppImage` executable and run it).
 2. Launch **GODsend** from the Start Menu — the tray icon appears in the system tray.
+
+For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
+
+> **macOS first launch:** the app is not notarized with Apple, so Gatekeeper will block it the first time with *"Apple could not verify GODsend.app is free of malware"*. To allow it:
+>
+> 1. Click **Done** on the dialog (do **not** click "Move to Bin").
+> 2. Open **System Settings → Privacy & Security** and scroll to the bottom.
+> 3. You should see *"GODsend.app was blocked..."* — click **Open Anyway**.
+> 4. Launch **GODsend** again and confirm at the prompt.
+>
+> You only need to do this once.
 
 ### 3. Configure download sources (optional)
 
@@ -218,9 +230,12 @@ npm install
 npm run build
 ```
 
-`npm install` pulls in Electron app dependencies (`postinstall` runs `npm install` under `src/electron-app`). `npm run build` cross-compiles Go for Windows, Linux, and macOS (`dist/godsend.exe`, `dist/godsend-linux`, `dist/godsend-darwin-*`, plus `dist/godsend-mac`), then builds the **Electron installer for the machine you run on**: **NSIS** on Windows, **AppImage** on Linux, and on **macOS** an AppImage plus **arm64 and x64 DMGs**. AppImage is omitted on Windows (electron-builder needs symlink privileges there). Use `npm run build:win` for Windows-only (faster). All artifacts land under the root `dist/` folder.
+`npm install` pulls in Electron app dependencies (`postinstall` runs `npm install` under `src/electron-app`). `npm run build` cross-compiles Go for Windows, Linux, and macOS (`dist/godsend.exe`, `dist/godsend-linux-x64`, `dist/godsend-linux-arm64`, `dist/godsend-darwin-*`, plus `dist/godsend-mac`), then builds the **Electron installer for the machine you run on**: **NSIS** on Windows, **AppImage** on Linux, and on **macOS** an AppImage plus **arm64 and x64 DMGs**. AppImage is omitted on Windows (electron-builder needs symlink privileges there). Use `npm run build:win` for Windows-only (faster). All artifacts land under the root `dist/` folder.
 
-Backend only (all platforms): `npm run build:server:all`. Windows binary only: `go build -C src/server -o ../../dist/godsend.exe .`
+Backend only (all platforms): `npm run build:server:all`.
+- Windows: `go build -C src/server -o ../../dist/godsend.exe .`
+- Linux amd64 (`x64`): `npm run build:server:linux:amd64`
+- Linux arm64: `npm run build:server:linux:arm64`
 
 ---
 
@@ -241,9 +256,13 @@ You can run GODsend in two main ways:
 
 - **Backend-only (no Electron)**
   - Build the server:
-    - `go build -C src/server -o ../../dist/godsend.exe .`
+    - Windows: `go build -C src/server -o ../../dist/godsend.exe .`
+    - Linux amd64 (`x64`): `npm run build:server:linux:amd64`
+    - Linux arm64: `npm run build:server:linux:arm64`
   - Run it from the project root (or wherever you place the binary):
-    - `dist\godsend.exe`
+    - Windows: `dist\godsend.exe`
+    - Linux amd64: `./dist/godsend-linux-x64`
+    - Linux arm64: `./dist/godsend-linux-arm64`
   - Optionally set the same environment variables the Electron app would:
     - `GODSEND_HOME` – base directory for `Transfer/`, `Ready/`, `Temp/`, `cache/`.
     - `GODSEND_TRANSFER` – override the Transfer folder if you keep ISOs elsewhere.
@@ -257,6 +276,29 @@ You can run GODsend in two main ways:
   - Make sure the backend is reachable at `http://<your-pc-ip>:8080` and that the Aurora script’s `GODSend.ini` `ip=` value matches this host.
 
 In both modes, the Aurora script setup is the same: copy `aurora-scripts/` to the Xbox, point `ip=` in `GODSend.ini` at the PC running `godsend.exe`, and enable Aurora’s FTP server.
+
+### Linux runtime notes (different distros)
+
+Use the AppImage that matches your CPU (`x64`/`amd64` or `arm64`):
+
+```bash
+chmod +x godsend-*.AppImage
+./godsend-*.AppImage
+```
+
+If AppImage fails due to missing FUSE libraries, install distro-specific packages:
+
+- **Ubuntu / Debian / Pop!_OS / Mint:** `sudo apt install libfuse2`
+- **Fedora:** `sudo dnf install fuse fuse-libs`
+- **Arch / EndeavourOS / Manjaro:** `sudo pacman -S fuse2`
+- **openSUSE:** `sudo zypper install fuse libfuse2`
+
+If your distro still blocks AppImage, extract and run without FUSE:
+
+```bash
+./godsend-*.AppImage --appimage-extract
+./squashfs-root/AppRun
+```
 
 ---
 

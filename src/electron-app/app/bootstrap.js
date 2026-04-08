@@ -346,8 +346,6 @@ function bootstrapApp() {
     createTray(mainWindow, {
       onQuit: () => {
         isQuitting = true;
-        const proc = getProcess();
-        if (proc) proc.kill();
         app.quit();
       },
     });
@@ -361,6 +359,7 @@ function bootstrapApp() {
   app.on("before-quit", () => {
     isQuitting = true;
     appendAppEvent("LIFECYCLE", "application before-quit");
+    stopGodsend();
   });
 
   app.on("window-all-closed", (event) => {
