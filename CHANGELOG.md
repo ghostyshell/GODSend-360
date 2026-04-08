@@ -9,6 +9,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [2.4.7] — 2026-04-08
+
 ### Added
 - **Configurable backend port in Electron settings** — added a persisted `serverPort` setting in the desktop app and wired it through IPC/UI so changing the port restarts the backend and updates runtime calls that target the local server.
 
