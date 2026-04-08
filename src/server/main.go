@@ -1662,6 +1662,9 @@ var (
 	)
 	// Aurora letter-jump can leave one ASCII letter after ")", e.g. "Open Season (USA)q"
 	trailingParenJumpLetter = regexp.MustCompile(`\)([a-zA-Z])$`)
+	// Some Aurora menu buffers can append tiny prompt tails to the game title, e.g.
+	// "...(Add-On Content Disc)in" or "...(Add-On Content Disc)our PC".
+	localQueryTailLeakPattern = regexp.MustCompile(`^[A-Za-z ]{1,16}$`)
 )
 
 // normalizeClientGameName strips junk Aurora sometimes sends on the `game` query param:
@@ -1755,7 +1758,33 @@ func findLocalISO(gameName string) string {
 			return p
 		}
 	}
+	// Fallback: tolerate short leaked alpha tails appended after an otherwise exact ISO basename.
+	// This keeps local matching robust when Aurora sends e.g. "...Disc)in" or "...Disc)our PC".
 	entries, _ := os.ReadDir(transferDir)
+	var tailMatched string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".iso") {
+			continue
+		}
+		base := normalizeLocalBasename(strings.TrimSuffix(e.Name(), filepath.Ext(e.Name())))
+		if len(gameName) < len(base) || !strings.EqualFold(gameName[:len(base)], base) {
+			continue
+		}
+		suffix := strings.TrimSpace(gameName[len(base):])
+		if suffix == "" || !localQueryTailLeakPattern.MatchString(suffix) {
+			continue
+		}
+		if tailMatched != "" {
+			// Ambiguous fallback; avoid guessing if more than one basename could match.
+			tailMatched = ""
+			break
+		}
+		tailMatched = filepath.Join(transferDir, e.Name())
+	}
+	if tailMatched != "" {
+		logf("LOCAL ISO: matched %q by trimming short leaked title suffix", gameName)
+		return tailMatched
+	}
 	var isoNames []string
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".iso") {

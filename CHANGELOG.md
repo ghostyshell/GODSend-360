@@ -15,11 +15,13 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - **Windows desktop/taskbar icon resolution** — fixed the NSIS desktop shortcut to use the installed `GODsend.exe` icon instead of a non-existent `$INSTDIR\\assets\\tray.ico` path, prioritized `icon.*` over `tray.*` for window/taskbar icon lookup, and updated icon sync logic to stop overwriting `icon.ico` when it already exists.
+- **Local ISO detection with leaked Aurora title suffixes** — backend local-file matching now tolerates short alphabetic tails accidentally appended to `game` query values (for example `...Disc)in` / `...Disc)our PC`), so exact ISO basenames in the Transfer folder are still resolved.
+- **Aurora `game` query sanitization for trigger/register/status** — client-side title cleanup now strips short leaked prompt tails appended after a closing `)` (for example `...Disc)in` / `...Disc)our PC`) before URL encoding, preventing malformed local lookup requests.
 
 ### Changed
 - **Aurora script deployment now patches `state.lua` directly** — FTP upload now writes the detected PC IP and selected backend port directly into `BRAIN_IP` and `PORT`, and startup uses those values without runtime INI override logic.
 - **Documentation refresh for host/port setup** — README now documents `state.lua` as the source of truth (`BRAIN_IP`/`PORT`), the configurable backend port flow in Electron settings, and generic `http://<pc-ip>:<port>` troubleshooting guidance.
-- **Version** — **2.5.0** (root + Electron `package.json`, lockfile root, backend banner) and Aurora script **11.0.0**.
+- **Version** — **2.5.0** (root + Electron `package.json`, lockfile root, backend banner) and Aurora script **11.0.1**.
 
 ---
 

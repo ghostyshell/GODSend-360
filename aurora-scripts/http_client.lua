@@ -223,6 +223,19 @@ function sanitizeGameNameFromHost(s)
         if t == s then break end
         s = t
     end
+    -- Some Aurora UI buffers can append short prompt tails after ")" (e.g. "...Disc)in"
+    -- or "...Disc)our PC"). Trim those so outgoing `game=` stays a clean title.
+    for _ = 1, 8 do
+        local trimmed, n = s:gsub("%)([A-Za-z ][A-Za-z ]*)$", ")")
+        if n == 0 then break end
+        local suffix = s:match("%)([A-Za-z ][A-Za-z ]*)$")
+        if not suffix then break end
+        suffix = suffix:match("^%s*(.-)%s*$") or suffix
+        if #suffix == 0 or #suffix > 16 then
+            break
+        end
+        s = trimmed
+    end
     return detachHostString(s)
 end
 
