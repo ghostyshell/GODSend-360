@@ -32,14 +32,51 @@ function initServerURL()
     FILES_URL   = SERVER_BASE .. "/files/"
 end
 
--- Read saved server connection values from godsend_config.ini next to the script.
--- Returns ip, port when values are present.
-function loadConfig()
-    local path = Script.GetBasePath() .. CONFIG_FILE
+local function cleanIniValue(v)
+    if type(v) ~= "string" then return "" end
+    -- Aurora can return trailing NUL/control chars from INI reads.
+    v = v:gsub("[%z\1-\31\127]", "")
+    v = v:gsub("^%s+", ""):gsub("%s+$", "")
+    return v
+end
+
+local function readConnectionFromIni(path)
     local ok, ini = pcall(IniFile.LoadFile, path)
-    if not ok or not ini then return nil, nil end
-    local ip = ini:ReadValue("Config", "ip", "")
-    local port = ini:ReadValue("Config", "port", "")
-    if ip and ip ~= "" then return ip, port end
-    return nil, nil
+    if not ok or not ini then return "", "" end
+
+    -- Preferred keys used by script runtime config.
+    local ip = cleanIniValue(ini:ReadValue("Config", "ip", ""))
+    local port = cleanIniValue(ini:ReadValue("Config", "port", ""))
+
+    -- Fallback keys used by bundled GODSend.ini.
+    if ip == "" then
+        ip = cleanIniValue(ini:ReadValue("Settings", "BrainAddress", ""))
+    end
+    if port == "" then
+        port = cleanIniValue(ini:ReadValue("Settings", "BrainPort", ""))
+    end
+
+    return ip, port
+end
+
+-- Read saved server connection values.
+-- Priority:
+-- 1) godsend_config.ini ([Config] ip/port)
+-- 2) GODSend.ini ([Settings] BrainAddress/BrainPort or [Config] ip/port)
+-- Returns ip, port (empty strings when unavailable).
+function loadConfig()
+    local basePath = Script.GetBasePath()
+    local cfgIp, cfgPort = readConnectionFromIni(basePath .. CONFIG_FILE)
+    local iniIp, iniPort = readConnectionFromIni(basePath .. "GODSend.ini")
+
+    local ip = cfgIp ~= "" and cfgIp or iniIp
+    local port = cfgPort ~= "" and cfgPort or iniPort
+
+    if ip == "" then
+        return nil, nil
+    end
+    if port == "" then
+        return ip, nil
+    end
+    return ip, port
 end

@@ -11,6 +11,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.4.8] — 2026-04-08
+
+### Fixed
+- **Aurora connection fallback after FTP patching** — script config loading now reads both `godsend_config.ini` and `GODSend.ini`, supports both `[Config] ip/port` and `[Settings] BrainAddress/BrainPort`, and falls back per-field so custom backend ports patched during FTP are used reliably.
+
+### Changed
+- **Version** — **2.4.8** (root + Electron `package.json`, lockfile root, backend banner) and Aurora script **10.0.2**.
+
+---
+
 ## [2.4.7] — 2026-04-08
 
 ### Added
