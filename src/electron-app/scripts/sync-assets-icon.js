@@ -13,8 +13,13 @@ const legacyIconPng = path.join(assetsDir, "icon.png");
  * Duplicates to icon.ico for tools that expect that name (rcedit, shortcuts, etc.).
  */
 async function main() {
+  // Prefer icon.ico when present; only mirror between files if the counterpart is missing.
+  if (fs.existsSync(iconIco)) {
+    if (!fs.existsSync(trayIco)) fs.copyFileSync(iconIco, trayIco);
+    return;
+  }
   if (fs.existsSync(trayIco)) {
-    fs.copyFileSync(trayIco, iconIco);
+    if (!fs.existsSync(iconIco)) fs.copyFileSync(trayIco, iconIco);
     return;
   }
   if (fs.existsSync(trayPng)) {
@@ -30,10 +35,6 @@ async function main() {
     console.warn(
       "sync-assets-icon: using icon.png — prefer assets/tray.ico or tray.png as the canonical logo"
     );
-    return;
-  }
-  if (fs.existsSync(iconIco)) {
-    fs.copyFileSync(iconIco, trayIco);
     return;
   }
   console.warn(

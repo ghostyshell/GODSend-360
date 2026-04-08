@@ -115,19 +115,19 @@ function getAuroraScriptsPath() {
   return path.join(getBundledResourcesRoot(), "aurora-scripts");
 }
 
-/** Window + tray: canonical tray logo; icon.ico is a duplicate from sync. */
+/** Window/taskbar icon candidates; prefer icon.* over tray.* for shell surfaces. */
 function getIconCandidates() {
   const bundledRoot = getBundledResourcesRoot();
   const assetsDev = path.join(__dirname, "..", "assets");
   return [
-    path.join(bundledRoot, "assets", "tray.ico"),
-    path.join(bundledRoot, "assets", "tray.png"),
-    path.join(assetsDev, "tray.ico"),
-    path.join(assetsDev, "tray.png"),
     path.join(bundledRoot, "assets", "icon.ico"),
     path.join(bundledRoot, "assets", "icon.png"),
     path.join(assetsDev, "icon.ico"),
     path.join(assetsDev, "icon.png"),
+    path.join(bundledRoot, "assets", "tray.ico"),
+    path.join(bundledRoot, "assets", "tray.png"),
+    path.join(assetsDev, "tray.ico"),
+    path.join(assetsDev, "tray.png"),
   ];
 }
 

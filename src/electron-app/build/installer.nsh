@@ -17,7 +17,8 @@
   ExecWait 'cmd.exe /c netsh advfirewall firewall add rule name="GODsend aria2c" dir=in  action=allow program="$INSTDIR\aria2c.exe" profile=any'
   ExecWait 'cmd.exe /c netsh advfirewall firewall add rule name="GODsend aria2c" dir=out action=allow program="$INSTDIR\aria2c.exe" profile=any'
   ${ifNot} ${isNoDesktopShortcut}
-    CreateShortcut "$DESKTOP\GODsend.lnk" "$INSTDIR\GODsend.exe" "" "$INSTDIR\assets\tray.ico" 0
+    ; Use the installed executable icon to avoid broken icon paths.
+    CreateShortcut "$DESKTOP\GODsend.lnk" "$INSTDIR\GODsend.exe" "" "$INSTDIR\GODsend.exe" 0
   ${endIf}
 !macroend
 

@@ -13,6 +13,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [2.5.0] — 2026-04-08
 
+### Fixed
+- **Windows desktop/taskbar icon resolution** — fixed the NSIS desktop shortcut to use the installed `GODsend.exe` icon instead of a non-existent `$INSTDIR\\assets\\tray.ico` path, prioritized `icon.*` over `tray.*` for window/taskbar icon lookup, and updated icon sync logic to stop overwriting `icon.ico` when it already exists.
+
 ### Changed
 - **Aurora script deployment now patches `state.lua` directly** — FTP upload now writes the detected PC IP and selected backend port directly into `BRAIN_IP` and `PORT`, and startup uses those values without runtime INI override logic.
 - **Documentation refresh for host/port setup** — README now documents `state.lua` as the source of truth (`BRAIN_IP`/`PORT`), the configurable backend port flow in Electron settings, and generic `http://<pc-ip>:<port>` troubleshooting guidance.
