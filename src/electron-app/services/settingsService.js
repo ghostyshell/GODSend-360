@@ -49,6 +49,13 @@ function getConfiguredIAConcurrency() {
   return n;
 }
 
+function getConfiguredServerPort() {
+  const v = readConfig().serverPort;
+  const n = parseInt(v, 10);
+  if (isNaN(n) || n < 1 || n > 65535) return 8080;
+  return n;
+}
+
 function getConfiguredIAEmail() {
   const v = readConfig().iaEmail;
   return typeof v === "string" ? v.trim() : "";
@@ -104,6 +111,7 @@ function buildGodsendEnv(writableRoot) {
   env.GODSEND_IA_CONCURRENCY = String(getConfiguredIAConcurrency());
   const romPath = getConfiguredROMPath();
   if (romPath) env.GODSEND_ROM_PATH = romPath;
+  env.GODSEND_PORT = String(getConfiguredServerPort());
   return env;
 }
 
@@ -117,6 +125,7 @@ module.exports = {
   getConfiguredIACookie,
   getConfiguredIAAuthorization,
   getConfiguredIAConcurrency,
+  getConfiguredServerPort,
   getConfiguredIAEmail,
   getConfiguredIAScreenname,
   getConfiguredXboxIP,

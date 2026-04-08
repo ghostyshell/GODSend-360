@@ -25,6 +25,7 @@ const {
   getConfiguredIAScreenname,
   getConfiguredIACookie,
   getConfiguredIAConcurrency,
+  getConfiguredServerPort,
   getConfiguredXboxIP,
   getConfiguredFtpUser,
   getConfiguredFtpPassword,
@@ -137,6 +138,17 @@ function registerIpcHandlers() {
     return getConfiguredTransferFolder();
   });
 
+  ipcMain.handle("config:get-server-port", () => getConfiguredServerPort());
+
+  ipcMain.handle("config:set-server-port", (_event, value) => {
+    const n = parseInt(value, 10);
+    const port = Number.isInteger(n) && n >= 1 && n <= 65535 ? n : 8080;
+    writeConfig({ serverPort: port });
+    appendAppEvent("CONFIG", `serverPort=${port}`);
+    restartGodsendIfRunning();
+    return port;
+  });
+
   ipcMain.handle("config:get-archive-auth", () => ({
     iaEmail: getConfiguredIAEmail(),
     iaScreenname: getConfiguredIAScreenname(),
@@ -205,7 +217,7 @@ function registerIpcHandlers() {
     appendAppEvent("CACHE", `refresh requested platform=${p}`);
     return new Promise((resolve) => {
       const req = http.get(
-        `http://localhost:8080/cache-refresh?platform=${encodeURIComponent(p)}`,
+        `http://localhost:${getConfiguredServerPort()}/cache-refresh?platform=${encodeURIComponent(p)}`,
         (res) => {
           let data = "";
           res.on("data", (chunk) => { data += chunk; });
@@ -291,10 +303,27 @@ function registerIpcHandlers() {
       // Auto-detect this PC's local IP and patch it into GODSend.ini.
       // Write the temp file to os.tmpdir() so it's always writable.
       const pcIp = getLocalIPAddress();
+      const serverPort = getConfiguredServerPort();
       const iniSrc = path.join(scriptsDir, "GODSend.ini");
-      if (pcIp && fs.existsSync(iniSrc)) {
+      if (!pcIp) {
+        return { ok: false, error: "Could not detect this PC's local IPv4 address for script patching." };
+      }
+      if (fs.existsSync(iniSrc)) {
         const originalIni = fs.readFileSync(iniSrc, "utf8");
-        const patched = originalIni.replace(/^(ip\s*=\s*).*$/m, `$1${pcIp}`);
+        const patchIniValue = (text, keyRegex, value) => {
+          if (keyRegex.test(text)) {
+            return text.replace(keyRegex, (_m, prefix) => `${prefix}${value}`);
+          }
+          return text;
+        };
+        let patched = originalIni;
+        patched = patchIniValue(patched, /^(BrainAddress\s*=\s*).*$\r?$/im, pcIp);
+        patched = patchIniValue(patched, /^(ip\s*=\s*).*$\r?$/im, pcIp);
+        patched = patchIniValue(patched, /^(BrainPort\s*=\s*).*$\r?$/im, String(serverPort));
+        patched = patchIniValue(patched, /^(port\s*=\s*).*$\r?$/im, String(serverPort));
+        if (patched === originalIni) {
+          patched += `\n[Config]\nip=${pcIp}\nport=${serverPort}\n`;
+        }
         iniTempPath = path.join(os.tmpdir(), "GODSend.ini.upload-tmp");
         fs.writeFileSync(iniTempPath, patched, "utf8");
       }

@@ -6,6 +6,9 @@ const backBtn            = document.getElementById("backBtn");
 const transferPathEl     = document.getElementById("transferPath");
 const transferBrowseBtn  = document.getElementById("transferBrowseBtn");
 const transferResetBtn   = document.getElementById("transferResetBtn");
+const serverPortEl       = document.getElementById("serverPort");
+const serverPortSaveBtn  = document.getElementById("serverPortSaveBtn");
+const serverPortResetBtn = document.getElementById("serverPortResetBtn");
 const iaSessionStatusEl  = document.getElementById("iaSessionStatus");
 const iaEmailEl          = document.getElementById("iaEmail");
 const iaPasswordEl       = document.getElementById("iaPassword");
@@ -63,6 +66,7 @@ async function initialize() {
   startupCheckbox.checked = await window.godsendApi.getStartupEnabled();
 
   await refreshTransferPathField();
+  serverPortEl.value = String(await window.godsendApi.getServerPort());
 
   const auth = await window.godsendApi.getArchiveAuth();
   iaEmailEl.value = auth.iaEmail || "";
@@ -127,6 +131,18 @@ transferBrowseBtn.addEventListener("click", async () => {
 transferResetBtn.addEventListener("click", async () => {
   await window.godsendApi.setTransferFolder("");
   await refreshTransferPathField();
+});
+
+serverPortSaveBtn.addEventListener("click", async () => {
+  const saved = await window.godsendApi.setServerPort(serverPortEl.value);
+  serverPortEl.value = String(saved);
+  appendLine(`[INFO] Backend port set to ${saved}; backend restarted if running.`);
+});
+
+serverPortResetBtn.addEventListener("click", async () => {
+  const saved = await window.godsendApi.setServerPort(8080);
+  serverPortEl.value = String(saved);
+  appendLine("[INFO] Backend port reset to 8080; backend restarted if running.");
 });
 
 iaLoginBtn.addEventListener("click", async () => {

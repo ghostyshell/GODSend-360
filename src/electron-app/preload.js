@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld("godsendApi", {
   getTransferFolder: () => ipcRenderer.invoke("config:get-transfer-folder"),
   getEffectiveTransferFolder: () => ipcRenderer.invoke("config:get-effective-transfer-folder"),
   setTransferFolder: (folder) => ipcRenderer.invoke("config:set-transfer-folder", folder),
+  getServerPort: () => ipcRenderer.invoke("config:get-server-port"),
+  setServerPort: (port) => ipcRenderer.invoke("config:set-server-port", port),
   chooseTransferFolder: () => ipcRenderer.invoke("config:choose-transfer-folder"),
   getArchiveAuth: () => ipcRenderer.invoke("config:get-archive-auth"),
   loginInternetArchive: (payload) => ipcRenderer.invoke("config:ia-login", payload),

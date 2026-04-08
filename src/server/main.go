@@ -365,6 +365,7 @@ var (
 	iaDownloadConcurrency int      // GODSEND_IA_CONCURRENCY — parallel chunk workers (1-7, default 4)
 	iaHTTPClient          *http.Client
 	serverIP              string
+	serverPort            string
 	gamePartsMap          sync.Map
 	copyBuffer            []byte
 	xboxConnections       sync.Map
@@ -619,10 +620,10 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.4.6         ║")
+	fmt.Println("║    GODSend Backend Server v2.4.7         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
-	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, Port)
+	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, serverPort)
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
 		CopyBufferSize/1024/1024, ServeBufferSize/1024, FTPBufferSize/1024/1024)
 	fmt.Printf("[INFO] Transfer folder (local ISOs): %s\n", transferDir)
@@ -695,7 +696,7 @@ func main() {
 	http.HandleFunc("/files/", recoverMiddleware(handleFileServe))
 
 	server := &http.Server{
-		Addr:              ":" + Port,
+		Addr:              ":" + serverPort,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       0,
 		WriteTimeout:      0,
@@ -713,7 +714,7 @@ func main() {
 			}
 		},
 	}
-	logf("Starting server on port %s... Server started. Please start the script on the xbox", Port)
+	logf("Starting server on port %s... Server started. Please start the script on the xbox", serverPort)
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("[FATAL] %v\n", err)
 		os.Exit(1)
@@ -761,6 +762,15 @@ func setupPaths() error {
 	}
 	if err := os.MkdirAll(transferDir, 0755); err != nil {
 		return err
+	}
+	serverPort = Port
+	if v := strings.TrimSpace(os.Getenv("GODSEND_PORT")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 65535 {
+			return fmt.Errorf("GODSEND_PORT must be an integer between 1 and 65535")
+		}
+		serverPort = strconv.Itoa(n)
+		logf("[INFO] Server port (GODSEND_PORT): %s", serverPort)
 	}
 	cleanupEmptyReadyDirs()
 	return nil
@@ -2310,7 +2320,7 @@ func handleQueueRemove(w http.ResponseWriter, r *http.Request) {
 
 func handleDebug(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, "<h2>GODSend Debug v7.0-IA</h2><p>Server: %s:%s</p>", serverIP, Port)
+	fmt.Fprintf(w, "<h2>GODSend Debug v7.0-IA</h2><p>Server: %s:%s</p>", serverIP, serverPort)
 	fmt.Fprintf(w, "<h3>Cache Status:</h3><ul>")
 	buildStatesMu.Lock()
 	for p, s := range buildStates {

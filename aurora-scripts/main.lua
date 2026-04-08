@@ -1,6 +1,6 @@
 scriptTitle       = "GODsend 360"
 scriptAuthor      = "Nesquin/david12549 & ghosty99"
-scriptVersion     = "10.0.0"
+scriptVersion     = "10.0.1"
 scriptDescription = "Browse and install Xbox 360, Original, Digital (XBLA/DLC), and Retro ROMs via Minerva Archive, Internet Archive, or EdgeEmu!"
 scriptIcon        = "icon\\icon.xur"
 scriptPermissions = { "http", "filesystem" }
@@ -17,9 +17,12 @@ require("menu")
 
 function main()
     -- Step 1: Load saved IP from config (or keep the compiled-in default).
-    local savedIP = loadConfig()
+    local savedIP, savedPort = loadConfig()
     if savedIP then
         BRAIN_IP = savedIP
+    end
+    if savedPort and savedPort ~= "" then
+        PORT = savedPort
     end
     initServerURL()   -- build SERVER_BASE / FILES_URL from BRAIN_IP
 

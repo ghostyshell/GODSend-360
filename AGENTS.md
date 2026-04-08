@@ -53,13 +53,13 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
   - `main.js`: minimal bootstrap that calls `app/bootstrap.js`.
   - `app/bootstrap.js`: creates the BrowserWindow and tray, registers all IPC handlers, and coordinates startup/shutdown of the backend child process via services.
 - **Services (application behaviour)**
-  - `services/settingsService.js`: reads/writes JSON config under `app.getPath("userData")`, exposes getters/setters for transfer folder and IA settings, and builds the child process environment (`GODSEND_*` variables).
+- `services/settingsService.js`: reads/writes JSON config under `app.getPath("userData")`, exposes getters/setters for transfer folder, IA settings, and backend server port (`serverPort`), and builds the child process environment (`GODSEND_*` variables including `GODSEND_PORT`).
   - `services/backendClient.js`: owns the backend `spawn` lifecycle, output buffering and broadcast, restart semantics, and Internet Archive login flow.
 - **Infrastructure (platform concerns)**
   - `infrastructure/fileSystem.js`: canonical install/runtime root detection, directory creation, cache/Temp/Transfer/Ready layout, helper binary copying, and icon path resolution.
   - `infrastructure/electronTray.js`: tray icon creation, context menu wiring, simple open/quit callbacks.
 - **Renderer bridge**
-  - `preload.js`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`).
+- `preload.js`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`), including persisted backend port config (`config:get-server-port`, `config:set-server-port`).
   - `renderer.js`: DOM-only UI and interaction logic, built on the preload API; no direct Node/Electron imports.
 - **Server file logging** (`infrastructure/serverLog.js`): appends backend stdout/stderr and session/context lines to `%APPDATA%\<app>\logs\godsend-server-YYYY-MM-DD.log`; wired from `services/backendClient.js` and `app/bootstrap.js` (IPC `logs:get-info`, `logs:open-folder`).
 - **Build scripts**

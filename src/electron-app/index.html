@@ -82,7 +82,7 @@
               <button id="ftpScriptsBtn" type="button">FTP Aurora Scripts to Xbox</button>
             </div>
             <p id="ftpScriptsStatus" class="ia-session-status" aria-live="polite"></p>
-            <p class="setting-hint">Enable FTP in Aurora (Settings → Network → Enable FTP) before using this button. Your PC's IP is detected automatically and patched into GODSend.ini. The path must match the folder Aurora actually loads (copy it from your FTP client). On USB that is often <code>/Usb0/Apps/Aurora/User/Scripts/Utility/GODSend</code> — note <code>Apps</code> and <code>Utility</code> (not <code>Utilities</code>). On HDD it is often <code>/Hdd1/Aurora/User/Scripts/Utility/GODSend</code>. Credentials and destination path are saved when you click the button above.</p>
+            <p class="setting-hint">Enable FTP in Aurora (Settings → Network → Enable FTP) before using this button. Your PC IP and selected backend port are patched into <code>GODSend.ini</code> automatically. The path must match the folder Aurora actually loads (copy it from your FTP client). On USB that is often <code>/Usb0/Apps/Aurora/User/Scripts/Utility/GODSend</code> — note <code>Apps</code> and <code>Utility</code> (not <code>Utilities</code>). On HDD it is often <code>/Hdd1/Aurora/User/Scripts/Utility/GODSend</code>. Credentials and destination path are saved when you click the button above.</p>
           </div>
 
           <div class="setting-section">
@@ -93,6 +93,16 @@
               <button id="transferResetBtn" type="button">Use default</button>
             </div>
             <p class="setting-hint">Changing this restarts the backend. The Xbox script uses this folder for "Local Library".</p>
+          </div>
+
+          <div class="setting-section">
+            <span class="setting-label">Backend server port</span>
+            <div class="transfer-row">
+              <input id="serverPort" type="number" min="1" max="65535" step="1" class="setting-input" placeholder="8080" />
+              <button id="serverPortSaveBtn" type="button">Save</button>
+              <button id="serverPortResetBtn" type="button">Use 8080</button>
+            </div>
+            <p class="setting-hint">Used by the local backend and patched into Aurora scripts during FTP upload. Changing this restarts the backend.</p>
           </div>
 
           <div class="setting-section">

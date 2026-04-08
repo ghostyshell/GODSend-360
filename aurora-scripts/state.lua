@@ -32,13 +32,14 @@ function initServerURL()
     FILES_URL   = SERVER_BASE .. "/files/"
 end
 
--- Read the saved server IP from godsend_config.ini next to the script.
--- Returns the IP string on success, or nil if not found / not set.
+-- Read saved server connection values from godsend_config.ini next to the script.
+-- Returns ip, port when values are present.
 function loadConfig()
     local path = Script.GetBasePath() .. CONFIG_FILE
     local ok, ini = pcall(IniFile.LoadFile, path)
-    if not ok or not ini then return nil end
+    if not ok or not ini then return nil, nil end
     local ip = ini:ReadValue("Config", "ip", "")
-    if ip and ip ~= "" then return ip end
-    return nil
+    local port = ini:ReadValue("Config", "port", "")
+    if ip and ip ~= "" then return ip, port end
+    return nil, nil
 end
