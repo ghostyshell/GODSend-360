@@ -40,20 +40,30 @@ local function cleanIniValue(v)
     return v
 end
 
+local function normalizePort(v)
+    v = cleanIniValue(v)
+    if v == "" then return "" end
+    local digits = v:match("^(%d+)$")
+    if not digits then return "" end
+    local n = tonumber(digits)
+    if not n or n < 1 or n > 65535 then return "" end
+    return tostring(n)
+end
+
 local function readConnectionFromIni(path)
     local ok, ini = pcall(IniFile.LoadFile, path)
     if not ok or not ini then return "", "" end
 
     -- Preferred keys used by script runtime config.
     local ip = cleanIniValue(ini:ReadValue("Config", "ip", ""))
-    local port = cleanIniValue(ini:ReadValue("Config", "port", ""))
+    local port = normalizePort(ini:ReadValue("Config", "port", ""))
 
     -- Fallback keys used by bundled GODSend.ini.
     if ip == "" then
         ip = cleanIniValue(ini:ReadValue("Settings", "BrainAddress", ""))
     end
     if port == "" then
-        port = cleanIniValue(ini:ReadValue("Settings", "BrainPort", ""))
+        port = normalizePort(ini:ReadValue("Settings", "BrainPort", ""))
     end
 
     return ip, port
@@ -61,16 +71,16 @@ end
 
 -- Read saved server connection values.
 -- Priority:
--- 1) godsend_config.ini ([Config] ip/port)
--- 2) GODSend.ini ([Settings] BrainAddress/BrainPort or [Config] ip/port)
+-- 1) GODSend.ini ([Settings] BrainAddress/BrainPort or [Config] ip/port)
+-- 2) godsend_config.ini ([Config] ip/port)
 -- Returns ip, port (empty strings when unavailable).
 function loadConfig()
     local basePath = Script.GetBasePath()
-    local cfgIp, cfgPort = readConnectionFromIni(basePath .. CONFIG_FILE)
     local iniIp, iniPort = readConnectionFromIni(basePath .. "GODSend.ini")
+    local cfgIp, cfgPort = readConnectionFromIni(basePath .. CONFIG_FILE)
 
-    local ip = cfgIp ~= "" and cfgIp or iniIp
-    local port = cfgPort ~= "" and cfgPort or iniPort
+    local ip = iniIp ~= "" and iniIp or cfgIp
+    local port = iniPort ~= "" and iniPort or cfgPort
 
     if ip == "" then
         return nil, nil

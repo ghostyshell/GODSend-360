@@ -57,12 +57,12 @@ You can also set a **Local Transfer folder** if you want to install from `.iso` 
 The Aurora scripts are bundled with the installer. The easiest way to install them is via the app:
 
 1. Enable Aurora's FTP server: **Aurora → Settings → Network → Enable FTP**.
-2. In the GODsend app, open **⚙ Settings** → scroll to **Xbox connection**.
-3. Enter your **Xbox IP address** and your **PC's IP address**, then click **Save**.
-4. Click **FTP Aurora Scripts to Xbox** — the scripts are uploaded to the path you set (default `Hdd1:\Aurora\User\Scripts\Utility\GODSend\`; on USB FTP often shows `Usb0:\Apps\Aurora\User\Scripts\Utility\GODSend\`), and `GODSend.ini` is patched with your PC's IP.
+2. In the GODsend app, open **⚙ Settings** → set **Backend server port** (if not using the default) and then scroll to **Xbox connection**.
+3. Enter your **Xbox IP address** and click **FTP Aurora Scripts to Xbox**.
+4. The scripts are uploaded to the path you set (default `Hdd1:\Aurora\User\Scripts\Utility\GODSend\`; on USB FTP often shows `Usb0:\Apps\Aurora\User\Scripts\Utility\GODSend\`), and `state.lua` is patched with your PC's IP + backend port.
 5. Launch **GODsend** from Aurora → Scripts.
 
-Alternatively, copy the `aurora-scripts/` folder from the GODsend install directory to the Xbox manually via FTP, then edit `GODSend.ini` to set `ip=` to your PC's IP.
+Alternatively, copy the `aurora-scripts/` folder from the GODsend install directory to the Xbox manually via FTP, then edit `state.lua` to set `BRAIN_IP` and `PORT`.
 
 The Xbox will now connect to the backend running on your PC. You can browse games, trigger downloads, and track progress directly from Aurora.
 
@@ -73,7 +73,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 #### Windows tray app (Electron) + backend
 
 - **What:** Run the Go HTTP server from your PC with a small UI, live log output, and settings. One-click upload of Aurora scripts to the Xbox via FTP with live per-file progress.
-- **How:** Open GODsend from the Start Menu; use the tray icon for the window. Restart the backend from the home screen; optional **Start with Windows** in Settings. In Settings → **Xbox connection**, enter your Xbox IP and click **FTP Aurora Scripts to Xbox** — your PC's IP is patched into `GODSend.ini` automatically and upload progress is shown file-by-file.
+- **How:** Open GODsend from the Start Menu; use the tray icon for the window. Restart the backend from the home screen; optional **Start with Windows** in Settings. In Settings, set **Backend server port** first (if needed), then in **Xbox connection** enter your Xbox IP and click **FTP Aurora Scripts to Xbox** — your PC's IP + selected backend port are patched into `state.lua` automatically and upload progress is shown file-by-file.
 - **How it works:** Electron spawns `godsend` with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings. The FTP upload streams `godsend-ftp-progress` IPC events to the renderer so the button reflects real progress rather than a static label.
 
 #### Minerva Archive (BitTorrent — no account needed)
@@ -156,7 +156,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 #### Developer / diagnostics
 
 - **What:** Quick HTML snapshot of cache, transfer folder, ready games, and jobs.
-- **How:** From a browser on the PC, open `http://<pc-ip>:8080/debug` while the backend is running.
+- **How:** From a browser on the PC, open `http://<pc-ip>:<port>/debug` while the backend is running.
 - **How it works:** The server renders live in-memory and filesystem state for troubleshooting.
 
 ---
@@ -273,9 +273,9 @@ You can run GODsend in two main ways:
     ```powershell
     $env:GODSEND_HOME="C:\godsend"; $env:GODSEND_TRANSFER="C:\godsend\Transfer"; $env:GODSEND_IA_CONCURRENCY="5"; .\dist\godsend.exe
     ```
-  - Make sure the backend is reachable at `http://<your-pc-ip>:8080` and that the Aurora script’s `GODSend.ini` `ip=` value matches this host.
+  - Make sure the backend is reachable at `http://<your-pc-ip>:<port>` and that `aurora-scripts/state.lua` on the Xbox has matching `BRAIN_IP` and `PORT` values.
 
-In both modes, the Aurora script setup is the same: copy `aurora-scripts/` to the Xbox, point `ip=` in `GODSend.ini` at the PC running `godsend.exe`, and enable Aurora’s FTP server.
+In both modes, the Aurora script setup is the same: copy `aurora-scripts/` to the Xbox, set `BRAIN_IP` and `PORT` in `state.lua` to the PC host/port running `godsend.exe`, and enable Aurora’s FTP server.
 
 ### Linux runtime notes (different distros)
 
@@ -312,21 +312,22 @@ Open the settings page (⚙ button) to configure:
 - **Local Transfer folder** — directory the backend scans for pre-downloaded ISOs (defaults to `%APPDATA%\godsend-electron\runtime\Transfer`)
 - **Internet Archive account** — log in with your archive.org credentials; session cookies are stored locally, your password is never saved
 - **Parallel download connections** — concurrent range-request workers per IA download (1–7, default 5)
-- **Xbox connection** — enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your PC's IP is detected automatically
+- **Backend server port** — choose the backend listen port used by both Electron and Aurora script patching
+- **Xbox connection** — enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your PC's IP and selected backend port are detected/applied automatically
 - **Server log files** — the app appends to a daily file under `%APPDATA%\GODsend\logs\` (folder name may be `godsend-electron` on some builds): timestamped backend stdout/stderr, session banner (paths, `GODSEND_*` env summary with secrets redacted, host IP), and notable UI actions (FTP upload steps, cache refresh, config changes). On the home screen use **Open logs folder** to show today’s file in File Explorer.
 
-### Aurora script (`aurora-scripts/GODSend.ini`)
+### Aurora script (`aurora-scripts/state.lua`)
 
-The easiest way to configure and deploy the scripts is via **Settings → Xbox connection** in the app: enter the Xbox IP and click **FTP Aurora Scripts to Xbox**. The app detects your PC's IP automatically and patches it into `GODSend.ini` before uploading.
+The easiest way to configure and deploy the scripts is via **Settings → Backend server port** + **Xbox connection** in the app: set the backend port, enter the Xbox IP, and click **FTP Aurora Scripts to Xbox**. The app patches `BRAIN_IP` and `PORT` directly in `state.lua` before uploading.
 
 To configure manually before copying to the Xbox:
 
-```ini
-[Config]
-ip=192.168.1.x        ; IP address of the PC running the backend
+```lua
+BRAIN_IP = "192.168.1.x"   -- IP address of the PC running the backend
+PORT     = "8080"          -- backend server port
 ```
 
-If the IP changes after installation, edit `godsend_config.ini` in the script directory via FTP and restart the script. The file is read on every launch.
+If the host IP or port changes after installation, edit `state.lua` in the script directory via FTP and restart the script.
 
 ---
 
@@ -341,7 +342,7 @@ If the IP changes after installation, edit `godsend_config.ini` in the script di
 **Manually:**
 
 1. Copy all the contents of the `aurora-scripts/` folder (from the GODsend install directory or repo) to the Xbox at `HDD1:\Aurora\User\Scripts\Utility\GODSend\` (or the same path under your USB device if Aurora runs from USB, often including an `Apps` segment in FTP paths)
-2. Edit `GODSend.ini` — set `ip=` to your PC's local IP address
+2. Edit `state.lua` — set `BRAIN_IP` and `PORT` to your PC's backend host/port
 3. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
 4. Launch GODsend from Aurora → Scripts
 
@@ -351,7 +352,7 @@ If the IP changes after installation, edit `godsend_config.ini` in the script di
 
 ## Backend HTTP API
 
-The backend listens on port 8080. Endpoints used by the Lua script:
+The backend listens on port `8080` by default (configurable via Electron `Backend server port` or `GODSEND_PORT`). Endpoints used by the Lua script:
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -389,6 +390,7 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 | `GODSEND_IA_COOKIE` | — | `logged-in-user=…; logged-in-sig=…` session cookie for IA auth |
 | `GODSEND_IA_AUTHORIZATION` | — | Bearer token as an alternative to cookie auth |
 | `GODSEND_IA_CONCURRENCY` | `5` | Parallel download workers (1–7) |
+| `GODSEND_PORT` | `8080` | Backend listen port |
 
 ---
 
@@ -420,13 +422,13 @@ Useful external references (for additional background and prebuilt installers):
 
 - **Lua script not visible in Aurora**
   - Verify path: `Hdd1:\Aurora\User\Scripts\Utility\godsend\`
-  - Ensure `main.lua`, `GODSend.ini`, `menu_system.lua`, and `Icon/` are all present.
+  - Ensure `main.lua`, `state.lua`, `menu_system.lua`, and `Icon/` are all present.
   - Restart Aurora.
 
 - **Xbox cannot reach backend**
-  - Confirm backend is listening on `http://<pc-ip>:8080` (open in a browser from the PC).
-  - Make sure `ip=` in `GODSend.ini` matches your PC’s IPv4 address (not the Xbox IP).
-  - Confirm PC firewall allows inbound connections on port `8080`.
+  - Confirm backend is listening on `http://<pc-ip>:<port>` (open in a browser from the PC).
+  - Make sure `BRAIN_IP` / `PORT` in `state.lua` on Xbox match your PC’s backend host/port.
+  - Confirm PC firewall allows inbound connections on the configured backend port.
   - Ensure PC and Xbox are on the same subnet.
 
 - **FTP transfer problems**

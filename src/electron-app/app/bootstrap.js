@@ -288,7 +288,7 @@ function registerIpcHandlers() {
       }
     };
 
-    let iniTempPath = null;
+    let stateTempPath = null;
     const client = new ftp.Client();
     client.ftp.verbose = false;
     client.ftp.timeout = 20000;
@@ -300,32 +300,27 @@ function registerIpcHandlers() {
         return { ok: false, error: `Aurora scripts folder not found at: ${scriptsDir}` };
       }
 
-      // Auto-detect this PC's local IP and patch it into GODSend.ini.
+      // Auto-detect this PC's local IP and patch it directly into state.lua.
       // Write the temp file to os.tmpdir() so it's always writable.
       const pcIp = getLocalIPAddress();
       const serverPort = getConfiguredServerPort();
-      const iniSrc = path.join(scriptsDir, "GODSend.ini");
       if (!pcIp) {
-        return { ok: false, error: "Could not detect this PC's local IPv4 address for script patching." };
+        return { ok: false, error: "Could not detect this PC's local IPv4 address for state.lua patching." };
       }
-      if (fs.existsSync(iniSrc)) {
-        const originalIni = fs.readFileSync(iniSrc, "utf8");
-        const patchIniValue = (text, keyRegex, value) => {
-          if (keyRegex.test(text)) {
-            return text.replace(keyRegex, (_m, prefix) => `${prefix}${value}`);
-          }
-          return text;
-        };
-        let patched = originalIni;
-        patched = patchIniValue(patched, /^(BrainAddress\s*=\s*).*$\r?$/im, pcIp);
-        patched = patchIniValue(patched, /^(ip\s*=\s*).*$\r?$/im, pcIp);
-        patched = patchIniValue(patched, /^(BrainPort\s*=\s*).*$\r?$/im, String(serverPort));
-        patched = patchIniValue(patched, /^(port\s*=\s*).*$\r?$/im, String(serverPort));
-        if (patched === originalIni) {
-          patched += `\n[Config]\nip=${pcIp}\nport=${serverPort}\n`;
-        }
-        iniTempPath = path.join(os.tmpdir(), "GODSend.ini.upload-tmp");
-        fs.writeFileSync(iniTempPath, patched, "utf8");
+      const stateSrc = path.join(scriptsDir, "state.lua");
+      if (fs.existsSync(stateSrc)) {
+        const originalState = fs.readFileSync(stateSrc, "utf8");
+        let patchedState = originalState;
+        patchedState = patchedState.replace(
+          /^(BRAIN_IP\s*=\s*)["'][^"']*["']\s*$/m,
+          `$1"${pcIp}"`
+        );
+        patchedState = patchedState.replace(
+          /^(PORT\s*=\s*)["'][^"']*["']\s*$/m,
+          `$1"${serverPort}"`
+        );
+        stateTempPath = path.join(os.tmpdir(), "state.lua.upload-tmp");
+        fs.writeFileSync(stateTempPath, patchedState, "utf8");
       }
 
       sendProgress("Connecting to " + xboxIp + "...");
@@ -344,8 +339,8 @@ function registerIpcHandlers() {
             `${remotePath}/${entry.name}`
           );
         } else {
-          const localFile = (iniTempPath && entry.name === "GODSend.ini")
-            ? iniTempPath
+          const localFile = (stateTempPath && entry.name === "state.lua")
+            ? stateTempPath
             : path.join(scriptsDir, entry.name);
           await client.uploadFrom(localFile, `${remotePath}/${entry.name}`);
         }
@@ -358,7 +353,7 @@ function registerIpcHandlers() {
       return { ok: false, error: err.message || String(err) };
     } finally {
       client.close();
-      if (iniTempPath) try { fs.unlinkSync(iniTempPath); } catch { /* ignore */ }
+      if (stateTempPath) try { fs.unlinkSync(stateTempPath); } catch { /* ignore */ }
     }
   });
 }

@@ -23,7 +23,7 @@ local ErrorHelp = {
             "2. If the IP is wrong, edit godsend_config.ini via FTP\n" ..
             "   and restart the script  (set ip=x.x.x.x under [Config])\n" ..
             "3. Make sure your PC and Xbox are on the same network\n" ..
-            "4. Check your PC firewall allows port 8080\n" ..
+            "4. Check your PC firewall allows the configured backend port\n" ..
             "5. If using Pi-hole/DNS filter, whitelist the server IP"
     },
     DOWNLOAD_FAILED = {

@@ -11,6 +11,15 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.5.0] — 2026-04-08
+
+### Changed
+- **Aurora script deployment now patches `state.lua` directly** — FTP upload now writes the detected PC IP and selected backend port directly into `BRAIN_IP` and `PORT`, and startup uses those values without runtime INI override logic.
+- **Documentation refresh for host/port setup** — README now documents `state.lua` as the source of truth (`BRAIN_IP`/`PORT`), the configurable backend port flow in Electron settings, and generic `http://<pc-ip>:<port>` troubleshooting guidance.
+- **Version** — **2.5.0** (root + Electron `package.json`, lockfile root, backend banner) and Aurora script **11.0.0**.
+
+---
+
 ## [2.4.9] — 2026-04-08
 
 ### Changed
