@@ -47,7 +47,7 @@
       "!scripts/**",
       "!README.md"
     ],
-    "extraFiles": [
+    "extraResources": [
       {
         "from": "assets",
         "to": "assets",
@@ -99,11 +99,11 @@
       "extraFiles": [
         {
           "from": "../../dist/godsend-mac",
-          "to": "godsend-backend"
+          "to": "MacOS/godsend-backend"
         },
         {
           "from": "../../dist/tools/aria2c-darwin-arm64",
-          "to": "aria2c",
+          "to": "MacOS/aria2c",
           "filter": ["**/*"]
         }
       ]

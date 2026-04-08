@@ -19,6 +19,16 @@ function getBundledRoot() {
     : getRepoRoot();
 }
 
+/**
+ * Resource root for bundled data files (cache, assets, aurora-scripts).
+ * On packaged macOS this is `Contents/Resources/`; on Windows/Linux it's
+ * `<install>/resources/`. Code-signing on macOS forbids non-Mach-O files
+ * inside `Contents/MacOS/`, so data must live under Resources.
+ */
+function getBundledResourcesRoot() {
+  return app.isPackaged ? process.resourcesPath : getRepoRoot();
+}
+
 /** Go binary: packaged next to the app executable; name varies by OS. */
 function getGodsendExePath() {
   const isWin = process.platform === "win32";
@@ -71,7 +81,7 @@ function copyDirectoryContentsIfMissing(sourceDir, targetDir) {
 }
 
 function prepareWritableRuntime() {
-  const bundledRoot = getBundledRoot();
+  const bundledRoot = getBundledResourcesRoot();
   const writableRoot = getWritableRuntimeRoot();
 
   ensureDirectory(writableRoot);
@@ -99,12 +109,12 @@ function prepareWritableRuntime() {
 
 /** Aurora scripts bundled with the installer (extraFiles → aurora-scripts/). */
 function getAuroraScriptsPath() {
-  return path.join(getBundledRoot(), "aurora-scripts");
+  return path.join(getBundledResourcesRoot(), "aurora-scripts");
 }
 
 /** Window + tray: canonical tray logo; icon.ico is a duplicate from sync. */
 function getIconCandidates() {
-  const bundledRoot = getBundledRoot();
+  const bundledRoot = getBundledResourcesRoot();
   const assetsDev = path.join(__dirname, "..", "assets");
   return [
     path.join(bundledRoot, "assets", "tray.ico"),
@@ -130,6 +140,7 @@ function getFirstValidIconPath() {
 module.exports = {
   getRepoRoot,
   getBundledRoot,
+  getBundledResourcesRoot,
   getGodsendExePath,
   getWritableRuntimeRoot,
   getAuroraScriptsPath,
