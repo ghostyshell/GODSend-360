@@ -103,6 +103,25 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 - `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.).
 - `tools/`: ignored directory for third-party executables (`7za.exe`, `7za.dll`, `7zxa.dll`) when needed outside the bundled Go pipeline.
 
+### GitGud release assets (upload + links)
+
+- Preferred public asset URLs must use the project-scoped form:
+  - `https://gitgud.io/-/project/46780/uploads/<upload-id>/<filename>`
+  - Do **not** use `https://gitgud.io/uploads/...` directly (can require sign-in and break README/release links).
+- If PAT credentials are embedded in `origin` (HTTPS URL with user:token), agents may use that token for GitGud API calls.
+- Upload and attach a release asset via GitGud API:
+  1. Extract PAT from `git remote get-url origin`.
+  2. Upload file: `POST /api/v4/projects/:id/uploads` (multipart `file=@...`).
+  3. Build public URL using the returned `upload.url` with `https://gitgud.io` prefix.
+  4. Attach to release: `POST /api/v4/projects/:id/releases/:tag/assets/links` with `name` + `url`.
+- Replacing an existing asset link:
+  - List links: `GET /api/v4/projects/:id/releases/:tag/assets/links`
+  - Update link URL: `PUT /api/v4/projects/:id/releases/:tag/assets/links/:link_id`
+  - Or delete/recreate if needed.
+- After any release asset change, verify:
+  - README download links match the current upload URL.
+  - Release page asset link resolves publicly (unauthenticated) and downloads the file.
+
 ---
 
 ## Build, run, and test commands
