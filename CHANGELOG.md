@@ -11,6 +11,14 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.4.9] — 2026-04-08
+
+### Changed
+- **Electron settings layout** — moved the **Backend server port** section above **Xbox connection** for a more natural setup flow before FTP configuration.
+- **Version** — **2.4.9** (root + Electron `package.json`, lockfile root, backend banner) and Aurora script **10.0.3**.
+
+---
+
 ## [2.4.8] — 2026-04-08
 
 ### Fixed

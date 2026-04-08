@@ -40,6 +40,16 @@
           </div>
 
           <div class="setting-section">
+            <span class="setting-label">Backend server port</span>
+            <div class="transfer-row">
+              <input id="serverPort" type="number" min="1" max="65535" step="1" class="setting-input" placeholder="8080" />
+              <button id="serverPortSaveBtn" type="button">Save</button>
+              <button id="serverPortResetBtn" type="button">Use 8080</button>
+            </div>
+            <p class="setting-hint">Used by the local backend and patched into Aurora scripts during FTP upload. Changing this restarts the backend.</p>
+          </div>
+
+          <div class="setting-section">
             <span class="setting-label">Xbox connection</span>
             <label class="ia-field-label" for="xboxIp">Xbox IP address</label>
             <input
@@ -93,16 +103,6 @@
               <button id="transferResetBtn" type="button">Use default</button>
             </div>
             <p class="setting-hint">Changing this restarts the backend. The Xbox script uses this folder for "Local Library".</p>
-          </div>
-
-          <div class="setting-section">
-            <span class="setting-label">Backend server port</span>
-            <div class="transfer-row">
-              <input id="serverPort" type="number" min="1" max="65535" step="1" class="setting-input" placeholder="8080" />
-              <button id="serverPortSaveBtn" type="button">Save</button>
-              <button id="serverPortResetBtn" type="button">Use 8080</button>
-            </div>
-            <p class="setting-hint">Used by the local backend and patched into Aurora scripts during FTP upload. Changing this restarts the backend.</p>
           </div>
 
           <div class="setting-section">
