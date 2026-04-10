@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"syscall"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -606,6 +608,43 @@ func fmtDuration(secs float64) string {
 	return fmt.Sprintf("%dm%02ds", s/60, s%60)
 }
 
+func isTCPAddrInUse(err error) bool {
+	var opErr *net.OpError
+	if errors.As(err, &opErr) && opErr.Err != nil {
+		if errno, ok := opErr.Err.(syscall.Errno); ok {
+			if errno == syscall.EADDRINUSE {
+				return true
+			}
+			if runtime.GOOS == "windows" && int(errno) == 10048 { // WSAEADDRINUSE
+				return true
+			}
+		}
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "address already in use") ||
+		strings.Contains(msg, "only one usage of each socket address") ||
+		strings.Contains(msg, "wsaeaddrinuse")
+}
+
+// listenOnAvailablePort binds to start, then start+1, … until success or a non–address-in-use error.
+func listenOnAvailablePort(start int) (net.Listener, int, error) {
+	if start < 1 || start > 65535 {
+		return nil, 0, fmt.Errorf("invalid start port %d", start)
+	}
+	for p := start; p <= 65535; p++ {
+		addr := fmt.Sprintf(":%d", p)
+		ln, err := net.Listen("tcp", addr)
+		if err == nil {
+			return ln, p, nil
+		}
+		if !isTCPAddrInUse(err) {
+			return nil, 0, fmt.Errorf("listen %s: %w", addr, err)
+		}
+		logf("[WARN] TCP port %d in use, trying %d", p, p+1)
+	}
+	return nil, 0, fmt.Errorf("no free TCP port from %d through 65535", start)
+}
+
 // ==========================================
 // MAIN & SETUP
 // ==========================================
@@ -626,10 +665,9 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.5.2         ║")
+	fmt.Println("║    GODSend Backend Server v2.6.0         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
-	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, serverPort)
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
 		CopyBufferSize/1024/1024, ServeBufferSize/1024, FTPBufferSize/1024/1024)
 	fmt.Printf("[INFO] Transfer folder (local ISOs): %s\n", transferDir)
@@ -701,8 +739,24 @@ func main() {
 	http.HandleFunc("/disc-info", recoverMiddleware(handleDiscInfo))
 	http.HandleFunc("/files/", recoverMiddleware(handleFileServe))
 
+	requestedPort, err := strconv.Atoi(serverPort)
+	if err != nil {
+		fmt.Printf("[FATAL] invalid server port %q\n", serverPort)
+		os.Exit(1)
+	}
+	listener, chosenPort, err := listenOnAvailablePort(requestedPort)
+	if err != nil {
+		fmt.Printf("[FATAL] %v\n", err)
+		os.Exit(1)
+	}
+	if chosenPort != requestedPort {
+		logf("[INFO] Port %d was in use; listening on %d instead", requestedPort, chosenPort)
+	}
+	serverPort = strconv.Itoa(chosenPort)
+	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, serverPort)
+	logf("[INFO] GODSEND_LISTEN_PORT=%s", serverPort)
+
 	server := &http.Server{
-		Addr:              ":" + serverPort,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       0,
 		WriteTimeout:      0,
@@ -721,7 +775,7 @@ func main() {
 		},
 	}
 	logf("Starting server on port %s... Server started. Please start the script on the xbox", serverPort)
-	if err := server.ListenAndServe(); err != nil {
+	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("[FATAL] %v\n", err)
 		os.Exit(1)
 	}

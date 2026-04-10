@@ -17,8 +17,12 @@ const {
 const {
   getConfiguredTransferFolder,
   getDefaultTransferFolder,
+  getConfiguredServerPort,
+  writeConfig,
   buildGodsendEnv,
 } = require("./settingsService");
+
+const GODSEND_LISTEN_PORT_RE = /GODSEND_LISTEN_PORT=(\d+)/;
 
 const IA_XAUTHN_URL = "https://archive.org/services/xauthn/?op=login";
 const IA_LOGIN_UA =
@@ -106,7 +110,16 @@ function startGodsend() {
       .toString()
       .split(/\r?\n/)
       .forEach((line) => {
-        if (line.trim().length > 0) addOutputLine(line, "out");
+        if (line.trim().length === 0) return;
+        const m = line.match(GODSEND_LISTEN_PORT_RE);
+        if (m) {
+          const p = parseInt(m[1], 10);
+          if (!isNaN(p) && p >= 1 && p <= 65535 && p !== getConfiguredServerPort()) {
+            writeConfig({ serverPort: p });
+            appendAppEvent("CONFIG", `serverPort=${p} (auto, requested port in use)`);
+          }
+        }
+        addOutputLine(line, "out");
       });
   });
 

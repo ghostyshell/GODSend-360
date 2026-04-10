@@ -11,6 +11,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.6.0] — 2026-04-10
+
+### Added
+- **Automatic free port when the configured port is busy** — if the backend cannot bind to `GODSEND_PORT` (e.g. default 8080), it tries the next ports until one succeeds. The effective port is logged as `GODSEND_LISTEN_PORT=…`; the Electron app persists that value so the UI and next launch stay aligned.
+
+### Changed
+- **Version** — **2.6.0** (root + Electron `package.json`, lockfiles, backend banner); Aurora script **11.0.2**.
+
+---
+
 ## [2.5.2] — 2026-04-10
 
 ### Fixed
