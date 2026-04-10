@@ -18,7 +18,7 @@ Go to the [GODsend 360 v2.6.0 release](https://gitgud.io/ghosty99/godsend-360/-/
 
 | Platform | File |
 |---|---|
-| **Windows (v2.5.0 NSIS)** | [`godsend-Setup-2.5.0.exe`](https://gitgud.io/-/project/46780/uploads/fb299388f58d687728aa1a9b46abc1c9/godsend-Setup-2.5.0.exe) — *latest published Windows installer; build `npm run build:win` for 2.6.0* |
+| **Windows (NSIS)** | [`godsend-Setup-2.6.0.exe`](https://gitgud.io/-/project/46780/uploads/974d1a172001154f6243a564a7a00d55/godsend-Setup-2.6.0.exe) |
 | **macOS (Apple Silicon)** | [`godsend-2.6.0-arm64.dmg`](https://gitgud.io/-/project/46780/uploads/5f613e460ac8d9468b9acc070970baf4/godsend-2.6.0-arm64.dmg) |
 | **macOS (Intel)** | [`godsend-2.6.0-x64.dmg`](https://gitgud.io/-/project/46780/uploads/6eca4af354338753831c8a4d61325fcd/godsend-2.6.0-x64.dmg) |
 | **Linux (x64 / amd64)** | [`godsend-2.6.0-x86_64.AppImage`](https://gitgud.io/-/project/46780/uploads/b0aaba092bf3ddf995d63c9fe13078e2/godsend-2.6.0-x86_64.AppImage) |
@@ -26,7 +26,7 @@ Go to the [GODsend 360 v2.6.0 release](https://gitgud.io/ghosty99/godsend-360/-/
 
 ### 2. Install the Electron app
 
-1. Run the installer for your platform and follow the prompts (Windows: `godsend-Setup-2.5.0.exe` or a self-built 2.6.0 setup; macOS: open the `.dmg`; Linux: make the `.AppImage` executable and run it).
+1. Run the installer for your platform and follow the prompts (Windows: `godsend-Setup-2.6.0.exe`; macOS: open the `.dmg`; Linux: make the `.AppImage` executable and run it).
 2. Launch **GODsend** from the Start Menu — the tray icon appears in the system tray.
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
