@@ -112,6 +112,8 @@ function buildGodsendEnv(writableRoot) {
   const romPath = getConfiguredROMPath();
   if (romPath) env.GODSEND_ROM_PATH = romPath;
   env.GODSEND_PORT = String(getConfiguredServerPort());
+  env.GODSEND_FTP_USER = getConfiguredFtpUser();
+  env.GODSEND_FTP_PASS = getConfiguredFtpPassword();
   return env;
 }
 

@@ -266,6 +266,9 @@ function registerIpcHandlers() {
       ftpPassword:    typeof p.ftpPassword     === "string" ? p.ftpPassword          : getConfiguredFtpPassword(),
       ftpScriptsPath: typeof p.ftpScriptsPath  === "string" ? p.ftpScriptsPath.trim(): getConfiguredFtpScriptsPath(),
     });
+    appendAppEvent("CONFIG", `xboxConnection saved (ftpUser=${getConfiguredFtpUser()})`);
+    // Restart so the backend re-reads GODSEND_FTP_USER / GODSEND_FTP_PASS from env.
+    restartGodsendIfRunning();
     return true;
   });
 

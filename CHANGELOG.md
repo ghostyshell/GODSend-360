@@ -11,6 +11,19 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.5.1] — 2026-04-10
+
+### Fixed
+- **Backend FTP push now respects configured Aurora credentials** — `connectToXboxFTP` previously hardcoded `xboxftp`/`xboxftp`, so users who changed Aurora's FTP credentials could upload scripts from the Electron app but post-torrent FTP installs failed at login. The Electron settings (`ftpUser`/`ftpPassword`) are now exported as `GODSEND_FTP_USER` / `GODSEND_FTP_PASS` to the backend and used for every FTP login.
+
+### Added
+- **"Save connection" button in Xbox FTP settings** — explicitly persists the Xbox IP, FTP username/password, and scripts path, and restarts the backend so post-download FTP installs immediately pick up the new credentials. Saving also happens automatically when uploading Aurora scripts, but the dedicated button makes it possible to update credentials without re-uploading scripts.
+
+### Changed
+- **Version** — **2.5.1** (root + Electron `package.json`, lockfile root, backend banner).
+
+---
+
 ## [2.5.0] — 2026-04-08
 
 ### Fixed

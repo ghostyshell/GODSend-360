@@ -28,6 +28,8 @@ const ftpScriptsPathEl       = document.getElementById("ftpScriptsPath");
 const ftpScriptsPathResetBtn = document.getElementById("ftpScriptsPathResetBtn");
 const ftpScriptsBtn          = document.getElementById("ftpScriptsBtn");
 const ftpScriptsStatus       = document.getElementById("ftpScriptsStatus");
+const xboxConnectionSaveBtn  = document.getElementById("xboxConnectionSaveBtn");
+const xboxConnectionStatus   = document.getElementById("xboxConnectionStatus");
 const pageHome           = document.getElementById("page-home");
 const pageSettings       = document.getElementById("page-settings");
 const logPathHint        = document.getElementById("logPathHint");
@@ -199,6 +201,26 @@ romPathResetBtn.addEventListener("click", async () => {
 
 ftpScriptsPathResetBtn.addEventListener("click", async () => {
   ftpScriptsPathEl.value = await window.godsendApi.getFtpScriptsPathDefault();
+});
+
+xboxConnectionSaveBtn.addEventListener("click", async () => {
+  xboxConnectionSaveBtn.disabled = true;
+  xboxConnectionStatus.textContent = "Saving…";
+  try {
+    await window.godsendApi.setXboxConnection({
+      xboxIp:         xboxIpEl.value.trim(),
+      ftpUser:        ftpUserEl.value.trim(),
+      ftpPassword:    ftpPasswordEl.value,
+      ftpScriptsPath: ftpScriptsPathEl.value.trim(),
+    });
+    xboxConnectionStatus.textContent =
+      "Saved. Backend restarted so post-download FTP installs use these credentials.";
+    appendLine("[INFO] Xbox connection saved; backend restarted if running.");
+  } catch (err) {
+    xboxConnectionStatus.textContent = `Failed to save: ${err.message || "unknown error"}`;
+  } finally {
+    xboxConnectionSaveBtn.disabled = false;
+  }
 });
 
 ftpScriptsBtn.addEventListener("click", async () => {

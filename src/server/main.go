@@ -366,6 +366,8 @@ var (
 	iaHTTPClient          *http.Client
 	serverIP              string
 	serverPort            string
+	ftpUsername           string // GODSEND_FTP_USER — Aurora FTP username (default xboxftp)
+	ftpPassword           string // GODSEND_FTP_PASS — Aurora FTP password (default xboxftp)
 	gamePartsMap          sync.Map
 	copyBuffer            []byte
 	xboxConnections       sync.Map
@@ -620,7 +622,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.5.0         ║")
+	fmt.Println("║    GODSend Backend Server v2.5.1         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, serverPort)
@@ -771,6 +773,14 @@ func setupPaths() error {
 		}
 		serverPort = strconv.Itoa(n)
 		logf("[INFO] Server port (GODSEND_PORT): %s", serverPort)
+	}
+	ftpUsername = "xboxftp"
+	ftpPassword = "xboxftp"
+	if v := strings.TrimSpace(os.Getenv("GODSEND_FTP_USER")); v != "" {
+		ftpUsername = v
+	}
+	if v := os.Getenv("GODSEND_FTP_PASS"); v != "" {
+		ftpPassword = v
 	}
 	cleanupEmptyReadyDirs()
 	return nil
@@ -2561,7 +2571,7 @@ func connectToXboxFTP(ip string) (*ftp.ServerConn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("FTP connect to %s failed: %v", ip, err)
 	}
-	if err = c.Login("xboxftp", "xboxftp"); err != nil {
+	if err = c.Login(ftpUsername, ftpPassword); err != nil {
 		c.Quit()
 		return nil, fmt.Errorf("FTP login failed: %v", err)
 	}

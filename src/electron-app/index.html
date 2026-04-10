@@ -89,10 +89,12 @@
               <button id="ftpScriptsPathResetBtn" type="button">Use default</button>
             </div>
             <div class="ia-auth-row">
+              <button id="xboxConnectionSaveBtn" type="button">Save connection</button>
               <button id="ftpScriptsBtn" type="button">FTP Aurora Scripts to Xbox</button>
             </div>
+            <p id="xboxConnectionStatus" class="ia-session-status" aria-live="polite"></p>
             <p id="ftpScriptsStatus" class="ia-session-status" aria-live="polite"></p>
-            <p class="setting-hint">Enable FTP in Aurora (Settings → Network → Enable FTP) before using this button. Your PC IP and selected backend port are patched directly into <code>state.lua</code> automatically. The path must match the folder Aurora actually loads (copy it from your FTP client). On USB that is often <code>/Usb0/Apps/Aurora/User/Scripts/Utility/GODSend</code> — note <code>Apps</code> and <code>Utility</code> (not <code>Utilities</code>). On HDD it is often <code>/Hdd1/Aurora/User/Scripts/Utility/GODSend</code>. Credentials and destination path are saved when you click the button above.</p>
+            <p class="setting-hint">Click <strong>Save connection</strong> to persist the Xbox IP, FTP credentials, and scripts path; the backend will restart so post-download FTP installs use the same credentials. Enable FTP in Aurora (Settings → Network → Enable FTP) before using <strong>FTP Aurora Scripts to Xbox</strong>. Your PC IP and selected backend port are patched directly into <code>state.lua</code> automatically. The path must match the folder Aurora actually loads (copy it from your FTP client). On USB that is often <code>/Usb0/Apps/Aurora/User/Scripts/Utility/GODSend</code> — note <code>Apps</code> and <code>Utility</code> (not <code>Utilities</code>). On HDD it is often <code>/Hdd1/Aurora/User/Scripts/Utility/GODSend</code>.</p>
           </div>
 
           <div class="setting-section">
