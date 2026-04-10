@@ -59,8 +59,8 @@ const (
 	MinervaBrowseBase = "https://minerva-archive.org/browse/"
 
 	// Parallel IA download settings
-	iaChunkRetries      = 3
-	iaChunkRetryBase    = 4 * time.Second
+	iaChunkRetries      = 5
+	iaChunkRetryBase    = 6 * time.Second
 	iaParallelThreshold = 32 * 1024 * 1024 // files smaller than 32 MB use single stream
 )
 
@@ -400,7 +400,7 @@ type discCompatRec struct {
 }
 
 // discCompatTable maps TitleID → recommendation for Disc 2+ of known titles.
-// Sourced from docs/multi-disc-compatibility.md.
+// Sourced from docs/reference/multi-disc-compatibility.md.
 var discCompatTable = map[uint32]discCompatRec{
 	0x4D5308AB: {installType: "content", notes: "Disc 2 is bonus content loaded by Disc 1"},
 	0x555307DC: {installType: "content", notes: "Disc 2 is bonus content"},
@@ -665,7 +665,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.6.0         ║")
+	fmt.Println("║    GODSend Backend Server v2.7.0         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
@@ -1858,7 +1858,7 @@ var (
 	trailingParenJumpLetter = regexp.MustCompile(`\)([a-zA-Z])$`)
 	// Some Aurora menu buffers can append tiny prompt tails to the game title, e.g.
 	// "...(Add-On Content Disc)in" or "...(Add-On Content Disc)our PC".
-	localQueryTailLeakPattern = regexp.MustCompile(`^[A-Za-z ]{1,16}$`)
+	localQueryTailLeakPattern = regexp.MustCompile(`^[A-Za-z0-9 ]{1,24}$`)
 )
 
 // normalizeClientGameName strips junk Aurora sometimes sends on the `game` query param:
@@ -1978,6 +1978,31 @@ func findLocalISO(gameName string) string {
 	if tailMatched != "" {
 		logf("LOCAL ISO: matched %q by trimming short leaked title suffix", gameName)
 		return tailMatched
+	}
+	// Prefix fallback: take the first 60% of the query and look for an ISO whose
+	// basename starts with that prefix.  Handles Lua buffer corruption that appends
+	// arbitrary data (hex digits, random bytes) after the real title.
+	prefixLen := len(gameName) * 60 / 100
+	if prefixLen > 4 {
+		prefix := strings.ToLower(normalizeLocalBasename(gameName[:prefixLen]))
+		var prefixMatch string
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".iso") {
+				continue
+			}
+			base := strings.ToLower(normalizeLocalBasename(strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))))
+			if strings.HasPrefix(base, prefix) {
+				if prefixMatch != "" {
+					prefixMatch = ""
+					break
+				}
+				prefixMatch = filepath.Join(transferDir, e.Name())
+			}
+		}
+		if prefixMatch != "" {
+			logf("LOCAL ISO: matched %q using 60%% prefix fallback (%d chars)", gameName, prefixLen)
+			return prefixMatch
+		}
 	}
 	var isoNames []string
 	for _, e := range entries {
@@ -3399,7 +3424,7 @@ func processMinervaDigital(gameName string, entry MinervaEntry, platform string)
 
 	var contentFile, titleID, typeDir string
 	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
-		if e != nil || i.IsDir() || i.Size() <= 1024*1024 {
+		if e != nil || i.IsDir() || i.Size() < 0x368 {
 			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(p))
@@ -3423,17 +3448,8 @@ func processMinervaDigital(gameName string, entry MinervaEntry, platform string)
 	logf("Minerva Digital: TitleID=%s Type=%s", titleID, typeDir)
 	finalName := filepath.Base(contentFile)
 
-	forcedDrive := ""
-	switch platform {
-	case "dlc", "xblig":
-		forcedDrive = "Hdd1"
-	}
-
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
-		drive := forcedDrive
-		if drive == "" {
-			drive = strings.TrimSuffix(xboxConn.Drive, ":")
-		}
+		drive := strings.TrimSuffix(xboxConn.Drive, ":")
 		base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, typeDir)
 		fc, err := connectWithRetry(xboxConn.IP)
 		if err != nil {
@@ -3455,7 +3471,7 @@ func processMinervaDigital(gameName string, entry MinervaEntry, platform string)
 		if err := copyFileBuffered(contentFile, filepath.Join(gameDir, finalName)); err != nil {
 			logStatus(gameName, "Error", fmt.Sprintf("Copy: %v", err))
 		} else {
-			updateGameINI_Raw(gameDir, gameName, finalName, relPath, forcedDrive)
+			updateGameINI_Raw(gameDir, gameName, finalName, relPath, "")
 			logStatus(gameName, "Ready", "Ready to Install")
 		}
 	}
@@ -3793,7 +3809,7 @@ func ftpTransferXEX(xexFolder, folderName string, conn *XboxConnection, gameName
 // ==========================================
 
 // processDigital handles digital content: XBLA, DLC, XBLIG (and the original No-Intro digital set).
-// DLC/XBLIG always land on Hdd1; XBLA respects the user's drive selection.
+// All platforms respect the user's drive selection.
 func processDigital(gameName, platform string) {
 	logf("=== Digital: %s (%s) ===", gameName, platform)
 	safeName := sanitizeFilename(gameName)
@@ -3835,7 +3851,7 @@ func processDigital(gameName, platform string) {
 
 	var contentFile, titleID, typeDir string
 	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
-		if e != nil || i.IsDir() || i.Size() <= 1024*1024 {
+		if e != nil || i.IsDir() || i.Size() < 0x368 {
 			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(p))
@@ -3859,18 +3875,8 @@ func processDigital(gameName, platform string) {
 	logf("Digital: TitleID=%s Type=%s", titleID, typeDir)
 	finalName := filepath.Base(contentFile)
 
-	// DLC/XBLIG always go to Hdd1; XBLA respects the user's drive selection.
-	forcedDrive := ""
-	switch platform {
-	case "dlc", "xblig":
-		forcedDrive = "Hdd1"
-	}
-
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
-		drive := forcedDrive
-		if drive == "" {
-			drive = strings.TrimSuffix(xboxConn.Drive, ":")
-		}
+		drive := strings.TrimSuffix(xboxConn.Drive, ":")
 		base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, typeDir)
 		fc, err := connectWithRetry(xboxConn.IP)
 		if err != nil {
@@ -3892,7 +3898,7 @@ func processDigital(gameName, platform string) {
 		if err := copyFileBuffered(contentFile, filepath.Join(gameDir, finalName)); err != nil {
 			logStatus(gameName, "Error", fmt.Sprintf("Copy: %v", err))
 		} else {
-			updateGameINI_Raw(gameDir, gameName, finalName, relPath, forcedDrive)
+			updateGameINI_Raw(gameDir, gameName, finalName, relPath, "")
 			logStatus(gameName, "Ready", "Ready to Install")
 		}
 	}

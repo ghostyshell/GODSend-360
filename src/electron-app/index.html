@@ -95,6 +95,32 @@
             <p id="xboxConnectionStatus" class="ia-session-status" aria-live="polite"></p>
             <p id="ftpScriptsStatus" class="ia-session-status" aria-live="polite"></p>
             <p class="setting-hint">Click <strong>Save connection</strong> to persist the Xbox IP, FTP credentials, and scripts path; the backend will restart so post-download FTP installs use the same credentials. Enable FTP in Aurora (Settings → Network → Enable FTP) before using <strong>FTP Aurora Scripts to Xbox</strong>. Your PC IP and selected backend port are patched directly into <code>state.lua</code> automatically. The path must match the folder Aurora actually loads (copy it from your FTP client). On USB that is often <code>/Usb0/Apps/Aurora/User/Scripts/Utility/GODSend</code> — note <code>Apps</code> and <code>Utility</code> (not <code>Utilities</code>). On HDD it is often <code>/Hdd1/Aurora/User/Scripts/Utility/GODSend</code>.</p>
+
+            <!-- FTP Debugging (collapsible) -->
+            <details id="ftpDebugDetails" class="ftp-debug-section">
+              <summary class="ftp-debug-toggle">FTP Debugging Tools</summary>
+              <div class="ftp-debug-body">
+                <div class="ia-auth-row">
+                  <button id="ftpTestBtn" type="button">Test Connection</button>
+                  <button id="ftpScanBtn" type="button">Scan Network Ports</button>
+                  <button id="ftpDebugClearBtn" type="button">Clear Log</button>
+                </div>
+                <p id="ftpDebugStatus" class="ia-session-status" aria-live="polite"></p>
+                <label class="ia-field-label" for="ftpScanSubnet">Subnet to scan (e.g. 192.168.1)</label>
+                <div class="transfer-row">
+                  <input
+                    id="ftpScanSubnet"
+                    type="text"
+                    class="setting-input"
+                    spellcheck="false"
+                    placeholder="192.168.1"
+                    style="max-width:200px"
+                  />
+                  <span class="setting-hint" style="margin:0">Port 21 on .1 &ndash; .254</span>
+                </div>
+                <pre id="ftpDebugLog" class="ftp-debug-console"></pre>
+              </div>
+            </details>
           </div>
 
           <div class="setting-section">

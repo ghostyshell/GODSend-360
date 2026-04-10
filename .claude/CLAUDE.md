@@ -14,6 +14,6 @@ Pure-Go ISO→GOD and archive logic lives in **`src/server/utils/`** (`package u
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — version-bump checklist, changelog rules, PR conventions, and per-component change guidelines. Follow this when making any non-trivial change.
 - [`CHANGELOG.md`](CHANGELOG.md) — record of changes per release. Add an entry under `[Unreleased]` for every notable change.
-- [`docs/aurora-reference.md`](docs/aurora-reference.md) — Aurora Lua host API reference. Required reading before editing `aurora-scripts/`.
-- [`docs/multi-disc-compatibility.md`](docs/multi-disc-compatibility.md) — multi-disc game compat table used by the disc-picker feature.
+- [`docs/reference/aurora.md`](docs/reference/aurora.md) — Aurora Lua host API reference. Required reading before editing `aurora-scripts/`.
+- [`docs/reference/multi-disc-compatibility.md`](docs/reference/multi-disc-compatibility.md) — multi-disc game compat table used by the disc-picker feature.
 - [`README.md`](README.md) — user-facing documentation; keep in sync with any API or UX changes.

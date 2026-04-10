@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld("godsendApi", {
   setXboxConnection: (payload) => ipcRenderer.invoke("config:set-xbox-connection", payload),
   getFtpScriptsPathDefault: () => ipcRenderer.invoke("config:get-ftp-scripts-path-default"),
   ftpAuroraScripts: (payload) => ipcRenderer.invoke("xbox:ftp-scripts", payload),
+  ftpTestConnection: (payload) => ipcRenderer.invoke("xbox:ftp-test", payload),
+  ftpScanPorts: (subnet) => ipcRenderer.invoke("xbox:ftp-scan", subnet),
+  onFtpDebugLog: (callback) => {
+    ipcRenderer.on("godsend-ftp-debug", (_event, line) => callback(line));
+  },
   onFtpProgress: (callback) => {
     ipcRenderer.on("godsend-ftp-progress", (_event, msg) => callback(msg));
   },

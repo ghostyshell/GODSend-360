@@ -55,7 +55,7 @@ go build -C src/server -o ../../dist/godsend.exe .
 ### Aurora Lua scripts (`aurora-scripts/`)
 
 - Test manually on-console before submitting — there is no automated test harness.
-- Read `docs/aurora-reference.md` for supported APIs, path rules, and known crash patterns.
+- Read `docs/reference/aurora.md` for supported APIs, path rules, and known crash patterns.
 - The scripting host is Lua 5.1: no `goto`, no bitwise operators, no `table.move`, limited string library.
 - Wrap all host API calls (`Http.*`, `FileSystem.*`, `ZipFile.*`, `Script.*`) in `pcall`.
 

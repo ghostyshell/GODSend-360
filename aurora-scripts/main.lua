@@ -1,6 +1,6 @@
 scriptTitle       = "GODsend 360"
 scriptAuthor      = "Nesquin/david12549 & ghosty99"
-scriptVersion     = "11.0.2"
+scriptVersion     = "11.1.0"
 scriptDescription = "Browse and install Xbox 360, Original, Digital (XBLA/DLC), and Retro ROMs via Minerva Archive, Internet Archive, or EdgeEmu!"
 scriptIcon        = "icon\\icon.xur"
 scriptPermissions = { "http", "filesystem" }
@@ -47,16 +47,16 @@ function main()
         Menu.ResetMenu()
         Menu.SetTitle(scriptTitle .. " v" .. scriptVersion)
 
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("Server Queue & Status  (Active Tasks)",           {action = "SHOW_QUEUE"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("Local Library  (Your Transfer Folder ISOs)",    {action = "BROWSE_LOCAL"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox 360 Redump ISOs  (Pick Source)",           {action = "BROWSE_360"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("Original Xbox Redump ISOs  (Pick Source)",      {action = "BROWSE_OG"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("XBLA Arcade  (Pick Source)",                    {action = "BROWSE_XBLA"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("Digital / No-Intro Titles  (Pick Source)",      {action = "BROWSE_DIGI"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("DLC / Multi-Disc  (Pick Source - Hdd1)",         {action = "BROWSE_DLC"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox Live Indie Games  (Pick Source)",          {action = "BROWSE_XBLIG"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox 360 Game Archives  (Pick Source)",         {action = "BROWSE_GAMES"}))
-        Menu.AddMainMenuItem(Menu.MakeMenuItem("Retro ROMs  (EdgeEmu - 62 Systems)",            {action = "BROWSE_ROMS"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Server Queue & Status",              {action = "SHOW_QUEUE"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Local Library  (Transfer Folder)",   {action = "BROWSE_LOCAL"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox 360 Redump ISOs",              {action = "BROWSE_360"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Original Xbox Redump ISOs",         {action = "BROWSE_OG"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("XBLA Arcade",                       {action = "BROWSE_XBLA"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Digital / No-Intro Titles",         {action = "BROWSE_DIGI"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("DLC / Multi-Disc",                  {action = "BROWSE_DLC"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox Live Indie Games",             {action = "BROWSE_XBLIG"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox 360 Game Archives",            {action = "BROWSE_GAMES"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Retro ROMs  (62 Systems)",          {action = "BROWSE_ROMS"}))
 
         local ret, menu, canceled = Menu.ShowMainMenu()
         if canceled or not ret then break end

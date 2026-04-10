@@ -9,8 +9,22 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+---
+
+## [2.7.0] — 2026-04-11
+
+### Added
+- **Documentation** — `docs/api-reference.md`, `docs/building.md`, `docs/features.md`, and `docs/headless-setup.md`; Aurora and multi-disc guides live under `docs/reference/`.
+- **Electron: FTP debugging tools** — collapsible **FTP Debugging Tools** on the Xbox connection settings page: **Test Connection** (login, PWD, root listing with verbose FTP log), **Scan Network Ports** (probes port 21 on a `/24` from a subnet like `192.168.1`), and a clearable debug console. New IPC: `xbox:ftp-test`, `xbox:ftp-scan`, and `godsend-ftp-debug` events (see `preload.js`).
+
 ### Changed
-- **README** — Quick-install Windows row links to published **`godsend-Setup-2.6.0.exe`** on the **v2.6.0** release (same table as macOS DMGs and Linux AppImages).
+- **Backend: Internet Archive parallel chunk retries** — increased chunk retry count and base backoff (`iaChunkRetries` / `iaChunkRetryBase`) for more resilient large downloads.
+- **Backend: local Transfer-folder ISO matching** — widened the leaked-title tail pattern (digits, slightly longer tails) and added a **60% prefix** fallback when exactly one ISO basename matches the prefix, for corrupted or truncated Aurora `game` query values.
+- **Backend: digital / Minerva digital content discovery** — minimum candidate file size lowered from 1 MiB to **0x368** bytes so small legitimate packages are not skipped.
+- **Backend & Aurora: DLC / XBLIG install drive** — FTP staging for DLC and XBLIG now uses the **same user-selected drive** as other platforms (no forced `Hdd1:`); Aurora always shows the drive picker, including for DLC.
+- **Aurora: library browser UX** — shorter main-menu labels; browse titles no longer append redundant source suffixes; game list popups run in a loop with **`collectgarbage()`** before each list to reduce memory pressure on-console.
+- **README** — table of contents; **Running Without the Desktop App** (headless backend, prebuilt binaries table, env-var configuration); quick-install links point at the **v2.7.0** release (replace with per-file GitGud upload URLs after publishing assets, per `AGENTS.md`).
+- **Version** — **2.7.0** (root + Electron `package.json`, lockfiles, backend banner); Aurora script **11.1.0**.
 
 ---
 

@@ -352,9 +352,12 @@ function browseROMLibrary(platform, sysName)
         local gamesInBucket = buckets[selectedKey]
         table.sort(gamesInBucket)
 
-        local g = Script.ShowPopupList(title .. " > " .. selectedKey,
-                                       "Select Game", gamesInBucket)
-        if g and not g.Canceled then
+        while true do
+            collectgarbage()
+            local g = Script.ShowPopupList(title .. " > " .. selectedKey,
+                                           "Select Game", gamesInBucket)
+            if not g or g.Canceled then break end
+
             local cleanName = sanitizeGameNameFromHost(gamesInBucket[g.Selected.Key])
             if not cleanName or cleanName == "" then break end
 
@@ -428,7 +431,7 @@ function browseROMLibrary(platform, sysName)
                     end
                 end
             end
-        end
+        end -- game list loop
     end
 end
 
@@ -560,14 +563,13 @@ function browseLibrary(platform)
             return a < b
         end)
 
-        local src = sourceLabel ~= "" and (" (" .. sourceLabel .. ")") or ""
-        local title = "Xbox 360 Redump" .. src
-        if platform == "xbox"    then title = "Original Xbox Redump" .. src end
-        if platform == "digital" then title = "Digital / No-Intro" .. src end
-        if platform == "xbla"    then title = "XBLA Arcade" .. src end
-        if platform == "dlc"     then title = "DLC / Multi-Disc" .. src end
-        if platform == "xblig"   then title = "Xbox Indie Games" .. src end
-        if platform == "games"   then title = "Xbox 360 Games Archive" .. src end
+        local title = "Xbox 360 Redump"
+        if platform == "xbox"    then title = "Original Xbox Redump" end
+        if platform == "digital" then title = "Digital / No-Intro" end
+        if platform == "xbla"    then title = "XBLA Arcade" end
+        if platform == "dlc"     then title = "DLC / Multi-Disc" end
+        if platform == "xblig"   then title = "Xbox Indie Games" end
+        if platform == "games"   then title = "Xbox 360 Games Archive" end
         if platform == "local"   then title = "Local Library (Transfer Folder)" end
 
         while true do
@@ -581,28 +583,25 @@ function browseLibrary(platform)
             local gamesInBucket = buckets[selectedKey]
             table.sort(gamesInBucket)
 
-            local g = Script.ShowPopupList(title .. " > " .. selectedKey,
-                                           "Select Game", gamesInBucket)
+            while true do
+                collectgarbage()
+                local g = Script.ShowPopupList(title .. " > " .. selectedKey,
+                                               "Select Game", gamesInBucket)
 
-            if g and not g.Canceled then
+                if not g or g.Canceled then break end
+
                 local cleanName = sanitizeGameNameFromHost(gamesInBucket[g.Selected.Key])
                 if not cleanName or cleanName == "" then break end
 
-                -- DLC always installs to Hdd1 — skip the drive picker for DLC only
                 local driveReady = false
-                if platform == "dlc" then
-                    gInstallDrive = "Hdd1:"
+                local drives = {
+                    "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
+                    "UsbMu0:", "UsbMu1:"
+                }
+                local dr = Script.ShowPopupList("Install to:", "", drives)
+                if dr and not dr.Canceled then
+                    gInstallDrive = drives[dr.Selected.Key]
                     driveReady = true
-                else
-                    local drives = {
-                        "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
-                        "UsbMu0:", "UsbMu1:"
-                    }
-                    local dr = Script.ShowPopupList("Install to:", "", drives)
-                    if dr and not dr.Canceled then
-                        gInstallDrive = drives[dr.Selected.Key]
-                        driveReady = true
-                    end
                 end
 
                 if driveReady then
@@ -701,7 +700,7 @@ function browseLibrary(platform)
                         end -- if method (install type chosen)
                     end -- if transfer popup not canceled
                 end -- if driveReady
-            end
+            end -- game list loop
         end
     else
         showError("SERVER_UNREACHABLE", err)

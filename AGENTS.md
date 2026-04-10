@@ -14,7 +14,7 @@ High-level data flow:
 
 External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts** – refactors must preserve them unless explicitly requested otherwise.
 
-**Aurora Lua host (agents):** When editing `aurora-scripts/`, read [`docs/aurora-reference.md`](docs/aurora-reference.md) for supported APIs, path rules (relative vs absolute), known limits (Zip extraction, large downloads), and patterns that avoid crashes on-console.
+**Aurora Lua host (agents):** When editing `aurora-scripts/`, read [`docs/reference/aurora.md`](docs/reference/aurora.md) for supported APIs, path rules (relative vs absolute), known limits (Zip extraction, large downloads), and patterns that avoid crashes on-console.
 
 ---
 
@@ -208,7 +208,7 @@ When making changes to Electron or the backend, prefer:
 
 ### Lua (Aurora scripts)
 
-- Consult [`docs/aurora-reference.md`](docs/aurora-reference.md) for Aurora-specific Lua APIs, filesystem/HTTP quirks, and pre-deployment checks beyond this summary.
+- Consult [`docs/reference/aurora.md`](docs/reference/aurora.md) for Aurora-specific Lua APIs, filesystem/HTTP quirks, and pre-deployment checks beyond this summary.
 - The scripting environment is Lua 5.1 with limited libraries:
   - Avoid heavy allocations or deep recursion in hot paths.
   - Use `pcall` around operations that can throw from the host (e.g. `Http.*`, `IniFile`, `FileSystem`, `ZipFile`, `Script` UI calls).

@@ -225,6 +225,70 @@ button:hover {
   margin-top: 10px;
 }
 
+/* FTP debug section */
+
+.ftp-debug-section {
+  margin-top: 12px;
+  border: 1px solid #1e242e;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ftp-debug-toggle {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9aa5b2;
+  background: #151a22;
+  user-select: none;
+  list-style: none;
+}
+
+.ftp-debug-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.ftp-debug-toggle::before {
+  content: "\25B6";
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+details[open] > .ftp-debug-toggle::before {
+  transform: rotate(90deg);
+}
+
+.ftp-debug-toggle:hover {
+  color: #cad3dc;
+  background: #1a2130;
+}
+
+.ftp-debug-body {
+  padding: 10px 12px;
+}
+
+.ftp-debug-console {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  background: #0b0f14;
+  border: 1px solid #2a2f3a;
+  border-radius: 4px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #c0c8d4;
+  min-height: 80px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+}
+
 /* concurrency slider */
 
 .ia-concurrency-slider {

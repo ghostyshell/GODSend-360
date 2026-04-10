@@ -5,6 +5,7 @@ const {
   appendAppEvent,
 } = require("../infrastructure/serverLog");
 const http = require("http");
+const net = require("net");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
@@ -358,6 +359,107 @@ function registerIpcHandlers() {
       client.close();
       if (stateTempPath) try { fs.unlinkSync(stateTempPath); } catch { /* ignore */ }
     }
+  });
+
+  // ── FTP Debug: Test Connection ──
+  ipcMain.handle("xbox:ftp-test", async (_event, payload) => {
+    const p = payload || {};
+    const xboxIp  = (typeof p.xboxIp  === "string" ? p.xboxIp.trim()  : "") || getConfiguredXboxIP();
+    const ftpUser = (typeof p.ftpUser === "string" ? p.ftpUser.trim() : "") || getConfiguredFtpUser();
+    const ftpPass = (typeof p.ftpPassword === "string" ? p.ftpPassword : "") || getConfiguredFtpPassword();
+
+    const sendDebug = (line) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("godsend-ftp-debug", line);
+      }
+    };
+
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const client = new ftp.Client();
+    client.ftp.verbose = true;
+    client.ftp.timeout = 15000;
+    client.ftp.log = (msg) => sendDebug(msg);
+
+    try {
+      sendDebug(`[TEST] Connecting to ${xboxIp}:21 as ${ftpUser || "(anonymous)"}...`);
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      sendDebug(`[TEST] Login successful.`);
+
+      sendDebug(`[TEST] Sending PWD...`);
+      const pwd = await client.pwd();
+      sendDebug(`[TEST] Working directory: ${pwd}`);
+
+      sendDebug(`[TEST] Listing root directory...`);
+      const list = await client.list("/");
+      for (const item of list) {
+        sendDebug(`  ${item.type === 2 ? "DIR " : "FILE"} ${item.name}  (${item.size || 0} bytes)`);
+      }
+
+      sendDebug(`[TEST] Connection test PASSED.`);
+      return { ok: true };
+    } catch (err) {
+      sendDebug(`[TEST] FAILED: ${err.message || String(err)}`);
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+    }
+  });
+
+  // ── FTP Debug: Port Scanner ──
+  ipcMain.handle("xbox:ftp-scan", async (_event, subnet) => {
+    if (typeof subnet !== "string" || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(subnet.trim())) {
+      return { ok: false, error: "Invalid subnet. Use format like 192.168.1" };
+    }
+    subnet = subnet.trim();
+
+    const sendDebug = (line) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("godsend-ftp-debug", line);
+      }
+    };
+
+    sendDebug(`[SCAN] Scanning ${subnet}.1 - ${subnet}.254 on port 21...`);
+
+    const found = [];
+    const BATCH = 25;
+    const TIMEOUT = 2000;
+
+    for (let batchStart = 1; batchStart <= 254; batchStart += BATCH) {
+      const batchEnd = Math.min(batchStart + BATCH - 1, 254);
+      sendDebug(`[SCAN] Probing ${subnet}.${batchStart} - ${subnet}.${batchEnd}...`);
+
+      const promises = [];
+      for (let i = batchStart; i <= batchEnd; i++) {
+        const ip = `${subnet}.${i}`;
+        promises.push(new Promise((resolve) => {
+          const sock = new net.Socket();
+          sock.setTimeout(TIMEOUT);
+          sock.once("connect", () => {
+            sock.destroy();
+            resolve(ip);
+          });
+          sock.once("timeout", () => { sock.destroy(); resolve(null); });
+          sock.once("error", () => { sock.destroy(); resolve(null); });
+          sock.connect(21, ip);
+        }));
+      }
+
+      const results = await Promise.all(promises);
+      for (const ip of results) {
+        if (ip) {
+          found.push(ip);
+          sendDebug(`[SCAN] FOUND: ${ip}:21 is open (FTP)`);
+        }
+      }
+    }
+
+    if (found.length === 0) {
+      sendDebug(`[SCAN] No FTP servers found on ${subnet}.0/24.`);
+    } else {
+      sendDebug(`[SCAN] Done. Found ${found.length} host(s) with FTP: ${found.join(", ")}`);
+    }
+    return { ok: true, hosts: found };
   });
 }
 

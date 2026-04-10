@@ -30,6 +30,12 @@ const ftpScriptsBtn          = document.getElementById("ftpScriptsBtn");
 const ftpScriptsStatus       = document.getElementById("ftpScriptsStatus");
 const xboxConnectionSaveBtn  = document.getElementById("xboxConnectionSaveBtn");
 const xboxConnectionStatus   = document.getElementById("xboxConnectionStatus");
+const ftpTestBtn             = document.getElementById("ftpTestBtn");
+const ftpScanBtn             = document.getElementById("ftpScanBtn");
+const ftpDebugClearBtn       = document.getElementById("ftpDebugClearBtn");
+const ftpDebugStatus         = document.getElementById("ftpDebugStatus");
+const ftpDebugLog            = document.getElementById("ftpDebugLog");
+const ftpScanSubnet          = document.getElementById("ftpScanSubnet");
 const pageHome           = document.getElementById("page-home");
 const pageSettings       = document.getElementById("page-settings");
 const logPathHint        = document.getElementById("logPathHint");
@@ -86,6 +92,12 @@ async function initialize() {
   ftpUserEl.value        = xboxConn.ftpUser         || "";
   ftpPasswordEl.value    = xboxConn.ftpPassword     || "";
   ftpScriptsPathEl.value = xboxConn.ftpScriptsPath  || "";
+
+  // Pre-fill scan subnet from Xbox IP
+  if (xboxConn.xboxIp) {
+    const parts = xboxConn.xboxIp.split(".");
+    if (parts.length === 4) ftpScanSubnet.value = parts.slice(0, 3).join(".");
+  }
 
   const lines = await window.godsendApi.getOutputBuffer();
   outputEl.textContent = lines.join("\n");
@@ -254,6 +266,63 @@ ftpScriptsBtn.addEventListener("click", async () => {
     ftpScriptsBtn.disabled = false;
   }
 });
+
+// ── FTP Debug ──
+
+function appendDebugLog(line) {
+  ftpDebugLog.textContent += `${line}\n`;
+  ftpDebugLog.scrollTop = ftpDebugLog.scrollHeight;
+}
+
+ftpTestBtn.addEventListener("click", async () => {
+  ftpTestBtn.disabled = true;
+  ftpDebugStatus.textContent = "Testing connection...";
+  ftpDebugLog.textContent = "";
+  try {
+    const r = await window.godsendApi.ftpTestConnection({
+      xboxIp:      xboxIpEl.value.trim(),
+      ftpUser:     ftpUserEl.value.trim(),
+      ftpPassword: ftpPasswordEl.value,
+    });
+    ftpDebugStatus.textContent = r.ok ? "Connection test passed." : `Test failed: ${r.error}`;
+  } catch (err) {
+    ftpDebugStatus.textContent = `Test failed: ${err.message || "unknown error"}`;
+  } finally {
+    ftpTestBtn.disabled = false;
+  }
+});
+
+ftpScanBtn.addEventListener("click", async () => {
+  const subnet = ftpScanSubnet.value.trim();
+  if (!subnet) {
+    ftpDebugStatus.textContent = "Enter a subnet first (e.g. 192.168.1).";
+    return;
+  }
+  ftpScanBtn.disabled = true;
+  ftpDebugStatus.textContent = "Scanning...";
+  ftpDebugLog.textContent = "";
+  try {
+    const r = await window.godsendApi.ftpScanPorts(subnet);
+    if (r.ok) {
+      ftpDebugStatus.textContent = r.hosts.length
+        ? `Found ${r.hosts.length} FTP host(s): ${r.hosts.join(", ")}`
+        : "No FTP servers found on this subnet.";
+    } else {
+      ftpDebugStatus.textContent = `Scan failed: ${r.error}`;
+    }
+  } catch (err) {
+    ftpDebugStatus.textContent = `Scan failed: ${err.message || "unknown error"}`;
+  } finally {
+    ftpScanBtn.disabled = false;
+  }
+});
+
+ftpDebugClearBtn.addEventListener("click", () => {
+  ftpDebugLog.textContent = "";
+  ftpDebugStatus.textContent = "";
+});
+
+window.godsendApi.onFtpDebugLog((line) => appendDebugLog(line));
 
 // ── Live output ──
 
