@@ -1,18 +1,17 @@
 #!/usr/bin/env node
 /**
- * Downloads aria2c binaries for all target platforms into dist/tools/.
+ * Downloads aria2c binaries for Windows and Linux into dist/tools/.
  *
  * Sources:
  *   Windows x64  — official GitHub release zip
  *   Linux x64    — Homebrew Linuxbrew bottle (GHCR OCI blob)
- *   macOS arm64  — Homebrew bottle (GHCR OCI blob)
- *   macOS x64    — Homebrew bottle (GHCR OCI blob)
  *
- * Output files:
- *   dist/tools/aria2c.exe              (Windows)
- *   dist/tools/aria2c-linux            (Linux x64)
- *   dist/tools/aria2c-darwin-arm64     (macOS Apple Silicon)
- *   dist/tools/aria2c-darwin-amd64     (macOS Intel)
+ * macOS: the Go backend installs Homebrew + aria2 non-interactively at startup
+ * (see ensureAria2cDarwinAtStartup); no bundled aria2c in the app.
+ *
+ * Output:
+ *   dist/tools/aria2c.exe                            (Windows, single file)
+ *   dist/tools/aria2c-linux                          (Linux x64, single file)
  */
 
 const https = require("https");
@@ -20,8 +19,6 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
-const { execSync } = require("child_process");
-const os = require("os");
 
 const ROOT = path.resolve(__dirname, "..");
 const DIST_TOOLS = path.join(ROOT, "dist", "tools");
@@ -216,11 +213,12 @@ async function downloadWindowsZip(destPath) {
 
 // ── Homebrew bottle digests from: https://formulae.brew.sh/api/formula/aria2.json ──
 // Run `node scripts/download-aria2.js --refresh` to update these.
+//
+// NOTE: Only Linux uses Homebrew bottles. macOS bottles MUST NOT be used here —
+// see ensureMacBinary() and the comment in main() for the rationale.
 const HOMEBREW_REPO = "homebrew/core/aria2";
 const BOTTLES = {
   "linux-amd64":   "sha256:ce15dc949ff077b3ded7d07bb45964a17a44a603e97a6be66ead70e9682f1d96",
-  "darwin-arm64":  "sha256:8253bf83d39fcdb91b7a251b2d38f0e32f21a0352f2e3798f5a376ba21ae68e9",
-  "darwin-amd64":  "sha256:08007898a6dc4b162547081eb85329457345688279d6dce42f98d601e19ad799",
 };
 
 // ── main ─────────────────────────────────────────────────────────────────────
@@ -244,12 +242,10 @@ async function main() {
 
   console.log(`\nDownloading aria2 ${ARIA2_VERSION} binaries → dist/tools/\n`);
 
-  // Windows
-  console.log("[1/4] Windows x64:");
+  console.log("[1/2] Windows x64:");
   await downloadWindowsZip(path.join(DIST_TOOLS, "aria2c.exe"));
 
-  // Linux x64
-  console.log("[2/4] Linux x64:");
+  console.log("[2/2] Linux x64:");
   await downloadHomebrew(
     HOMEBREW_REPO,
     BOTTLES["linux-amd64"],
@@ -257,25 +253,7 @@ async function main() {
     path.join(DIST_TOOLS, "aria2c-linux")
   );
 
-  // macOS arm64
-  console.log("[3/4] macOS arm64:");
-  await downloadHomebrew(
-    HOMEBREW_REPO,
-    BOTTLES["darwin-arm64"],
-    "aria2c",
-    path.join(DIST_TOOLS, "aria2c-darwin-arm64")
-  );
-
-  // macOS x64
-  console.log("[4/4] macOS x64:");
-  await downloadHomebrew(
-    HOMEBREW_REPO,
-    BOTTLES["darwin-amd64"],
-    "aria2c",
-    path.join(DIST_TOOLS, "aria2c-darwin-amd64")
-  );
-
-  console.log("\nAll done.\n");
+  console.log("\nAll done (macOS uses Homebrew aria2 at runtime; not downloaded here).\n");
 }
 
 main()

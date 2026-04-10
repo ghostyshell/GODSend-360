@@ -11,6 +11,17 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.5.2] — 2026-04-10
+
+### Fixed
+- **aria2c failures now report the actual error** — the torrent download path only logged lines matching the progress regex, so warnings, errors and abort messages were silently dropped and users only saw `aria2c: signal: abort trap`. Non-progress aria2c output is now forwarded to the server log in real time and the last 50 lines are appended to the returned error.
+
+### Changed
+- **macOS Minerva torrents: no bundled aria2c; Homebrew bootstrap at backend startup** — the Electron mac app no longer ships `aria2c` / `aria2c-lib`. On launch, the Go backend prepends `/opt/homebrew/bin` and `/usr/local/bin` to `PATH`, and if no working `aria2c` is found it runs the official Homebrew installer with `NONINTERACTIVE=1` / `CI=1`, then `brew install aria2` (also non-interactive). If that fails (e.g. no TTY for `sudo`), it retries with **`SUDO_ASKPASS`**: a small helper uses **osascript** to show the standard graphical password dialog, and the Homebrew installer runs as the **current user** (Homebrew aborts if the install script is run as root). Set `GODSEND_SKIP_ARIA2_BOOTSTRAP=1` to skip automatic install (e.g. IA-only use); set `GODSEND_NO_GUI_ELEVATION=1` to skip the GUI askpass retry (e.g. CI). `scripts/download-aria2.js` now fetches Windows + Linux binaries only; mac builds no longer require dylibbundler or per-arch darwin bundles.
+- **Version** — **2.5.2** (root + Electron `package.json`, lockfiles, backend banner).
+
+---
+
 ## [2.5.1] — 2026-04-10
 
 ### Fixed

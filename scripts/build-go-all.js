@@ -14,7 +14,7 @@ const serverDir = path.join(root, "src", "server");
 
 fs.mkdirSync(dist, { recursive: true });
 
-// Download aria2c binaries for all platforms (skips if already present).
+// Download aria2c for Windows + Linux (macOS uses Homebrew at runtime; skips if present).
 {
   const dl = path.join(__dirname, "download-aria2.js");
   const r = spawnSync(process.execPath, [dl], { stdio: "inherit", cwd: root, env: process.env });

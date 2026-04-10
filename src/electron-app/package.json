@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "Minimal Electron UI for running and monitoring godsend.exe",
   "main": "main.js",
   "scripts": {
@@ -102,11 +102,6 @@
         {
           "from": "../../dist/godsend-mac",
           "to": "MacOS/godsend-backend"
-        },
-        {
-          "from": "../../dist/tools/aria2c-darwin-arm64",
-          "to": "MacOS/aria2c",
-          "filter": ["**/*"]
         }
       ]
     },

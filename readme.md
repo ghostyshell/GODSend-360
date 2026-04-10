@@ -80,7 +80,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 - **What:** Xbox 360, OG Xbox, XBLA, DLC, XBLIG, and Game Archive libraries sourced from [minerva-archive.org](https://minerva-archive.org) — no account or login required. Works out of the box.
 - **How:** When browsing any game library, select **Minerva Archive** as the source. Game lists are bundled in the installer so browsing is instant.
-- **How it works:** The backend fetches the Minerva collection torrent, finds the requested file's index, and uses the bundled `aria2c` binary to download only that file via BitTorrent (`--select-file`). Progress is reported to the Aurora queue display every 3 seconds. Firewall rules for `aria2c` are added automatically by the installer.
+- **How it works:** The backend fetches the Minerva collection torrent, finds the requested file's index, and uses `aria2c` to download only that file via BitTorrent (`--select-file`). On Windows/Linux the app ships a bundled `aria2c`; on macOS the backend prepends Homebrew to `PATH` and, if needed, tries a non-interactive Homebrew install plus `brew install aria2` at startup; if `sudo` is unavailable (typical when launched from the GUI), it sets **`SUDO_ASKPASS`** so the same installer runs as your user and macOS shows the password dialog when Homebrew needs `sudo` (the installer cannot run as root). Progress is reported to the Aurora queue display every 3 seconds. Firewall rules for `aria2c` are added automatically by the Windows installer.
 
 #### Internet Archive account & parallel downloads (optional fallback)
 
@@ -169,7 +169,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
                           ┌───────────┴────────────┐
                     Minerva Archive           Internet Archive
                     (BitTorrent via           (parallel HTTP,
-                     bundled aria2c)           optional account)
+                     aria2c)                   optional account)
                           │
                    Local Transfer folder
                    (your own ISOs, highest priority)

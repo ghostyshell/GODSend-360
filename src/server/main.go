@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -614,6 +615,9 @@ func main() {
 		fmt.Printf("[FATAL] Setup failed: %v\n", err)
 		os.Exit(1)
 	}
+	if err := ensureAria2cDarwinAtStartup(); err != nil {
+		logf("[WARN] Could not ensure aria2c on macOS: %v — Minerva torrents need aria2 (install Homebrew + brew install aria2, or set GODSEND_SKIP_ARIA2_BOOTSTRAP=1 if you use IA only)", err)
+	}
 	loadIAAuthFromEnv()
 	serverIP = getOutboundIP()
 	if serverIP == "" {
@@ -622,7 +626,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.5.1         ║")
+	fmt.Println("║    GODSend Backend Server v2.5.2         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("\n[INFO] Server IP: %s:%s\n", serverIP, serverPort)
@@ -1391,22 +1395,115 @@ func fetchMinervaTorrent(platform string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// aria2cBinary returns the path to the aria2c executable.
-// In production, aria2c is bundled next to the server binary by the installer.
-// Falls back to PATH so `go run .` still works during development.
-func aria2cBinary() (string, error) {
+// aria2cResolved caches the result of aria2cBinary so we don't probe `--version`
+// on every download. Cleared if a cached binary later fails.
+var (
+	aria2cResolvedMu   sync.Mutex
+	aria2cResolvedPath string
+)
+
+// aria2cWorks runs `<path> --version` with a short timeout and reports whether
+// the binary launches cleanly. Used to detect broken bundled binaries (e.g. the
+// mac aria2c extracted from a Homebrew bottle, whose dylib references resolve
+// to "Symbol not found: _sqlite3_close" on a fresh machine).
+func aria2cWorks(path string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, path, "--version")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		snippet := strings.TrimSpace(string(out))
+		if len(snippet) > 200 {
+			snippet = snippet[:200] + "…"
+		}
+		if snippet == "" {
+			return err
+		}
+		return fmt.Errorf("%w: %s", err, snippet)
+	}
+	return nil
+}
+
+// probeWorkingAria2c finds a usable aria2c (bundled next to the server binary, PATH,
+// then macOS Homebrew locations). Not cached — used at startup and by aria2cBinary.
+func probeWorkingAria2c() (string, error) {
 	name := "aria2c"
 	if runtime.GOOS == "windows" {
 		name = "aria2c.exe"
 	}
+	var lastErr error
+	tried := map[string]bool{}
+
+	try := func(p string, label string) (string, bool) {
+		if p == "" || tried[p] {
+			return "", false
+		}
+		tried[p] = true
+		werr := aria2cWorks(p)
+		if werr == nil {
+			return p, true
+		}
+		lastErr = fmt.Errorf("%s (%s) unusable: %v", label, p, werr)
+		return "", false
+	}
+
 	bundled := filepath.Join(godsendExeDir, name)
 	if _, err := os.Stat(bundled); err == nil {
-		return bundled, nil
+		if p, ok := try(bundled, "bundled aria2c"); ok {
+			return p, nil
+		}
+		if lastErr != nil {
+			logf("[WARN] %v — trying PATH / Homebrew locations", lastErr)
+		}
 	}
-	if p, err := exec.LookPath("aria2c"); err == nil {
-		return p, nil
+
+	if lp, err := exec.LookPath("aria2c"); err == nil {
+		if p, ok := try(lp, "aria2c on PATH"); ok {
+			return p, nil
+		}
+	}
+
+	for _, cand := range darwinAria2cExtraCandidates() {
+		if _, err := os.Stat(cand); err != nil {
+			continue
+		}
+		if p, ok := try(cand, "aria2c"); ok {
+			return p, nil
+		}
+	}
+
+	if lastErr != nil {
+		return "", fmt.Errorf("aria2c not usable — %v", lastErr)
 	}
 	return "", fmt.Errorf("aria2c not found — bundled binary missing and not in PATH")
+}
+
+// aria2cBinary returns the path to a working aria2c executable.
+// Tries the bundled binary first (next to the server binary), validates it with
+// `--version`, then PATH and macOS Homebrew paths. Result is cached.
+func aria2cBinary() (string, error) {
+	aria2cResolvedMu.Lock()
+	defer aria2cResolvedMu.Unlock()
+	if aria2cResolvedPath != "" {
+		return aria2cResolvedPath, nil
+	}
+	p, err := probeWorkingAria2c()
+	if err != nil {
+		if runtime.GOOS == "darwin" {
+			return "", fmt.Errorf("%w. On macOS the backend normally installs Homebrew aria2 at startup; fix the error above or set GODSEND_SKIP_ARIA2_BOOTSTRAP=1 and install aria2 yourself", err)
+		}
+		return "", fmt.Errorf("%w. Install aria2 and restart the backend", err)
+	}
+	aria2cResolvedPath = p
+	bundledName := "aria2c"
+	if runtime.GOOS == "windows" {
+		bundledName = "aria2c.exe"
+	}
+	bundled := filepath.Join(godsendExeDir, bundledName)
+	if p != bundled {
+		logf("[INFO] Using aria2c: %s", p)
+	}
+	return p, nil
 }
 
 // downloadViaTorrent uses aria2c to download a single file from the Minerva collection torrent.
@@ -1512,6 +1609,25 @@ func downloadViaTorrent(platform, destDir, gameName string, entry MinervaEntry) 
 	// only splits on \n/\r\n, so \r-only sequences accumulate until the buffer limit is
 	// hit, Scan() returns false, and cmd.Wait() deadlocks (aria2c blocked on pipe write).
 	// Custom split handles both \r and \n; 1 MB buffer covers any bursts between summaries.
+	//
+	// Non-progress lines (warnings, errors, abort messages) are kept in a small ring buffer
+	// so they can be surfaced if aria2c exits non-zero — otherwise the only signal would be
+	// "signal: abort trap" with no context. Bound the buffer so a chatty aria2c can't blow
+	// memory on long-running downloads.
+	const tailMax = 50
+	var (
+		tailMu   sync.Mutex
+		tailBuf  []string
+	)
+	appendTail := func(line string) {
+		tailMu.Lock()
+		defer tailMu.Unlock()
+		if len(tailBuf) >= tailMax {
+			tailBuf = tailBuf[1:]
+		}
+		tailBuf = append(tailBuf, line)
+	}
+
 	doneCh := make(chan struct{})
 	go func() {
 		defer close(doneCh)
@@ -1533,20 +1649,34 @@ func downloadViaTorrent(platform, destDir, gameName string, entry MinervaEntry) 
 			return 0, nil, nil
 		})
 		for sc.Scan() {
-			line := sc.Text()
+			line := strings.TrimRight(sc.Text(), " \t")
+			if line == "" {
+				continue
+			}
 			if m := summaryRe.FindStringSubmatch(line); m != nil {
 				pct, dl, eta := m[3], m[4], m[5]
 				msg := fmt.Sprintf("Torrenting (Minerva): %s%% @ %s/s ETA %s", pct, dl, eta)
 				logf("TORRENT [%s]: %s", gameName, msg)
 				logStatus(gameName, "Processing", msg)
+				continue
 			}
+			// Keep non-progress lines for post-mortem and forward them to the server log
+			// so users can see warnings/errors as they happen.
+			appendTail(line)
+			logf("TORRENT [%s]: aria2c: %s", gameName, line)
 		}
 	}()
 
 	waitErr := cmd.Wait()
 	<-doneCh // ensure pipe is fully drained before proceeding
 	if waitErr != nil {
-		return "", fmt.Errorf("aria2c: %w", waitErr)
+		tailMu.Lock()
+		tail := strings.Join(tailBuf, " | ")
+		tailMu.Unlock()
+		if tail == "" {
+			tail = "(no output captured)"
+		}
+		return "", fmt.Errorf("aria2c: %w — last output: %s", waitErr, tail)
 	}
 
 	// Walk the short temp dir to find the downloaded file.
