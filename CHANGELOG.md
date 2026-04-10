@@ -9,6 +9,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **README** and **`docs/headless-setup.md`** — quick-install and headless download tables now use direct GitGud project upload URLs for **v2.7.0** release assets; Windows quick-install documents the published `godsend.exe` backend binary (NSIS via local `npm run build:win`).
+
 ---
 
 ## [2.7.0] — 2026-04-11
@@ -23,7 +26,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Backend: digital / Minerva digital content discovery** — minimum candidate file size lowered from 1 MiB to **0x368** bytes so small legitimate packages are not skipped.
 - **Backend & Aurora: DLC / XBLIG install drive** — FTP staging for DLC and XBLIG now uses the **same user-selected drive** as other platforms (no forced `Hdd1:`); Aurora always shows the drive picker, including for DLC.
 - **Aurora: library browser UX** — shorter main-menu labels; browse titles no longer append redundant source suffixes; game list popups run in a loop with **`collectgarbage()`** before each list to reduce memory pressure on-console.
-- **README** — table of contents; **Running Without the Desktop App** (headless backend, prebuilt binaries table, env-var configuration); quick-install links point at the **v2.7.0** release (replace with per-file GitGud upload URLs after publishing assets, per `AGENTS.md`).
+- **README** — table of contents; **Running Without the Desktop App** (headless backend, prebuilt binaries table, env-var configuration); quick-install links target the **v2.7.0** release (per-file GitGud project upload URLs added when assets were published).
 - **Version** — **2.7.0** (root + Electron `package.json`, lockfiles, backend banner); Aurora script **11.1.0**.
 
 ---

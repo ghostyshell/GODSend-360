@@ -4,15 +4,17 @@ The Go backend works as a standalone headless server — no Electron, no GUI, no
 
 ## 1. Get the server binary
 
-**Option A — Download a prebuilt binary** from the [latest release](https://gitgud.io/ghosty99/godsend-360/-/releases):
+**Option A — Download a prebuilt binary** from the [v2.7.0 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) ([all releases](https://gitgud.io/ghosty99/godsend-360/-/releases)):
 
 | Platform | Binary |
 |----------|--------|
-| **Windows (x64)** | `godsend.exe` |
-| **Linux (x64 / amd64)** | `godsend-linux-x64` |
-| **Linux (arm64)** | `godsend-linux-arm64` |
-| **macOS (Apple Silicon)** | `godsend-darwin-arm64` |
-| **macOS (Intel)** | `godsend-darwin-x64` |
+| **Windows (x64)** | [`godsend.exe`](https://gitgud.io/-/project/46780/uploads/7d70323bd36df2671077bca6488e8df2/godsend.exe) |
+| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gitgud.io/-/project/46780/uploads/6885b31cef1cf2702703d789c28ec00f/godsend-linux-x64) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gitgud.io/-/project/46780/uploads/dcbcd980cd7920df4b04198df9e25144/godsend-linux-arm64) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gitgud.io/-/project/46780/uploads/16f8bb5a51f99ff0ec18c9886dfcaebf/godsend-darwin-arm64) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gitgud.io/-/project/46780/uploads/ab53d6906cb373054c3d0e4be5bc3e22/godsend-darwin-amd64) |
+
+Other v2.7.0 artifacts (desktop AppImages/DMGs, `godsend-mac`): see the [release asset list](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0).
 
 On Linux / macOS, make the binary executable after downloading: `chmod +x godsend-*`
 
@@ -32,7 +34,7 @@ GOOS=linux GOARCH=arm64 go build -C src/server -o ../../dist/godsend-linux-arm64
 GOOS=darwin GOARCH=arm64 go build -C src/server -o ../../dist/godsend-darwin-arm64 .
 
 # macOS Intel
-GOOS=darwin GOARCH=amd64 go build -C src/server -o ../../dist/godsend-darwin-x64 .
+GOOS=darwin GOARCH=amd64 go build -C src/server -o ../../dist/godsend-darwin-amd64 .
 ```
 
 Or use the npm helper: `npm run build:server:all` (builds all platforms).

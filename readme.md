@@ -30,20 +30,22 @@ Download priority for online libraries: **Local Transfer folder → Minerva Arch
 
 ### 1. Download the installer
 
-Go to the [GODsend 360 v2.7.0 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) and download the installer for your platform:
+Go to the [GODsend 360 v2.7.0 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) and download the build for your platform (direct links below match the release assets):
 
 | Platform | File |
 |---|---|
-| **Windows (NSIS)** | [`godsend-Setup-2.7.0.exe`](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) |
-| **macOS (Apple Silicon)** | [`godsend-2.7.0-arm64.dmg`](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) |
-| **macOS (Intel)** | [`godsend-2.7.0-x64.dmg`](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) |
-| **Linux (x64 / amd64)** | [`godsend-2.7.0-x86_64.AppImage`](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) |
-| **Linux (arm64)** | [`godsend-2.7.0-arm64.AppImage`](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) |
+| **Windows (x64, backend binary)** | [`godsend.exe`](https://gitgud.io/-/project/46780/uploads/7d70323bd36df2671077bca6488e8df2/godsend.exe) |
+| **macOS (Apple Silicon)** | [`godsend-2.7.0-arm64.dmg`](https://gitgud.io/-/project/46780/uploads/4f64c2ac45cebac3bf67762cfed9151c/godsend-2.7.0-arm64.dmg) |
+| **macOS (Intel)** | [`godsend-2.7.0-x64.dmg`](https://gitgud.io/-/project/46780/uploads/17f09c725a049c7dbf48b56b5f8e130a/godsend-2.7.0-x64.dmg) |
+| **Linux (x64 / amd64)** | [`godsend-2.7.0-x86_64.AppImage`](https://gitgud.io/-/project/46780/uploads/3820294f50767e4ceba2b5a4b77b26a0/godsend-2.7.0-x86_64.AppImage) |
+| **Linux (arm64)** | [`godsend-2.7.0-arm64.AppImage`](https://gitgud.io/-/project/46780/uploads/6c8117f892126417905f45e419783620/godsend-2.7.0-arm64.AppImage) |
 
-### 2. Install the Electron app
+> **Windows:** the published artifact is the **standalone Go backend** only. For the Electron tray app on Windows, run `npm run build:win` locally to produce the NSIS installer.
 
-1. Run the installer for your platform and follow the prompts (Windows: `godsend-Setup-2.7.0.exe`; macOS: open the `.dmg`; Linux: make the `.AppImage` executable and run it).
-2. Launch **GODsend** from the Start Menu — the tray icon appears in the system tray.
+### 2. Install and launch
+
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run `godsend.exe` from a folder of your choice (no installer in this release).
+2. **macOS / Linux (desktop builds):** launch **GODsend** from Applications or your app launcher — the tray icon appears (Linux depends on desktop environment). **Windows (`godsend.exe`):** run the binary from a terminal or Explorer; keep the process running while you use Aurora, or run it as a background service (see [headless setup](docs/headless-setup.md)).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
 
