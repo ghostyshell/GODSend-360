@@ -10,7 +10,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
-- **README** — Quick-install download table points to the **v2.6.0** release for macOS (arm64/x64 DMGs) and Linux (arm64/x86_64 AppImages); Windows row still links to the last published NSIS (2.5.0) with a note to build 2.6.0 locally.
+- **README** — Quick-install Windows row links to published **`godsend-Setup-2.6.0.exe`** on the **v2.6.0** release (same table as macOS DMGs and Linux AppImages).
 
 ---
 
