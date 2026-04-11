@@ -7,14 +7,6 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
-
-### Changed
-- **README**, **`docs/features.md`**, **`docs/building.md`**, **`docs/headless-setup.md`** — quick install, requirements, configuration paths, troubleshooting, and feature copy updated for **Windows / macOS / Linux** (desktop + headless); less Windows-only wording.
-- **Electron** — Settings checkbox label is **Launch GODsend at login** (replaces Windows-only copy; uses the same `openAtLogin` behaviour).
-
----
-
 ## [2.7.0] — 2026-04-11
 
 ### Added

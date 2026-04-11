@@ -261,9 +261,11 @@ Useful external references (for additional background and prebuilt installers):
   - Ensure the computer and Xbox are on the same subnet.
 
 - **FTP transfer problems**
-  - Enable FTP in Aurora settings and note the Xbox IP.
-  - Use an FTP client (e.g. FileZilla, WinSCP, Cyberduck) to test connection to port 21.
-  - Check router/firewall rules that might block FTP.
+  - **Desktop app:** open **⚙ Settings → Xbox connection**, expand **FTP Debugging Tools**, and click **Save connection** first so the IP and credentials match Aurora. Click **Test Connection** — you should see a successful login, `PWD`, and a root directory listing in the debug console; if it fails, read the verbose FTP log for the exact error (wrong IP, bad password, FTP disabled, or path issues).
+  - Use **Scan Network Ports** with your LAN subnet (e.g. `192.168.1`) if you are not sure which host is the Xbox; it probes port **21** on `.1`–`.254`.
+  - Enable FTP in Aurora: **Aurora → Settings → Network → Enable FTP**, and confirm username/password match what you saved in GODsend.
+  - As a cross-check, use an external FTP client (e.g. FileZilla, WinSCP, Cyberduck) to connect to the Xbox on port **21**.
+  - Check router/firewall rules that might block FTP between the computer and the Xbox.
 
 - **Conversions/downloads fail or “Ready” is empty**
   - Verify there is enough free disk space (at least 2–3× the ISO size).
