@@ -1,6 +1,6 @@
 # Building
 
-Requires **Go 1.21+** and **Node.js 18+**. No third-party tool binaries are needed — ISO conversion and archive extraction are handled by the Go backend natively. The Windows installer bundles the Go backend as `godsend-backend.exe` and the Aurora Lua scripts; the backend launches when the app starts.
+Requires **Go 1.21+** and **Node.js 18+**. No third-party tool binaries are needed — ISO conversion and archive extraction are handled by the Go backend natively. **Packaged desktop builds** place the Go backend next to the app executable as **`godsend-backend`** (`.exe` on Windows) and ship the Aurora Lua scripts under **`resources/`**; Electron starts the backend when the app launches.
 
 From the repository root:
 
@@ -29,7 +29,7 @@ src/server/              Go backend
   infrastructure/          Infrastructure helpers (config loading, path resolution)
   interfaces/http/         HTTP router factory
 
-src/electron-app/        Electron Windows UI
+src/electron-app/        Electron desktop app (Windows / macOS / Linux)
   main.js                  Entry point (requires app/bootstrap)
   app/bootstrap.js         App lifecycle, window creation, IPC handler registration
   services/

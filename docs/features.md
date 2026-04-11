@@ -2,17 +2,17 @@
 
 Each item is a **high-level capability**, **how you use it**, and **how it works** under the hood.
 
-## Windows tray app (Electron) + backend
+## Desktop app (Electron) + backend
 
-- **What:** Run the Go HTTP server from your PC with a small UI, live log output, and settings. One-click upload of Aurora scripts to the Xbox via FTP with live per-file progress.
-- **How:** Open GODsend from the Start Menu; use the tray icon for the window. Restart the backend from the home screen; optional **Start with Windows** in Settings. In Settings, set **Backend server port** first (if needed), then in **Xbox connection** enter your Xbox IP and click **FTP Aurora Scripts to Xbox** — your PC's IP + selected backend port are patched into `state.lua` automatically and upload progress is shown file-by-file.
-- **How it works:** Electron spawns `godsend` with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings. The FTP upload streams `godsend-ftp-progress` IPC events to the renderer so the button reflects real progress rather than a static label.
+- **What:** Run the Go HTTP server with a small UI, live log output, and settings — **Windows** (NSIS installer), **macOS** (DMG), or **Linux** (AppImage). One-click upload of Aurora scripts to the Xbox via FTP with live per-file progress.
+- **How:** Launch GODsend from the **Start menu** (Windows), **Applications** (macOS), or your **app launcher** (Linux; tray icon support depends on the desktop environment). Use the tray icon to open the window. Restart the backend from the home screen; optional **Launch at login** in Settings. Set **Backend server port** first (if needed), then under **Xbox connection** enter your Xbox IP and click **FTP Aurora Scripts to Xbox** — your computer’s LAN IP + selected backend port are patched into `state.lua` automatically and upload progress is shown file-by-file.
+- **How it works:** Electron spawns the Go backend (`godsend-backend` / `godsend-backend.exe`) with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings. The FTP upload streams `godsend-ftp-progress` IPC events to the renderer so the button reflects real progress rather than a static label.
 
 ## Minerva Archive (BitTorrent — no account needed)
 
 - **What:** Xbox 360, OG Xbox, XBLA, DLC, XBLIG, and Game Archive libraries sourced from [minerva-archive.org](https://minerva-archive.org) — no account or login required. Works out of the box.
 - **How:** When browsing any game library, select **Minerva Archive** as the source. Game lists are bundled in the installer so browsing is instant.
-- **How it works:** The backend fetches the Minerva collection torrent, finds the requested file's index, and uses `aria2c` to download only that file via BitTorrent (`--select-file`). On Windows/Linux the app ships a bundled `aria2c`; on macOS the backend prepends Homebrew to `PATH` and, if needed, tries a non-interactive Homebrew install plus `brew install aria2` at startup; if `sudo` is unavailable (typical when launched from the GUI), it sets **`SUDO_ASKPASS`** so the same installer runs as your user and macOS shows the password dialog when Homebrew needs `sudo` (the installer cannot run as root). Progress is reported to the Aurora queue display every 3 seconds. Firewall rules for `aria2c` are added automatically by the Windows installer.
+- **How it works:** The backend fetches the Minerva collection torrent, finds the requested file's index, and uses `aria2c` to download only that file via BitTorrent (`--select-file`). **Windows** and **Linux** desktop builds ship a bundled `aria2c` next to the backend; the **Windows NSIS** installer can add OS firewall rules for `aria2c` so Windows does not prompt on first torrent use. **macOS** does not bundle `aria2c` — the backend prepends Homebrew to `PATH` and, if needed, tries a non-interactive Homebrew install plus `brew install aria2` at startup; if `sudo` is unavailable (typical when launched from the GUI), it sets **`SUDO_ASKPASS`** so the installer runs as your user and macOS shows the password dialog when Homebrew needs `sudo` (the installer cannot run as root). Progress is reported to the Aurora queue display every 3 seconds.
 
 ## Internet Archive account & parallel downloads (optional fallback)
 
@@ -34,7 +34,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 ## Server queue, status, and job cleanup
 
-- **What:** See everything the PC is processing or has finished; clear stuck or old jobs.
+- **What:** See everything the backend is processing or has finished; clear stuck or old jobs.
 - **How:** Aurora → **Server Queue & Status** — refresh the list, open **Cache** for build state, **Clear ALL server jobs** or remove one job from its submenu.
 - **How it works:** The script polls `/queue` and `/cache-status`. Removals call `/queue/remove` (GET/POST), which deletes entries and suppresses stray status updates for cleared games.
 
@@ -58,7 +58,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 ## HTTP vs FTP transfer mode
 
-- **What:** Two ways to move prepared content from the PC to the Xbox.
+- **What:** Two ways to move prepared content from the host computer to the Xbox.
 - **How:** After picking a game, choose **HTTP (Download & Extract)** or **FTP (Direct Transfer - More Reliable)**.
 - **How it works:** **HTTP:** the console downloads from `/files/...` and Aurora's script extracts/places files (ZIP/7z handling on-console where applicable). **FTP:** you register the console IP with `/register`; the server uploads directly to Aurora's FTP server to the drive you selected, so the script only waits for completion.
 
@@ -82,11 +82,11 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 ## Persistent server logs
 
 - **What:** Daily rotating log files that capture all backend activity — useful for diagnosing failed installs, FTP errors, IA download issues, or anything else that goes wrong.
-- **How:** Logs are written automatically to `%APPDATA%\GODsend\logs\godsend-server-YYYY-MM-DD.log`. On the home screen, click **Open logs folder** to jump straight to today's file in File Explorer.
+- **How:** Logs are written automatically under **`logs/`** in Electron’s user-data directory (e.g. **`%APPDATA%\GODsend\logs\godsend-server-YYYY-MM-DD.log`** on Windows, **`~/Library/Application Support/GODsend/logs/`** on macOS — on Linux, use **Open logs folder** to see the exact path). On the home screen, click **Open logs folder** to open that directory in the system file manager.
 - **How it works:** Each session opens with a banner that records app/Electron versions, OS, hostname, primary IPv4, `GODSEND_HOME`, backend executable path, effective Transfer folder, and all `GODSEND_*` environment variables (IA secrets redacted). Backend stdout/stderr are tagged `BACKEND_OUT`/`BACKEND_ERR`; UI events (FTP upload steps, cache refresh triggers, config saves, IA login) are tagged separately. Lines use ISO 8601 timestamps with PID so multi-process output is unambiguous.
 
 ## Developer / diagnostics
 
 - **What:** Quick HTML snapshot of cache, transfer folder, ready games, and jobs.
-- **How:** From a browser on the PC, open `http://<pc-ip>:<port>/debug` while the backend is running.
+- **How:** From a browser on the same machine as the backend, open `http://<host-ip>:<port>/debug` while the server is running.
 - **How it works:** The server renders live in-memory and filesystem state for troubleshooting.

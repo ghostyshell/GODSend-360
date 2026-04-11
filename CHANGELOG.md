@@ -10,7 +10,8 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
-- **README** and **`docs/headless-setup.md`** — quick-install and headless download tables now use direct GitGud project upload URLs for **v2.7.0** release assets; Windows quick-install documents the published `godsend.exe` backend binary (NSIS via local `npm run build:win`).
+- **README**, **`docs/features.md`**, **`docs/building.md`**, **`docs/headless-setup.md`** — quick install, requirements, configuration paths, troubleshooting, and feature copy updated for **Windows / macOS / Linux** (desktop + headless); less Windows-only wording.
+- **Electron** — Settings checkbox label is **Launch GODsend at login** (replaces Windows-only copy; uses the same `openAtLogin` behaviour).
 
 ---
 

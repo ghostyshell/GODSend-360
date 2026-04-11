@@ -14,7 +14,7 @@ The Go backend works as a standalone headless server — no Electron, no GUI, no
 | **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gitgud.io/-/project/46780/uploads/16f8bb5a51f99ff0ec18c9886dfcaebf/godsend-darwin-arm64) |
 | **macOS (Intel)** | [`godsend-darwin-amd64`](https://gitgud.io/-/project/46780/uploads/ab53d6906cb373054c3d0e4be5bc3e22/godsend-darwin-amd64) |
 
-Other v2.7.0 artifacts (desktop AppImages/DMGs, `godsend-mac`): see the [release asset list](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0).
+For the **full desktop app** (tray UI + bundled backend), use the **NSIS** (Windows), **DMG** (macOS), or **AppImage** (Linux) assets on the same [release page](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) instead of the bare binaries above.
 
 On Linux / macOS, make the binary executable after downloading: `chmod +x godsend-*`
 

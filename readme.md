@@ -2,7 +2,7 @@
 
 GODsend 360 is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It consists of three parts:
 
-- **Go backend** — HTTP server running on your PC that fetches games from Minerva Archive (via BitTorrent) or Internet Archive, converts ISOs to GOD format, and transfers them to the Xbox via FTP
+- **Go backend** — HTTP server on your computer (Windows, macOS, or Linux) that fetches games from Minerva Archive (via BitTorrent) or Internet Archive, converts ISOs to GOD format, and transfers them to the Xbox via FTP
 - **Electron app** — Windows/macOS/Linux desktop tray application wrapping the backend with a live terminal and settings UI
 - **Aurora Lua script** — runs on the Xbox and talks to the backend to browse, trigger downloads, and track progress
 
@@ -45,7 +45,7 @@ Go to the [GODsend 360 v2.7.0 release](https://gitgud.io/ghosty99/godsend-360/-/
 ### 2. Install and launch
 
 1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.7.0.exe`** and follow the installer.
-2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, Applications, or your app launcher — the tray icon appears (Linux depends on desktop environment). For a headless Windows backend (no installer), see [headless setup](docs/headless-setup.md).
+2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher — the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
 
@@ -68,7 +68,7 @@ If you want Internet Archive as a fallback (or for titles not on Minerva):
 2. Under **Internet Archive account**, click **Log in** and enter your [archive.org](https://archive.org) credentials. Your session cookie is stored locally — your password is never saved.
 3. Set **Parallel download connections** to your preferred value (default **5**, range 1–7).
 
-You can also set a **Local Transfer folder** if you want to install from `.iso` files you already have on your PC.
+You can also set a **Local Transfer folder** if you want to install from `.iso` files you already have on this machine.
 
 ### 4. Install Aurora scripts on the Xbox
 
@@ -77,20 +77,20 @@ The Aurora scripts are bundled with the installer. The easiest way to install th
 1. Enable Aurora's FTP server: **Aurora → Settings → Network → Enable FTP**.
 2. In the GODsend app, open **⚙ Settings** → set **Backend server port** (if not using the default) and then scroll to **Xbox connection**.
 3. Enter your **Xbox IP address** and click **FTP Aurora Scripts to Xbox**.
-4. The scripts are uploaded to the path you set (default `Hdd1:\Aurora\User\Scripts\Utility\GODSend\`; on USB FTP often shows `Usb0:\Apps\Aurora\User\Scripts\Utility\GODSend\`), and `state.lua` is patched with your PC's IP + backend port.
+4. The scripts are uploaded to the path you set (default `Hdd1:\Aurora\User\Scripts\Utility\GODSend\`; on USB FTP often shows `Usb0:\Apps\Aurora\User\Scripts\Utility\GODSend\`), and `state.lua` is patched with your computer’s LAN IP + backend port.
 5. Launch **GODsend** from Aurora → Scripts.
 
-Alternatively, copy the `aurora-scripts/` folder from the GODsend install directory to the Xbox manually via FTP, then edit `state.lua` to set `BRAIN_IP` and `PORT`.
+Alternatively, copy the `aurora-scripts/` folder to the Xbox manually via FTP, then edit `state.lua` to set `BRAIN_IP` and `PORT`. **Where to find it on disk:** Windows — under the install folder (e.g. `resources\aurora-scripts` next to the app); **macOS** — inside `GODsend.app` → **Show Package Contents** → `Contents/Resources/aurora-scripts`; **Linux (AppImage)** — `resources/aurora-scripts` inside the mounted or extracted image (see [Linux runtime notes](#linux-runtime-notes-different-distros)).
 
-The Xbox will now connect to the backend running on your PC. You can browse games, trigger downloads, and track progress directly from Aurora.
+The Xbox will now connect to the backend on your computer. You can browse games, trigger downloads, and track progress directly from Aurora.
 
 ---
 
 ## Running Without the Desktop App
 
-The Go backend works as a standalone headless server — no Electron, no GUI, no display required. Useful for always-on home servers, NAS boxes, Raspberry Pi, or Docker containers.
+The Go backend works as a standalone headless server — no Electron, no GUI, no display required. Useful for always-on home servers, NAS boxes, Raspberry Pi, Docker, or any Windows / macOS / Linux host you want to run unattended.
 
-Download a prebuilt binary from the [latest release](https://gitgud.io/ghosty99/godsend-360/-/releases), or build from source with Go 1.21+. Configure via environment variables, run the binary, and point your Xbox at it.
+Download a **platform-matched backend binary** (or a desktop AppImage/DMG if you prefer the full app) from the [latest release](https://gitgud.io/ghosty99/godsend-360/-/releases), or build from source with Go 1.21+. Configure via environment variables, run the binary, and point your Xbox at it.
 
 **[Full headless setup guide (build, configure, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 
@@ -107,7 +107,7 @@ Minerva Archive (BitTorrent, no account), Internet Archive (parallel HTTP, optio
 ## How it works
 
 ```
-[Xbox Aurora script] ──HTTP──▶ [Go backend on PC] ──FTP──▶ [Xbox HDD/USB]
+[Xbox Aurora script] ──HTTP──▶ [Go backend on host] ──FTP──▶ [Xbox HDD/USB]
                                       │
                           ┌───────────┴────────────┐
                     Minerva Archive           Internet Archive
@@ -142,7 +142,7 @@ You can run GODsend in two main ways:
 - **Full desktop experience (recommended)** — Electron tray app + bundled backend. See [Quick Installation](#quick-installation) above.
 - **Backend-only (headless)** — Run the Go server standalone on any machine with no GUI. See [Running Without the Desktop App](#running-without-the-desktop-app) above.
 
-In both modes, the Aurora script setup is the same: copy `aurora-scripts/` to the Xbox, set `BRAIN_IP` and `PORT` in `state.lua` to the PC host/port running the backend, and enable Aurora’s FTP server.
+In both modes, the Aurora script setup is the same: copy `aurora-scripts/` to the Xbox, set `BRAIN_IP` and `PORT` in `state.lua` to the host and port where the backend listens, and enable Aurora’s FTP server.
 
 ### Linux runtime notes (different distros)
 
@@ -175,13 +175,13 @@ If your distro still blocks AppImage, extract and run without FUSE:
 
 Open the settings page (⚙ button) to configure:
 
-- **Start with Windows** — adds GODsend to Windows login items
-- **Local Transfer folder** — directory the backend scans for pre-downloaded ISOs (defaults to `%APPDATA%\godsend-electron\runtime\Transfer`)
+- **Launch at login** — registers GODsend with the OS login-item / startup list (Electron **Open at login** on macOS and Windows; Linux depends on the desktop environment)
+- **Local Transfer folder** — directory the backend scans for pre-downloaded ISOs. If unset, defaults to **`runtime/Transfer`** under Electron’s **user data** directory — commonly **`%APPDATA%\GODsend\runtime\Transfer`** on Windows and **`~/Library/Application Support/GODsend/runtime/Transfer`** on macOS. On Linux the config folder name can vary; use **Open logs folder** on the home screen, then open the parent of **`logs/`** to find **`runtime/Transfer`**
 - **Internet Archive account** — log in with your archive.org credentials; session cookies are stored locally, your password is never saved
 - **Parallel download connections** — concurrent range-request workers per IA download (1–7, default 5)
 - **Backend server port** — choose the backend listen port used by both Electron and Aurora script patching
-- **Xbox connection** — enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your PC's IP and selected backend port are detected/applied automatically
-- **Server log files** — the app appends to a daily file under `%APPDATA%\GODsend\logs\` (folder name may be `godsend-electron` on some builds): timestamped backend stdout/stderr, session banner (paths, `GODSEND_*` env summary with secrets redacted, host IP), and notable UI actions (FTP upload steps, cache refresh, config changes). On the home screen use **Open logs folder** to show today’s file in File Explorer.
+- **Xbox connection** — enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your computer’s LAN IP and selected backend port are detected/applied automatically
+- **Server log files** — the app appends to a daily file under **`logs/`** next to the same user-data root (e.g. **`%APPDATA%\GODsend\logs\`** on Windows): timestamped backend stdout/stderr, session banner (paths, `GODSEND_*` env summary with secrets redacted, host IP), and notable UI actions (FTP upload steps, cache refresh, config changes). On the home screen use **Open logs folder** to reveal that directory in the system file manager
 
 ### Aurora script (`aurora-scripts/state.lua`)
 
@@ -190,7 +190,7 @@ The easiest way to configure and deploy the scripts is via **Settings → Backen
 To configure manually before copying to the Xbox:
 
 ```lua
-BRAIN_IP = "192.168.1.x"   -- IP address of the PC running the backend
+BRAIN_IP = "192.168.1.x"   -- IP address of the computer running the backend
 PORT     = "8080"          -- backend server port
 ```
 
@@ -209,7 +209,7 @@ If the host IP or port changes after installation, edit `state.lua` in the scrip
 **Manually:**
 
 1. Copy all the contents of the `aurora-scripts/` folder (from the GODsend install directory or repo) to the Xbox at `HDD1:\Aurora\User\Scripts\Utility\GODSend\` (or the same path under your USB device if Aurora runs from USB, often including an `Apps` segment in FTP paths)
-2. Edit `state.lua` — set `BRAIN_IP` and `PORT` to your PC's backend host/port
+2. Edit `state.lua` — set `BRAIN_IP` and `PORT` to your computer’s backend host/port
 3. Enable Aurora's FTP server: Aurora → Settings → Network → Enable FTP
 4. Launch GODsend from Aurora → Scripts
 
@@ -225,11 +225,11 @@ The backend listens on port `8080` by default. Key endpoints: `/browse`, `/trigg
 
 ## Requirements
 
-- Windows 10/11 64‑bit recommended (backend + Electron app)
-- At least 500MB free for the app, plus **15–25GB** recommended for temp + ready game data
+- **Desktop app:** 64‑bit **Windows 10/11**, **macOS** (Intel or Apple Silicon), or **64‑bit Linux** (x64 or arm64 AppImage). **Headless backend only:** same platforms plus any OS the Go toolchain targets — see [headless setup](docs/headless-setup.md).
+- At least **500MB** free for the app, plus **15–25GB** recommended for temp + ready game data
 - Xbox 360 running Aurora (or another compatible dashboard) with FTP server enabled
-- Both PC and Xbox on the same local network
-- Free archive.org account for Internet Archive downloads
+- Computer and Xbox on the same local network
+- Free archive.org account only if you use **Internet Archive** as a source (Minerva Archive needs no account)
 
 ---
 
@@ -255,19 +255,19 @@ Useful external references (for additional background and prebuilt installers):
   - Restart Aurora.
 
 - **Xbox cannot reach backend**
-  - Confirm backend is listening on `http://<pc-ip>:<port>` (open in a browser from the PC).
-  - Make sure `BRAIN_IP` / `PORT` in `state.lua` on Xbox match your PC’s backend host/port.
-  - Confirm PC firewall allows inbound connections on the configured backend port.
-  - Ensure PC and Xbox are on the same subnet.
+  - Confirm the backend is listening on `http://<computer-ip>:<port>` (open in a browser on the same machine).
+  - Make sure `BRAIN_IP` / `PORT` in `state.lua` on the Xbox match your computer’s backend host/port.
+  - Confirm the computer’s firewall allows inbound connections on the configured backend port.
+  - Ensure the computer and Xbox are on the same subnet.
 
 - **FTP transfer problems**
   - Enable FTP in Aurora settings and note the Xbox IP.
-  - Use an FTP client (FileZilla/WinSCP) to test connection to port 21.
+  - Use an FTP client (e.g. FileZilla, WinSCP, Cyberduck) to test connection to port 21.
   - Check router/firewall rules that might block FTP.
 
 - **Conversions/downloads fail or “Ready” is empty**
   - Verify there is enough free disk space (at least 2–3× the ISO size).
-  - Check console logs from the backend (Electron window or terminal) for Myrient / IA errors.
+  - Check backend output: the Electron log view, **Open logs folder** daily log file, or your terminal if running headless — look for Minerva / Internet Archive errors.
   - If using your own ISOs, ensure they are in the Transfer folder and the backend is configured for local mode.
 
 For deeper background on how earlier installers worked (and additional screenshots and FAQs), consult the legacy PDF guide or the original GitGud documentation linked above.
