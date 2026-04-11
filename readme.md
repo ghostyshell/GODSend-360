@@ -35,18 +35,17 @@ Go to the [GODsend 360 v2.7.0 release](https://gitgud.io/ghosty99/godsend-360/-/
 | Platform | File |
 |---|---|
 | **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.7.0.exe`](https://gitgud.io/-/project/46780/uploads/117a1e7d3844190e1e0104aa389cb30c/godsend-Setup-2.7.0.exe) |
-| **Windows (x64, backend binary only)** | [`godsend.exe`](https://gitgud.io/-/project/46780/uploads/7d70323bd36df2671077bca6488e8df2/godsend.exe) |
 | **macOS (Apple Silicon)** | [`godsend-2.7.0-arm64.dmg`](https://gitgud.io/-/project/46780/uploads/4f64c2ac45cebac3bf67762cfed9151c/godsend-2.7.0-arm64.dmg) |
 | **macOS (Intel)** | [`godsend-2.7.0-x64.dmg`](https://gitgud.io/-/project/46780/uploads/17f09c725a049c7dbf48b56b5f8e130a/godsend-2.7.0-x64.dmg) |
 | **Linux (x64 / amd64)** | [`godsend-2.7.0-x86_64.AppImage`](https://gitgud.io/-/project/46780/uploads/3820294f50767e4ceba2b5a4b77b26a0/godsend-2.7.0-x86_64.AppImage) |
 | **Linux (arm64)** | [`godsend-2.7.0-arm64.AppImage`](https://gitgud.io/-/project/46780/uploads/6c8117f892126417905f45e419783620/godsend-2.7.0-arm64.AppImage) |
 
-> **Windows:** use **`godsend-Setup-2.7.0.exe`** for the full Electron tray app, or **`godsend.exe`** if you only want the headless backend ([headless setup](docs/headless-setup.md)).
+> **Windows:** use **`godsend-Setup-2.7.0.exe`** for the desktop tray app. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.7.0.exe`** and follow the installer, or place **`godsend.exe`** where you want and run it for backend-only.
-2. **macOS / Linux / Windows (desktop installer):** launch **GODsend** from the Start menu, Applications, or your app launcher — the tray icon appears (Linux depends on desktop environment). **Windows (`godsend.exe` only):** run the binary from a terminal or Explorer; keep the process running while you use Aurora, or run it as a background service (see [headless setup](docs/headless-setup.md)).
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.7.0.exe`** and follow the installer.
+2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, Applications, or your app launcher — the tray icon appears (Linux depends on desktop environment). For a headless Windows backend (no installer), see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
 
