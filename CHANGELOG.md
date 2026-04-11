@@ -7,6 +7,17 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.7.1] — 2026-04-11
+
+### Added
+- **Electron: React + Vite renderer** — new UI stack for the desktop app (`renderer/main.jsx`, page components, and shadcn-style primitives under `renderer/components/ui/`). Tailwind CSS and PostCSS config; production bundle written to `renderer-dist/`. Dev: `npm run renderer:dev --prefix src/electron-app` with `VITE_DEV_SERVER_URL` loaded by the main window.
+
+### Changed
+- **Electron shell** — `index.html` mounts the React app; window loads `renderer-dist` in production or the Vite dev server when configured.
+- **Version** — **2.7.1** (root + Electron `package.json`, lockfiles, backend banner); Aurora script **11.1.0** (unchanged).
+
+---
+
 ## [2.7.0] — 2026-04-11
 
 ### Added

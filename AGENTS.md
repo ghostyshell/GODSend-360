@@ -105,6 +105,7 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 
 ### GitGud release assets (upload + links)
 
+- **README and headless-setup version strings** — Do **not** change `readme.md` or `docs/headless-setup.md` to reference a new version (GitGud `.../releases/vX.Y.Z` URLs, installer/AppImage/DMG filenames, or inline “use `godsend-Setup-X.Y.Z.exe`” text) until the **`vX.Y.Z` tag exists on the remote** (e.g. `git ls-remote --tags origin 'refs/tags/vX.Y.Z'` or the GitGud release page). Update those docs when attaching assets for that tag (see verify step below).
 - Preferred public asset URLs must use the project-scoped form:
   - `https://gitgud.io/-/project/46780/uploads/<upload-id>/<filename>`
   - Do **not** use `https://gitgud.io/uploads/...` directly (can require sign-in and break README/release links).

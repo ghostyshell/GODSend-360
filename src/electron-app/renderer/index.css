@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark palette matching the original GODsend design */
+    --background:  220 15%  8%;   /* #101318 */
+    --foreground:  210 33% 96%;   /* #f2f5f7 */
+    --muted:       218 24% 11%;   /* #151a22 */
+    --muted-foreground: 215 12% 58%; /* #8b93a3 */
+    --border:      220 17% 19%;   /* #2a2f3a */
+    --input:       220 17% 19%;   /* #2a2f3a */
+    --ring:        210 100% 65%;  /* #4a9eff */
+    --primary:     210 100% 65%;  /* #4a9eff */
+    --primary-foreground: 0 0% 100%;
+    --secondary:   216 22% 14%;   /* #1f2630 */
+    --secondary-foreground: 210 33% 96%;
+    --accent:      218 25% 20%;   /* #263042 */
+    --accent-foreground: 210 33% 96%;
+    --surface:     220 20%  6%;   /* #0b0f14 */
+    --radius: 6px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+}

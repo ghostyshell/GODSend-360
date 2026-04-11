@@ -29,13 +29,30 @@ contextBridge.exposeInMainWorld("godsendApi", {
   ftpAuroraScripts: (payload) => ipcRenderer.invoke("xbox:ftp-scripts", payload),
   ftpTestConnection: (payload) => ipcRenderer.invoke("xbox:ftp-test", payload),
   ftpScanPorts: (subnet) => ipcRenderer.invoke("xbox:ftp-scan", subnet),
+
+  pingXbox: () => ipcRenderer.invoke("xbox:ping"),
+  listXboxGames: () => ipcRenderer.invoke("xbox:list-games"),
+  fetchXboxCovers: (requests) => ipcRenderer.invoke("xbox:fetch-covers", requests),
+
+  // Each subscription function returns a cleanup function for React useEffect.
   onFtpDebugLog: (callback) => {
-    ipcRenderer.on("godsend-ftp-debug", (_event, line) => callback(line));
+    const handler = (_event, line) => callback(line);
+    ipcRenderer.on("godsend-ftp-debug", handler);
+    return () => ipcRenderer.removeListener("godsend-ftp-debug", handler);
   },
   onFtpProgress: (callback) => {
-    ipcRenderer.on("godsend-ftp-progress", (_event, msg) => callback(msg));
+    const handler = (_event, msg) => callback(msg);
+    ipcRenderer.on("godsend-ftp-progress", handler);
+    return () => ipcRenderer.removeListener("godsend-ftp-progress", handler);
+  },
+  onXboxCover: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("xbox-cover", handler);
+    return () => ipcRenderer.removeListener("xbox-cover", handler);
   },
   onOutput: (callback) => {
-    ipcRenderer.on("godsend-output", (_event, line) => callback(line));
-  }
+    const handler = (_event, line) => callback(line);
+    ipcRenderer.on("godsend-output", handler);
+    return () => ipcRenderer.removeListener("godsend-output", handler);
+  },
 });

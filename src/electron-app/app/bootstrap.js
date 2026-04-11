@@ -10,6 +10,7 @@ const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const ftp = require("basic-ftp");
+const { Writable } = require("stream");
 
 const {
   getFirstValidIconPath,
@@ -62,7 +63,11 @@ function createMainWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, "..", "index.html"));
+  if (process.env.VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    mainWindow.loadFile(path.join(__dirname, "..", "renderer-dist", "index.html"));
+  }
 
   mainWindow.on("minimize", (event) => {
     event.preventDefault();
@@ -361,6 +366,26 @@ function registerIpcHandlers() {
     }
   });
 
+  // ── FTP Ping (lightweight connectivity check) ─────────────────────────────
+  ipcMain.handle("xbox:ping", async () => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 5000;
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+    }
+  });
+
   // ── FTP Debug: Test Connection ──
   ipcMain.handle("xbox:ftp-test", async (_event, payload) => {
     const p = payload || {};
@@ -461,6 +486,174 @@ function registerIpcHandlers() {
     }
     return { ok: true, hosts: found };
   });
+
+  // ── Xbox Game Library ──────────────────────────────────────────────────────
+
+  ipcMain.handle("xbox:list-games", async () => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured. Set it in Settings." };
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 20000;
+
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+
+      const nameMap  = xboxBuildGameNameMap();
+      const mediaDir = xboxAuroraMediaDir(getConfiguredFtpScriptsPath());
+      // Use Map to deduplicate by TitleID across all scan locations.
+      const games = new Map();
+
+      function addGame(titleId, fallbackName, location) {
+        const id = titleId.toUpperCase();
+        if (!games.has(id)) {
+          games.set(id, {
+            titleId: id,
+            name: nameMap.get(id) || fallbackName || id,
+            location,
+            coverFtpPath: `${mediaDir}/${id}GC.jpg`,
+          });
+        }
+      }
+
+      // 1. Scan /Hdd1/Content/<profile>/<TitleID> (covers all profile IDs)
+      try {
+        const profileDirs = await client.list("/Hdd1/Content");
+        for (const profileDir of profileDirs) {
+          if (profileDir.type !== 2) continue;
+          try {
+            const titleDirs = await client.list(`/Hdd1/Content/${profileDir.name}`);
+            for (const titleDir of titleDirs) {
+              if (titleDir.type !== 2) continue;
+              const id = titleDir.name.toUpperCase();
+              if (!/^[0-9A-F]{8}$/.test(id)) continue;
+              addGame(id, null, `/Hdd1/Content/${profileDir.name}/${titleDir.name}`);
+            }
+          } catch { /* unreadable profile dir — skip */ }
+        }
+      } catch { /* /Hdd1/Content not present */ }
+
+      // 2. Scan /Hdd1/Games/<GameName>/Content/<TitleID>
+      try {
+        const gameDirs = await client.list("/Hdd1/Games");
+        for (const gameDir of gameDirs) {
+          if (gameDir.type !== 2) continue;
+          try {
+            const contentEntries = await client.list(`/Hdd1/Games/${gameDir.name}/Content`);
+            for (const entry of contentEntries) {
+              if (entry.type !== 2) continue;
+              const id = entry.name.toUpperCase();
+              if (!/^[0-9A-F]{8}$/.test(id)) continue;
+              addGame(id, gameDir.name, `/Hdd1/Games/${gameDir.name}`);
+            }
+          } catch {
+            // No Content subdir — still expose the folder with folder name as title.
+            addGame(gameDir.name.toUpperCase().padEnd(8, "0").slice(0, 8), gameDir.name, `/Hdd1/Games/${gameDir.name}`);
+          }
+        }
+      } catch { /* /Hdd1/Games not present */ }
+
+      const gameList = Array.from(games.values()).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      return { ok: true, games: gameList, connectedTo: xboxIp };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+    }
+  });
+
+  // Streams covers back one-by-one over a single FTP session so the renderer
+  // can render them progressively without making N round-trip IPC calls.
+  ipcMain.handle("xbox:fetch-covers", async (_event, coverRequests) => {
+    if (!Array.isArray(coverRequests) || coverRequests.length === 0) return { ok: true };
+
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 10000;
+
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+
+      for (const { titleId, ftpPath } of coverRequests) {
+        let dataUrl = null;
+        try {
+          const chunks = [];
+          const writable = new Writable({
+            write(chunk, _enc, cb) { chunks.push(chunk); cb(); },
+          });
+          await client.downloadTo(writable, ftpPath);
+          const buf  = Buffer.concat(chunks);
+          const mime = (buf[0] === 0xFF && buf[1] === 0xD8) ? "image/jpeg"
+                     : (buf[0] === 0x89 && buf[1] === 0x50) ? "image/png"
+                     : "image/jpeg";
+          dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+        } catch { /* cover file absent — leave null */ }
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("xbox-cover", { titleId, dataUrl });
+        }
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+    }
+  });
+}
+
+// ── Game library helpers ───────────────────────────────────────────────────────
+
+// Derive the Aurora Media directory from the configured FTP scripts path so the
+// cover path is correct for both HDD and USB Aurora installs.
+//
+//   /Hdd1/Aurora/User/Scripts/Utility/GODSend  →  /Hdd1/Aurora/Media
+//   /Usb0/Apps/Aurora/User/Scripts/Utility/…   →  /Usb0/Apps/Aurora/Media
+//
+// Falls back to the canonical HDD path when the scripts path is unset or
+// contains no "Aurora" segment.
+function xboxAuroraMediaDir(ftpScriptsPath) {
+  if (ftpScriptsPath) {
+    const parts = ftpScriptsPath.replace(/\\/g, "/").split("/").filter(Boolean);
+    const idx   = parts.findIndex((p) => p.toLowerCase() === "aurora");
+    if (idx !== -1) {
+      return "/" + parts.slice(0, idx + 1).join("/") + "/Media";
+    }
+  }
+  return "/Hdd1/Aurora/Media";
+}
+
+function xboxBuildGameNameMap() {
+  const map = new Map();
+  const cacheDir = app.isPackaged
+    ? path.join(process.resourcesPath, "cache")
+    : path.join(__dirname, "..", "..", "..", "cache");
+
+  for (const file of ["xbox360.json", "xbla.json", "games.json", "digital.json", "xbox.json"]) {
+    try {
+      const raw   = fs.readFileSync(path.join(cacheDir, file), "utf8");
+      const data  = JSON.parse(raw);
+      const items = Array.isArray(data) ? data : Object.values(data).flat();
+      for (const item of items) {
+        if (!item || typeof item !== "object") continue;
+        const titleId = String(item.titleId || item.TitleId || item.title_id || "").toUpperCase().trim();
+        const name    = String(item.title  || item.name   || item.Title    || item.Name || "").trim();
+        if (titleId && name && /^[0-9A-F]{8}$/.test(titleId)) map.set(titleId, name);
+      }
+    } catch { /* cache file absent or unparseable — skip */ }
+  }
+  return map;
 }
 
 function bootstrapApp() {
