@@ -18,8 +18,6 @@ contextBridge.exposeInMainWorld("godsendApi", {
   getArchiveAuth: () => ipcRenderer.invoke("config:get-archive-auth"),
   loginInternetArchive: (payload) => ipcRenderer.invoke("config:ia-login", payload),
   logoutInternetArchive: () => ipcRenderer.invoke("config:ia-logout"),
-  getIAConcurrency: () => ipcRenderer.invoke("config:get-ia-concurrency"),
-  setIAConcurrency: (v) => ipcRenderer.invoke("config:set-ia-concurrency", v),
   getROMPath: () => ipcRenderer.invoke("config:get-rom-path"),
   setROMPath: (v) => ipcRenderer.invoke("config:set-rom-path", v),
   refreshCache: (platform) => ipcRenderer.invoke("config:cache-refresh", platform),
@@ -33,6 +31,34 @@ contextBridge.exposeInMainWorld("godsendApi", {
   pingXbox: () => ipcRenderer.invoke("xbox:ping"),
   listXboxGames: () => ipcRenderer.invoke("xbox:list-games"),
   fetchXboxCovers: (requests) => ipcRenderer.invoke("xbox:fetch-covers", requests),
+  listAuroraLibrary: (opts) => ipcRenderer.invoke("xbox:list-aurora-library", opts),
+  fetchAuroraCovers: (gameList, opts) =>
+    ipcRenderer.invoke("xbox:fetch-aurora-covers", gameList, opts),
+  refreshTitleVisualsFromCache: (payload) =>
+    ipcRenderer.invoke("xbox:refresh-title-visuals-cache", payload),
+  inspectAuroraGame: (payload) => ipcRenderer.invoke("xbox:inspect-aurora-game", payload),
+  searchAssets: (payload) => ipcRenderer.invoke("xbox:search-assets", payload),
+  fetchUrlImage: (url) => ipcRenderer.invoke("xbox:fetch-url-image", url),
+  chooseAssetImageFile: () => ipcRenderer.invoke("xbox:choose-image-file"),
+  uploadAssetToConsole: (payload) => ipcRenderer.invoke("xbox:upload-asset-to-console", payload),
+  getAuroraLibrarySources: () => ipcRenderer.invoke("config:get-aurora-library-sources"),
+  setAuroraLibrarySources: (sources) => ipcRenderer.invoke("config:set-aurora-library-sources", sources),
+  getQueue: () => ipcRenderer.invoke("xbox:get-queue"),
+  removeFromQueue: (game) => ipcRenderer.invoke("xbox:remove-queue-item", game),
+  getDataStatus: () => ipcRenderer.invoke("data:status"),
+  clearLocalData: () => ipcRenderer.invoke("data:clear"),
+  getAria2ListenPort: () => ipcRenderer.invoke("config:get-aria2-listen-port"),
+  setAria2ListenPort: (v) => ipcRenderer.invoke("config:set-aria2-listen-port", v),
+  getAria2DhtPort: () => ipcRenderer.invoke("config:get-aria2-dht-port"),
+  setAria2DhtPort: (v) => ipcRenderer.invoke("config:set-aria2-dht-port", v),
+  getDefaultXboxDrive: () => ipcRenderer.invoke("config:get-default-xbox-drive"),
+  setDefaultXboxDrive: (v) => ipcRenderer.invoke("config:set-default-xbox-drive", v),
+  listXboxDrives: () => ipcRenderer.invoke("xbox:list-drives"),
+
+  browseGetGames:    (payload) => ipcRenderer.invoke("browse:get-games", payload),
+  browseFetchCover:  (name) => ipcRenderer.invoke("browse:fetch-cover", name),
+  browseQueueGame:   (payload) => ipcRenderer.invoke("browse:queue-game", payload),
+  browseGetDiscInfo: (game)    => ipcRenderer.invoke("browse:get-disc-info", game),
 
   // Each subscription function returns a cleanup function for React useEffect.
   onFtpDebugLog: (callback) => {
@@ -49,6 +75,11 @@ contextBridge.exposeInMainWorld("godsendApi", {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("xbox-cover", handler);
     return () => ipcRenderer.removeListener("xbox-cover", handler);
+  },
+  onXboxTitleVisuals: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("xbox-title-visuals", handler);
+    return () => ipcRenderer.removeListener("xbox-title-visuals", handler);
   },
   onOutput: (callback) => {
     const handler = (_event, line) => callback(line);

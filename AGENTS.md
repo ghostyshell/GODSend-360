@@ -3,13 +3,13 @@
 GODsend-360 is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It has three main components:
 
 - **Go backend (`src/server/`)**: HTTP server running on a PC, talking to Internet Archive and the local filesystem, converting ISOs to GOD / content packages, and coordinating queue state.
-- **Electron desktop app (`src/electron-app/`)**: Windows tray UI that manages the backend process, exposes configuration (transfer folder, IA auth, concurrency), and ships an installer.
+- **Electron desktop app (`src/electron-app/`)**: Windows tray UI that manages the backend process, exposes configuration (transfer folder, IA auth), and ships an installer.
 - **Aurora Lua scripts (`aurora-scripts/`)**: Script bundle running inside Aurora on the Xbox, providing the in-dashboard UI to browse libraries, trigger jobs, and monitor/perform installs.
 
 High-level data flow:
 
 - `aurora-scripts` ⇄ **HTTP** ⇄ Go backend ⇄ **Internet Archive / local Transfer folder**
-- Go backend ⇄ **FTP / HTTP files** ⇄ Xbox content drives (via Aurora’s FTP and GOD/XEX/DLC layout)
+- Go backend ⇄ **FTP** ⇄ Xbox content drives (via Aurora’s FTP server; GOD/XEX/DLC layout)
 - Electron app ⇄ **child process & IPC** ⇄ Go backend and local config
 
 External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts** – refactors must preserve them unless explicitly requested otherwise.
@@ -26,6 +26,7 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
   - `main.go`: process startup, HTTP handler registration (for now), environment/config wiring, banner printing.
   - `embed_titles.go` + `data/iso2god_titles.jsonl`: embeds the iso2god-rs title list and registers it with `services` at init.
 - **`services/title_lookup.go`**: Title ID → display name for LIVE CON title, FTP GOD folder names, and INI (`services.LookupTitleName`: XboxUnity → XboxDB JSON API → embedded iso2god-rs title list).
+- **Pending FTP queue** — when an FTP transfer fails after retries (e.g. console launched a game), the backend persists the job to `GODSEND_HOME/pending_ftp/<id>.json` and retries indefinitely (30 s → 5 min backoff). Jobs survive restarts and are resumed at startup. New endpoints: `GET /data/status`, `GET /data/clear`, `GET /config`. New env vars: `GODSEND_DEFAULT_DRIVE`, `GODSEND_ARIA2_LISTEN_PORT`, `GODSEND_ARIA2_DHT_PORT`.
 - **Minerva source** — `main.go` contains a full Minerva Archive integration alongside the IA integration:
   - `minervaPageURLs` / `minervaTagFilters`: browse-page URL and filename-tag filter per platform (xbox360, xbox, digital, xbla, dlc, xblig, games).
   - `MinervaEntry` / `MinervaPlatformCache` types; cache files: `cache/minerva_<platform>.json`.
@@ -53,14 +54,14 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
   - `main.js`: minimal bootstrap that calls `app/bootstrap.js`.
   - `app/bootstrap.js`: creates the BrowserWindow and tray, registers all IPC handlers, and coordinates startup/shutdown of the backend child process via services.
 - **Services (application behaviour)**
-- `services/settingsService.js`: reads/writes JSON config under `app.getPath("userData")`, exposes getters/setters for transfer folder, IA settings, and backend server port (`serverPort`), and builds the child process environment (`GODSEND_*` variables including `GODSEND_PORT`).
+- `services/settingsService.js`: reads/writes JSON config under `app.getPath("userData")`, exposes getters/setters for transfer folder, IA settings, backend server port (`serverPort`), default Xbox drive (`defaultXboxDrive`), and aria2 ports (`aria2ListenPort`, `aria2DhtPort`); builds the child process environment (`GODSEND_*` variables).
   - `services/backendClient.js`: owns the backend `spawn` lifecycle, output buffering and broadcast, restart semantics, and Internet Archive login flow.
 - **Infrastructure (platform concerns)**
   - `infrastructure/fileSystem.js`: canonical install/runtime root detection, directory creation, cache/Temp/Transfer/Ready layout, helper binary copying, and icon path resolution.
   - `infrastructure/electronTray.js`: tray icon creation, context menu wiring, simple open/quit callbacks.
 - **Renderer bridge**
-- `preload.js`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`), including persisted backend port config (`config:get-server-port`, `config:set-server-port`).
-  - `renderer.js`: DOM-only UI and interaction logic, built on the preload API; no direct Node/Electron imports.
+- `preload.js`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`), including persisted backend port config, queue operations (`getQueue`, `removeFromQueue`), data management (`getDataStatus`, `clearLocalData`), aria2 ports, default Xbox drive, and FTP drive listing. Xbox Library: `listAuroraLibrary` / `fetchAuroraCovers` (optional cache args), `refreshTitleVisualsFromCache` (disk-only `visual-manifest.json` → `xbox-title-visuals`), `inspectAuroraGame` (FTP inventory + `GameCoverInfo.bin` summary, read-only); cover + Import/Media artwork cached under `userData/aurora-library-cache/` and pushed to the renderer via `xbox-cover` and `xbox-title-visuals` (`godsend-aurora://` URLs).
+  - React renderer (`renderer/`): `App.jsx` (routing, queue polling every 5 s), page components `HomePage`, `SettingsPage`, `LibraryPage`, `QueuePage`.
 - **Server file logging** (`infrastructure/serverLog.js`): appends backend stdout/stderr and session/context lines to `%APPDATA%\<app>\logs\godsend-server-YYYY-MM-DD.log`; wired from `services/backendClient.js` and `app/bootstrap.js` (IPC `logs:get-info`, `logs:open-folder`).
 - **Build scripts**
   - `scripts/sync-assets-icon.js`: pre-build script to normalise tray/icon artwork (`npm run build:win`).
@@ -84,7 +85,7 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
   - `installGame` for XEX, raw, and GOD installs + DLC handling.
 - `menu.lua`: in-Aurora UI for:
   - Server queue/status viewer (`showQueue`) and cache status details.
-  - Library browser (`browseLibrary`) with per-platform title lists, drive selection, transfer mode selection, and orchestration of trigger/wait/install.
+  - Library browser (`browseLibrary`) with per-platform title lists, drive selection (skipped when `gDefaultDrive` is set), and orchestration of FTP trigger/wait/install.
 
 **Pattern**: treat each `.lua` file as a module with globals shared intentionally:
 
@@ -156,7 +157,7 @@ When making changes to Electron or the backend, prefer:
 - Run `npm run build` at least once after structural refactors.
 - Start the built app and verify:
   - Backend starts successfully.
-  - Settings page works (transfer folder, IA login, concurrency).
+   - Settings page works (transfer folder, IA login).
   - Lua script can still talk to the backend using the API described in `README.md`.
 
 ### Aurora scripts
@@ -167,7 +168,6 @@ When making changes to Electron or the backend, prefer:
   - Exercise:
     - Queue view.
     - Each library (xbox360/xbox/xbla/digital/dlc/xblig/local/games).
-    - HTTP vs FTP modes.
     - Install paths (GOD/XEX/DLC).
 
 ---

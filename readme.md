@@ -66,7 +66,6 @@ If you want Internet Archive as a fallback (or for titles not on Minerva):
 
 1. Click the tray icon and open the app window, then click the **⚙ Settings** button.
 2. Under **Internet Archive account**, click **Log in** and enter your [archive.org](https://archive.org) credentials. Your session cookie is stored locally — your password is never saved.
-3. Set **Parallel download connections** to your preferred value (default **5**, range 1–7).
 
 You can also set a **Local Transfer folder** if you want to install from `.iso` files you already have on this machine.
 
@@ -98,7 +97,7 @@ Download a **platform-matched backend binary** (or a desktop AppImage/DMG if you
 
 ## Features
 
-Minerva Archive (BitTorrent, no account), Internet Archive (parallel HTTP, optional), local ISOs, XBLA, DLC, XBLIG, Game Archives, Retro ROMs (62 systems via EdgeEmu), multi-disc support, GOD/XEX/content install layouts, HTTP and FTP transfer modes, server queue management, and persistent logging.
+Minerva Archive (BitTorrent, no account), Internet Archive (chunked parallel HTTP, optional), local ISOs, XBLA, DLC, XBLIG, Game Archives, Retro ROMs (62 systems via EdgeEmu), multi-disc support, GOD/XEX/content install layouts, FTP transfer with persistent retry, server queue management, and persistent logging.
 
 **[Full feature list with details on each capability](docs/features.md)**
 
@@ -111,7 +110,7 @@ Minerva Archive (BitTorrent, no account), Internet Archive (parallel HTTP, optio
                                       │
                           ┌───────────┴────────────┐
                     Minerva Archive           Internet Archive
-                    (BitTorrent via           (parallel HTTP,
+                    (BitTorrent via           (chunked parallel HTTP,
                      aria2c)                   optional account)
                           │
                    Local Transfer folder
@@ -120,7 +119,7 @@ Minerva Archive (BitTorrent, no account), Internet Archive (parallel HTTP, optio
 
 1. The Aurora script on the Xbox browses game libraries — lists are sourced from Minerva Archive or Internet Archive metadata
 2. The user selects a title and a source; the script sends a trigger request to the Go backend
-3. The backend checks for a local ISO first, then downloads from Minerva Archive via BitTorrent (no account needed) or falls back to Internet Archive (parallel range requests, 1–7 workers, account required)
+3. The backend checks for a local ISO first, then downloads from Minerva Archive via BitTorrent (no account needed) or falls back to Internet Archive (chunked parallel HTTP range requests, account required)
 4. For disc ISOs the backend converts to Games on Demand format using a pure Go implementation; XBLA/digital titles are extracted natively — no external tools required
 5. The finished game files are transferred to the Xbox over FTP using Aurora's built-in FTP server
 6. The Aurora script polls the backend for status and shows a live progress display; the game appears in Aurora when the transfer completes
@@ -178,7 +177,6 @@ Open the settings page (⚙ button) to configure:
 - **Launch at login** — registers GODsend with the OS login-item / startup list (Electron **Open at login** on macOS and Windows; Linux depends on the desktop environment)
 - **Local Transfer folder** — directory the backend scans for pre-downloaded ISOs. If unset, defaults to **`runtime/Transfer`** under Electron’s **user data** directory — commonly **`%APPDATA%\GODsend\runtime\Transfer`** on Windows and **`~/Library/Application Support/GODsend/runtime/Transfer`** on macOS. On Linux the config folder name can vary; use **Open logs folder** on the home screen, then open the parent of **`logs/`** to find **`runtime/Transfer`**
 - **Internet Archive account** — log in with your archive.org credentials; session cookies are stored locally, your password is never saved
-- **Parallel download connections** — concurrent range-request workers per IA download (1–7, default 5)
 - **Backend server port** — choose the backend listen port used by both Electron and Aurora script patching
 - **Xbox connection** — enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your computer’s LAN IP and selected backend port are detected/applied automatically
 - **Server log files** — the app appends to a daily file under **`logs/`** next to the same user-data root (e.g. **`%APPDATA%\GODsend\logs\`** on Windows): timestamped backend stdout/stderr, session banner (paths, `GODSEND_*` env summary with secrets redacted, host IP), and notable UI actions (FTP upload steps, cache refresh, config changes). On the home screen use **Open logs folder** to reveal that directory in the system file manager

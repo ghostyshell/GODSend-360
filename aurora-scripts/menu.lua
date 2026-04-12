@@ -5,6 +5,7 @@
 -- Depends on: state.lua, http_client.lua, services.lua
 
 -- ── Queue viewer ──────────────────────────────────────────────────────────────
+-- Transfer mode is always FTP; HTTP packaging removed.
 
 -- Parse a flat JSON array returned by /queue.
 local function parseQueueJSON(json)
@@ -361,40 +362,36 @@ function browseROMLibrary(platform, sysName)
             local cleanName = sanitizeGameNameFromHost(gamesInBucket[g.Selected.Key])
             if not cleanName or cleanName == "" then break end
 
-            -- Drive picker
-            local drives = {
-                "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
-                "UsbMu0:", "UsbMu1:"
-            }
-            local dr = Script.ShowPopupList("Install to:", "", drives)
-            if not dr or dr.Canceled then
-                -- back to game list
+            -- Drive picker (skip if default drive configured)
+            local romDriveReady = false
+            if gDefaultDrive ~= "" then
+                gInstallDrive = gDefaultDrive
+                romDriveReady = true
             else
-                gInstallDrive = drives[dr.Selected.Key]
-
-                local transferModes = {
-                    "FTP (Direct Transfer - More Reliable)",
-                    "HTTP (Download & Extract)"
+                local drives = {
+                    "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
+                    "UsbMu0:", "UsbMu1:"
                 }
-                local tm = Script.ShowPopupList("Transfer Method:", "Choose how to install", transferModes)
-                if tm and not tm.Canceled then
-                    gTransferMode = (tm.Selected.Key == 1) and "ftp" or "http"
+                local dr = Script.ShowPopupList("Install to:", "", drives)
+                if dr and not dr.Canceled then
+                    gInstallDrive = drives[dr.Selected.Key]
+                    romDriveReady = true
+                end
+            end
 
+            if romDriveReady then
+                Script.SetStatus("Registering for FTP...")
+                if not registerForFTP(cleanName, platform) then
+                    Script.ShowMessageBox("FTP Error",
+                        "Could not register for FTP transfer.\n\n" ..
+                        "Make sure the Xbox IP is reachable.\n" ..
+                        "Check Settings → Xbox connection on the PC.", "OK")
+                else
                     Script.SetStatus("Checking status...")
                     local state, msg = getGameStatus(cleanName)
-
-                    if gTransferMode == "ftp" then
-                        Script.SetStatus("Registering for FTP...")
-                        if not registerForFTP(cleanName, platform) then
-                            gTransferMode = "http"
-                        end
-                    end
-
                     local waitResult = nil
 
-                    if state == "Ready" and gTransferMode == "http" then
-                        waitResult = true
-                    elseif state == "Ready" and gTransferMode == "ftp" then
+                    if state == "Ready" then
                         if Script.ShowMessageBox("Transfer",
                             "ROM ready. Start FTP to " .. gInstallDrive .. "?",
                             "Yes", "No").Button == 1 then
@@ -403,13 +400,11 @@ function browseROMLibrary(platform, sysName)
                                 waitResult = waitForProcessing(cleanName)
                             end
                         end
-                    elseif state == "Processing" then
+                    elseif state == "Processing" or state == "Pending FTP" then
                         waitResult = waitForProcessing(cleanName)
                     else
-                        local modeText = (gTransferMode == "ftp")
-                            and "process and FTP transfer" or "download"
                         if Script.ShowMessageBox("Download",
-                            "Start " .. modeText .. " for\n" .. cleanName .. "?",
+                            "Download and FTP transfer\n" .. cleanName .. "?",
                             "Yes", "No").Button == 1 then
                             if triggerDownload(cleanName, platform) then
                                 Thread.Sleep(2000)
@@ -426,8 +421,9 @@ function browseROMLibrary(platform, sysName)
                         end
                     elseif waitResult == "backgrounded" then
                         Script.ShowMessageBox("Running in Background",
-                            "'" .. cleanName .. "' is being prepared.\n\n" ..
-                            "Select it again when ready to install.", "OK")
+                            "FTP transfer for '" .. cleanName .. "' continues on the server.\n\n" ..
+                            "When the transfer finishes, run Aurora's Scan Content\n" ..
+                            "so this title appears in your library.", "OK")
                     end
                 end
             end
@@ -593,112 +589,80 @@ function browseLibrary(platform)
                 local cleanName = sanitizeGameNameFromHost(gamesInBucket[g.Selected.Key])
                 if not cleanName or cleanName == "" then break end
 
+                -- Drive selection (skip if default drive configured)
                 local driveReady = false
-                local drives = {
-                    "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
-                    "UsbMu0:", "UsbMu1:"
-                }
-                local dr = Script.ShowPopupList("Install to:", "", drives)
-                if dr and not dr.Canceled then
-                    gInstallDrive = drives[dr.Selected.Key]
+                if gDefaultDrive ~= "" then
+                    gInstallDrive = gDefaultDrive
                     driveReady = true
+                else
+                    local drives = {
+                        "Hdd1:", "Usb0:", "Usb1:", "Usb2:", "Usb3:", "Usb4:",
+                        "UsbMu0:", "UsbMu1:"
+                    }
+                    local dr = Script.ShowPopupList("Install to:", "", drives)
+                    if dr and not dr.Canceled then
+                        gInstallDrive = drives[dr.Selected.Key]
+                        driveReady = true
+                    end
                 end
 
                 if driveReady then
-                    local transferModes = {
-                        "FTP (Direct Transfer - More Reliable)",
-                        "HTTP (Download & Extract)"
-                    }
+                    local method = pickInstallMethod(cleanName, platform)
+                    if method then
+                        gInstallType = method
 
-                    local tm = Script.ShowPopupList("Transfer Method:",
-                                                    "Choose how files reach the console", transferModes)
+                        Script.SetStatus("Registering for FTP transfer...")
+                        if not registerForFTP(cleanName, platform, gInstallType) then
+                            -- FTP registration failed (Xbox IP not detected)
+                            Script.ShowMessageBox("FTP Error",
+                                "Could not register for FTP transfer.\n\n" ..
+                                "Make sure the Xbox IP is reachable.\n" ..
+                                "Check Settings → Xbox connection on the PC.", "OK")
+                        else
+                            Script.SetStatus("Checking status...")
+                            local state, msg = getGameStatus(cleanName)
+                            local waitResult = nil
 
-                    if tm and not tm.Canceled then
-                        gTransferMode = (tm.Selected.Key == 1) and "ftp" or "http"
-
-                        local method = pickInstallMethod(cleanName, platform)
-                        if method then
-                            gInstallType = method
-
-                        Script.SetStatus("Checking status...")
-                        local state, msg = getGameStatus(cleanName)
-                        local proceed = false
-
-                        if gTransferMode == "ftp" then
-                            Script.SetStatus("Registering for FTP transfer...")
-                            if not registerForFTP(cleanName, platform, gInstallType) then
-                                gTransferMode = "http"
+                            if state == "Ready" then
+                                if Script.ShowMessageBox("Transfer",
+                                    "Game ready. Start FTP transfer to " .. gInstallDrive .. "?",
+                                    "Yes", "No").Button == 1 then
+                                    if triggerDownload(cleanName, platform, gInstallType, browseSource) then
+                                        Script.SetStatus("Starting FTP transfer...")
+                                        Thread.Sleep(2000)
+                                        waitResult = waitForProcessing(cleanName)
+                                    end
+                                end
+                            elseif state == "Processing" or state == "Pending FTP" then
+                                waitResult = waitForProcessing(cleanName)
+                            else
+                                if Script.ShowMessageBox("Download",
+                                    "Download and FTP transfer " .. cleanName .. "?",
+                                    "Yes", "No").Button == 1 then
+                                    if triggerDownload(cleanName, platform, gInstallType, browseSource) then
+                                        Script.SetStatus("Starting...")
+                                        Thread.Sleep(2000)
+                                        waitResult = waitForProcessing(cleanName)
+                                    end
+                                end
                             end
-                        end
 
-                        local function showBackgroundedHint()
-                            if gTransferMode == "ftp" then
+                            if waitResult == true then
+                                local installOk, installErr = pcall(installGame, cleanName)
+                                if not installOk then
+                                    showError("INSTALL_FAILED",
+                                        "Unexpected error during installation:\n" .. tostring(installErr))
+                                end
+                            elseif waitResult == "backgrounded" then
                                 Script.ShowMessageBox("Running in Background",
                                     "FTP transfer for '" .. cleanName .. "' continues on the server.\n\n" ..
-                                    "Your game will appear in Aurora's content\n" ..
-                                    "automatically when the transfer finishes.\n\n" ..
+                                    "When the transfer finishes, run Aurora's Scan Content\n" ..
+                                    "so this title appears in your library.\n\n" ..
                                     "Use Server Queue & Status from the main menu\n" ..
                                     "to check progress.", "OK")
-                            else
-                                Script.ShowMessageBox("Running in Background",
-                                    "'" .. cleanName .. "' is being prepared on the server.\n\n" ..
-                                    "When it finishes, come back to this library,\n" ..
-                                    "select the game again, and the install will\n" ..
-                                    "start immediately (no re-download needed).\n\n" ..
-                                    "Use Server Queue & Status to check progress.", "OK")
                             end
                         end
-
-                        local waitResult = nil
-
-                        if state == "Ready" and gTransferMode == "http" then
-                            proceed = true
-                        elseif state == "Ready" and gTransferMode == "ftp" then
-                            if Script.ShowMessageBox("Transfer",
-                                "Game ready. Start FTP transfer to " .. gInstallDrive .. "?",
-                                "Yes", "No").Button == 1 then
-                                if triggerDownload(cleanName, platform, gInstallType, browseSource) then
-                                    Script.SetStatus("Starting FTP transfer...")
-                                    Thread.Sleep(2000)
-                                    waitResult = waitForProcessing(cleanName)
-                                end
-                            end
-                        elseif state == "Processing" then
-                            waitResult = waitForProcessing(cleanName)
-                        else
-                            local modeText = (gTransferMode == "ftp")
-                                and "process and FTP transfer"
-                                or  "download"
-
-                            if Script.ShowMessageBox("Download",
-                                "Start " .. modeText .. " for " .. cleanName .. "?",
-                                "Yes", "No").Button == 1 then
-                                if triggerDownload(cleanName, platform, gInstallType, browseSource) then
-                                    Script.SetStatus("Starting...")
-                                    Thread.Sleep(2000)
-                                    waitResult = waitForProcessing(cleanName)
-                                end
-                            end
-                        end
-
-                        if waitResult == true then
-                            proceed = true
-                        elseif waitResult == "backgrounded" then
-                            showBackgroundedHint()
-                            proceed = false
-                        elseif waitResult == false then
-                            proceed = false
-                        end
-
-                        if proceed then
-                            local installOk, installErr = pcall(installGame, cleanName)
-                            if not installOk then
-                                showError("INSTALL_FAILED",
-                                    "Unexpected error during installation:\n" .. tostring(installErr))
-                            end
-                        end
-                        end -- if method (install type chosen)
-                    end -- if transfer popup not canceled
+                    end -- if method (install type chosen)
                 end -- if driveReady
             end -- game list loop
         end

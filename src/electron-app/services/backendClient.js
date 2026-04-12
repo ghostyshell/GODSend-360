@@ -1,4 +1,5 @@
 const { spawn } = require("child_process");
+const { BrowserWindow } = require("electron");
 const {
   getGodsendExePath,
   prepareWritableRuntime,
@@ -58,9 +59,17 @@ function addOutputLine(line, stream = "ui") {
   } else {
     appendAppLine(line);
   }
-  if (mainWindowRef && !mainWindowRef.isDestroyed()) {
-    mainWindowRef.webContents.send("godsend-output", line);
+  let wc = null;
+  if (mainWindowRef && !mainWindowRef.isDestroyed()) wc = mainWindowRef.webContents;
+  else {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed() && w.webContents) {
+        wc = w.webContents;
+        break;
+      }
+    }
   }
+  if (wc) wc.send("godsend-output", line);
 }
 
 function getOutputBuffer() {

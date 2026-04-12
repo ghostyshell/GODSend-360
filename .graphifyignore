@@ -1,0 +1,15 @@
+node_modules/
+dist/
+renderer-dist/
+cache/
+tools/
+graphify-out/
+*.exe
+*.bin
+*.zip
+*.whl
+*.lock
+package-lock.json
+*.map
+*.min.js
+*.min.css

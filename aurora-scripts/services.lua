@@ -107,7 +107,7 @@ function registerForFTP(gameName, platform, installType)
         .. "&ip="           .. Http.UrlEncode(xboxIP)
         .. "&drive="        .. Http.UrlEncode(gInstallDrive)
         .. "&platform="     .. (platform or "xbox360")
-        .. "&mode="         .. gTransferMode
+        .. "&mode=ftp"
         .. "&install_type=" .. (installType or gInstallType or "god")
 
     local json, err = httpGet(url)
@@ -133,6 +133,16 @@ function testServerConnection()
     return true
 end
 
+-- Load server-side config (default drive, etc.) and apply to state globals.
+function loadServerConfig()
+    local json, err = httpGet(SERVER_BASE .. "/config")
+    if not json then return end
+    local drive = json:match('"default_drive"%s*:%s*"([^"]*)"')
+    if drive and drive ~= "" then
+        gDefaultDrive = drive
+    end
+end
+
 -- ── Processing wait loop ──────────────────────────────────────────────────────
 
 -- waitForProcessing polls the server until the job is Ready or fails.
@@ -154,24 +164,12 @@ function waitForProcessing(gameName)
             liveMsg = liveMsg or ""
 
             local promptTitle = "Transfer Still Running"
-            local promptBody
-
-            if gTransferMode == "ftp" then
-                promptBody =
-                    "The server is still transferring '" .. gameName .. "' via FTP.\n\n" ..
-                    "  Status: " .. liveMsg .. "\n\n" ..
-                    "Background — the FTP transfer continues automatically.\n" ..
-                    "  Your game will appear in Aurora when it finishes.\n\n" ..
-                    "Back — return to menu (transfer still runs, install later)."
-            else
-                promptBody =
-                    "The server is still processing '" .. gameName .. "'.\n\n" ..
-                    "  Status: " .. liveMsg .. "\n\n" ..
-                    "Background — go back to the menu now.\n" ..
-                    "  When ready, select the game again from the library\n" ..
-                    "  to install it (or use Server Queue & Status).\n\n" ..
-                    "Back — same as Background (server keeps going)."
-            end
+            local promptBody =
+                "The server is still transferring '" .. gameName .. "' via FTP.\n\n" ..
+                "  Status: " .. liveMsg .. "\n\n" ..
+                "Background — the FTP transfer continues automatically.\n" ..
+                "  When it finishes, run Aurora's Scan Content so the title shows up.\n\n" ..
+                "Back — return to menu (transfer still runs, install later)."
 
             local choice = Script.ShowMessageBox(promptTitle, promptBody, "Background", "Back")
 
@@ -188,12 +186,16 @@ function waitForProcessing(gameName)
         local dots = string.rep(".", dotCount % 4)
 
         if state == "Ready" then
-            if gTransferMode == "ftp" then
-                Script.ShowNotification("FTP Transfer Complete!")
-            else
-                Script.ShowNotification("Download Ready!")
-            end
+            Script.ShowNotification("FTP Transfer Complete!")
             return true
+
+        elseif state == "Pending FTP" then
+            local msg = message or "Pending FTP"
+            local line = msg:gsub("[\r\n]+", " "):gsub("  +", " ")
+            Script.SetStatus("Pending FTP: " .. line .. dots)
+            Script.SetProgress(-1)
+            dotCount  = dotCount + 1
+            failCount = 0
 
         elseif state == "Processing" then
             local msg = message or "Processing"
@@ -305,17 +307,17 @@ end
 -- ── Game installation ─────────────────────────────────────────────────────────
 
 function installGame(gameName)
-    -- For FTP mode the server handles everything.
-    if gTransferMode == "ftp" then
-        Script.SetStatus("Server is transferring via FTP...")
-        Script.SetProgress(-1)
-        Script.ShowMessageBox("Installation Complete",
-            "Game has been transferred via FTP.\n\n" ..
-            "Go to Settings > Content > Scan to refresh\n" ..
-            "your game library.", "OK")
-        return
-    end
+    -- FTP mode: the server handles everything.
+    Script.SetStatus("Server is transferring via FTP...")
+    Script.SetProgress(-1)
+    Script.ShowMessageBox("Installation Complete",
+        "Game has been transferred via FTP.\n\n" ..
+        "Go to Settings > Content > Scan to refresh\n" ..
+        "your game library.", "OK")
+end
 
+-- (HTTP mode removed — all transfers now go via FTP)
+local function _installGame_http_unused(gameName)
     -- HTTP MODE: download logic with full error handling.
     Script.SetStatus("Fetching Manifest...")
 

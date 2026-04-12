@@ -50,7 +50,7 @@ The backend reads all its settings from environment variables — no config file
 | `GODSEND_PORT` | No | HTTP listen port (default `8080`). |
 | `GODSEND_IA_COOKIE` | For IA | `logged-in-user=…; logged-in-sig=…` session cookie from archive.org. |
 | `GODSEND_IA_AUTHORIZATION` | For IA | Bearer token (alternative to cookie). |
-| `GODSEND_IA_CONCURRENCY` | No | Parallel download workers, 1–7 (default `5`). |
+| `GODSEND_IA_MAX_CONNECTIONS` | No | Max concurrent HTTP range requests per large download (default `16`, max `32`). Optional. Legacy: `GODSEND_IA_CONCURRENCY` is accepted as an alias. |
 | `GODSEND_FTP_USER` | For FTP | FTP username for the Xbox (default `xboxftp`). |
 | `GODSEND_FTP_PASS` | For FTP | FTP password for the Xbox (default `xboxftp`). |
 | `GODSEND_ROM_PATH` | No | Drive-relative ROM install path (default `Emulators\RetroArch\roms`). |
@@ -62,7 +62,6 @@ The backend reads all its settings from environment variables — no config file
 ```bash
 export GODSEND_HOME="/opt/godsend"
 export GODSEND_PORT="8080"
-export GODSEND_IA_CONCURRENCY="5"
 ./godsend-linux-x64
 ```
 
@@ -71,7 +70,6 @@ export GODSEND_IA_CONCURRENCY="5"
 ```powershell
 $env:GODSEND_HOME="C:\godsend"
 $env:GODSEND_PORT="8080"
-$env:GODSEND_IA_CONCURRENCY="5"
 .\godsend.exe
 ```
 

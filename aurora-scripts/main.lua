@@ -1,6 +1,6 @@
 scriptTitle       = "GODsend 360"
 scriptAuthor      = "Nesquin/david12549 & ghosty99"
-scriptVersion     = "11.1.0"
+scriptVersion     = "11.2.1"
 scriptDescription = "Browse and install Xbox 360, Original, Digital (XBLA/DLC), and Retro ROMs via Minerva Archive, Internet Archive, or EdgeEmu!"
 scriptIcon        = "icon\\icon.xur"
 scriptPermissions = { "http", "filesystem" }
@@ -41,6 +41,8 @@ function main()
     if not testServerConnection() then
         return
     end
+
+    loadServerConfig()
 
     -- Step 3: Main menu loop.
     while true do

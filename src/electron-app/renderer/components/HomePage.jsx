@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { RefreshCw, Settings, Gamepad2, Loader2, RotateCcw } from "lucide-react";
+import { RefreshCw, Settings, Gamepad2, Loader2, RotateCcw, ListOrdered, Store } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 
@@ -34,10 +34,13 @@ export default function HomePage({
   logInfo,
   ftpStatus,
   onNavigateSettings,
+  onNavigateQueue,
+  onNavigateBrowse,
   onLibraryToggle,
   onReconnect,
   libraryLoading,
   onAppendLine,
+  queueJobs,
 }) {
   const outputRef = useRef(null);
 
@@ -57,6 +60,7 @@ export default function HomePage({
   const ftpConnected    = ftpStatus === "connected";
   const ftpChecking     = ftpStatus === "checking";
   const showLibraryBtn  = ftpConnected || libraryLoading; // hide when disconnected
+  const hasQueueJobs    = Array.isArray(queueJobs) && queueJobs.length > 0;
 
   return (
     <div className="flex flex-col h-screen p-3 gap-2.5">
@@ -91,6 +95,26 @@ export default function HomePage({
               : <Gamepad2 className="h-4 w-4" />}
           </Button>
         )}
+
+        {/* Queue viewer — visible when there are active jobs */}
+        {hasQueueJobs && (
+          <Button
+            size="icon"
+            title={`Server queue (${queueJobs.length} job${queueJobs.length !== 1 ? "s" : ""})`}
+            onClick={onNavigateQueue}
+            className="relative"
+          >
+            <ListOrdered className="h-4 w-4" />
+            <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-0.5 rounded-full bg-primary text-[9px] font-bold text-primary-foreground flex items-center justify-center leading-none">
+              {queueJobs.length > 9 ? "9+" : queueJobs.length}
+            </span>
+          </Button>
+        )}
+
+        {/* Browse library */}
+        <Button size="icon" title="Browse & Download" onClick={onNavigateBrowse}>
+          <Store className="h-4 w-4" />
+        </Button>
 
         {/* Restart backend */}
         <Button

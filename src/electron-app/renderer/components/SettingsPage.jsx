@@ -4,7 +4,6 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
-import { Slider } from "./ui/slider";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "./ui/collapsible";
 import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "../lib/utils";
@@ -40,7 +39,9 @@ function Status({ children, className }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function SettingsPage({ onBack, onAppendLine }) {
+const COMMON_SOURCES = ["Hdd1", "Usb0", "Usb1", "Usb2"];
+
+export default function SettingsPage({ onBack, onAppendLine, onLibrarySourcesChanged }) {
   // Form state
   const [startup, setStartup]                   = useState(false);
   const [serverPort, setServerPort]             = useState("8080");
@@ -52,8 +53,28 @@ export default function SettingsPage({ onBack, onAppendLine }) {
   const [iaEmail, setIaEmail]                   = useState("");
   const [iaPassword, setIaPassword]             = useState("");
   const [romPath, setRomPath]                   = useState("");
-  const [concurrency, setConcurrency]           = useState(4);
   const [ftpScanSubnet, setFtpScanSubnet]       = useState("");
+
+  // Aria2 port settings
+  const [aria2ListenPort, setAria2ListenPort]   = useState("");
+  const [aria2DhtPort, setAria2DhtPort]         = useState("");
+  const [aria2Status, setAria2Status]           = useState("");
+
+  // Default Xbox drive
+  const [defaultDrive, setDefaultDrive]         = useState("");
+  const [driveList, setDriveList]               = useState([]);
+  const [driveStatus, setDriveStatus]           = useState("");
+  const [driveLoading, setDriveLoading]         = useState(false);
+
+  // Aurora library sources
+  const [auroraLibrarySources, setAuroraLibrarySources] = useState(["Hdd1"]);
+  const [librarySourcesStatus, setLibrarySourcesStatus] = useState("");
+
+  // Local app data
+  const [dataStatus, setDataStatus]             = useState(null);
+  const [dataCheckLoading, setDataCheckLoading] = useState(false);
+  const [dataClearLoading, setDataClearLoading] = useState(false);
+  const [dataStatusMsg, setDataStatusMsg]       = useState("");
 
   // Status messages
   const [iaSessionStatus, setIaSessionStatus]           = useState("Not signed in.");
@@ -88,7 +109,6 @@ export default function SettingsPage({ onBack, onAppendLine }) {
       setIaEmail(auth.iaEmail || "");
       applyIAStatus(auth);
 
-      setConcurrency(await window.godsendApi.getIAConcurrency());
       setRomPath(await window.godsendApi.getROMPath());
 
       const conn = await window.godsendApi.getXboxConnection();
@@ -100,6 +120,13 @@ export default function SettingsPage({ onBack, onAppendLine }) {
         const parts = conn.xboxIp.split(".");
         if (parts.length === 4) setFtpScanSubnet(parts.slice(0, 3).join("."));
       }
+
+      setAria2ListenPort(await window.godsendApi.getAria2ListenPort());
+      setAria2DhtPort(await window.godsendApi.getAria2DhtPort());
+      setDefaultDrive(await window.godsendApi.getDefaultXboxDrive());
+
+      const sources = await window.godsendApi.getAuroraLibrarySources().catch(() => ["Hdd1"]);
+      if (Array.isArray(sources) && sources.length > 0) setAuroraLibrarySources(sources);
     }
     load();
 
@@ -187,12 +214,6 @@ export default function SettingsPage({ onBack, onAppendLine }) {
     await window.godsendApi.logoutInternetArchive();
     applyIAStatus(await window.godsendApi.getArchiveAuth());
     onAppendLine("[INFO] Internet Archive: signed out; backend restarted.");
-  }
-
-  async function handleConcurrencyChange(value) {
-    const v = value[0];
-    setConcurrency(v);
-    await window.godsendApi.setIAConcurrency(v);
   }
 
   async function handleRomPathSave() {
@@ -317,6 +338,93 @@ export default function SettingsPage({ onBack, onAppendLine }) {
 
   async function handleFtpScriptsPathReset() {
     setFtpScriptsPath(await window.godsendApi.getFtpScriptsPathDefault());
+  }
+
+  async function handleAria2Save() {
+    await window.godsendApi.setAria2ListenPort(aria2ListenPort);
+    await window.godsendApi.setAria2DhtPort(aria2DhtPort);
+    setAria2Status("Saved. Backend restarted if running.");
+  }
+
+  async function handleFetchDrives() {
+    setDriveLoading(true);
+    setDriveStatus("Connecting to Xbox via FTP...");
+    try {
+      const r = await window.godsendApi.listXboxDrives();
+      if (r.ok) {
+        setDriveList(r.drives);
+        setDriveStatus(`Found ${r.drives.length} drive(s).`);
+      } else {
+        setDriveStatus(`Failed: ${r.error || "unknown error"}`);
+      }
+    } catch (err) {
+      setDriveStatus(`Failed: ${err.message || "unknown error"}`);
+    } finally {
+      setDriveLoading(false);
+    }
+  }
+
+  async function handleDriveSave() {
+    const saved = await window.godsendApi.setDefaultXboxDrive(defaultDrive);
+    setDefaultDrive(saved);
+    setDriveStatus(saved ? `Default drive set to ${saved}. Backend restarted.` : "Default drive cleared.");
+  }
+
+  async function handleLibrarySourceToggle(drive, checked) {
+    const next = checked
+      ? [...auroraLibrarySources, drive]
+      : auroraLibrarySources.filter((d) => d !== drive);
+    setAuroraLibrarySources(next);
+    const saved = await window.godsendApi.setAuroraLibrarySources(next);
+    setLibrarySourcesStatus(
+      saved.length > 0
+        ? `Saved: ${saved.join(", ")}`
+        : "No drives selected — all games will appear active."
+    );
+    if (onLibrarySourcesChanged) onLibrarySourcesChanged(next);
+  }
+
+  async function handleDriveClear() {
+    const saved = await window.godsendApi.setDefaultXboxDrive("");
+    setDefaultDrive(saved);
+    setDriveStatus("Default drive cleared — Aurora will prompt for drive on each download.");
+  }
+
+  async function handleDataCheck() {
+    setDataCheckLoading(true);
+    setDataStatusMsg("");
+    try {
+      const r = await window.godsendApi.getDataStatus();
+      if (r.ok) {
+        setDataStatus(r);
+        setDataStatusMsg(
+          `${r.active_jobs} active job(s), ${r.pending_ftp_jobs} pending FTP job(s), ${r.local_data_mb} MB local data`
+        );
+      } else {
+        setDataStatusMsg(`Failed: ${r.error || "unknown error"}`);
+      }
+    } finally {
+      setDataCheckLoading(false);
+    }
+  }
+
+  async function handleDataClear() {
+    const hasJobs = dataStatus && (dataStatus.active_jobs > 0 || dataStatus.pending_ftp_jobs > 0);
+    const warn = hasJobs
+      ? `WARNING: There are ${dataStatus.active_jobs} active job(s) and ${dataStatus.pending_ftp_jobs} pending FTP job(s).\n\nClearing will cancel all of them.\n\nContinue?`
+      : "Clear all local data (Ready/ and Temp/ directories) and cancel pending FTP jobs?\n\nThis cannot be undone.";
+
+    if (!window.confirm(warn)) return;
+
+    setDataClearLoading(true);
+    setDataStatusMsg("Clearing...");
+    try {
+      const r = await window.godsendApi.clearLocalData();
+      setDataStatus(null);
+      setDataStatusMsg(r.ok ? "Local data cleared." : `Failed: ${r.error || "unknown error"}`);
+    } finally {
+      setDataClearLoading(false);
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -616,25 +724,151 @@ export default function SettingsPage({ onBack, onAppendLine }) {
             </Hint>
           </Section>
 
-          {/* ── Parallel download connections ── */}
-          <Section>
-            <Label htmlFor="iaConcurrency">
-              Parallel download connections:{" "}
-              <span className="text-foreground font-semibold">{concurrency}</span>
-            </Label>
-            <Slider
-              id="iaConcurrency"
-              className="mt-3 max-w-[480px]"
-              min={1}
-              max={7}
-              step={1}
-              value={[concurrency]}
-              onValueChange={handleConcurrencyChange}
-            />
+          {/* ── Aria2 / Minerva download ports ── */}
+          <Section title="Aria2 / Minerva download ports">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-3 items-end">
+                <div>
+                  <Label htmlFor="aria2Listen">Listen port</Label>
+                  <Input
+                    id="aria2Listen"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    step={1}
+                    className="mt-1 w-[110px]"
+                    placeholder="(auto)"
+                    value={aria2ListenPort}
+                    onChange={(e) => setAria2ListenPort(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="aria2Dht">DHT port</Label>
+                  <Input
+                    id="aria2Dht"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    step={1}
+                    className="mt-1 w-[110px]"
+                    placeholder="(auto)"
+                    value={aria2DhtPort}
+                    onChange={(e) => setAria2DhtPort(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleAria2Save}>Save</Button>
+              </div>
+              {aria2Status && <Status>{aria2Status}</Status>}
+            </div>
             <Hint>
-              Simultaneous range-request workers per IA download (1&ndash;7). Higher is
-              faster but puts more load on archive.org. Restarts the backend when
-              changed.
+              Ports aria2 uses for BitTorrent traffic when downloading from Minerva
+              Archive. Leave blank for automatic selection. Set these if you need to
+              open specific firewall rules. Changing restarts the backend.
+            </Hint>
+          </Section>
+
+          {/* ── Xbox Library sources ── */}
+          <Section title="Xbox Library sources">
+            <p className="text-[12px] text-muted-foreground mb-2.5">
+              Select which drives are scanned for installed games. Games found on
+              unselected drives appear greyed out in the library.
+            </p>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {COMMON_SOURCES.map((drive) => (
+                <label
+                  key={drive}
+                  className="flex items-center gap-2 text-[13px] cursor-pointer select-none"
+                >
+                  <Checkbox
+                    checked={auroraLibrarySources.includes(drive)}
+                    onCheckedChange={(checked) => handleLibrarySourceToggle(drive, Boolean(checked))}
+                  />
+                  {drive}
+                </label>
+              ))}
+            </div>
+            {librarySourcesStatus && (
+              <Status className="mt-2 mb-0">{librarySourcesStatus}</Status>
+            )}
+            <Hint>
+              Corresponds to the Xbox drive names Aurora uses (Hdd1 = internal HDD,
+              Usb0/Usb1 = USB storage). Covers show in full colour when the game is
+              on a selected drive; greyed out otherwise.
+            </Hint>
+          </Section>
+
+          {/* ── Default Xbox drive ── */}
+          <Section title="Default Xbox drive">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button disabled={driveLoading} onClick={handleFetchDrives}>
+                  {driveLoading ? "Fetching\u2026" : "Fetch drives from Xbox"}
+                </Button>
+              </div>
+              {driveList.length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center">
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-3 py-1 text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={defaultDrive}
+                    onChange={(e) => setDefaultDrive(e.target.value)}
+                  >
+                    <option value="">(none — prompt each time)</option>
+                    {driveList.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {driveList.length === 0 && defaultDrive && (
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Input
+                    type="text"
+                    className="w-[140px]"
+                    placeholder="e.g. Hdd1:"
+                    value={defaultDrive}
+                    onChange={(e) => setDefaultDrive(e.target.value)}
+                  />
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleDriveSave}>Save</Button>
+                <Button onClick={handleDriveClear}>Clear</Button>
+              </div>
+              {driveStatus && <Status>{driveStatus}</Status>}
+            </div>
+            <Hint>
+              When set, the Aurora script skips the drive picker on every download
+              and uses this drive automatically. Click{" "}
+              <strong>Fetch drives from Xbox</strong> to list available storage
+              devices from the console via FTP (Xbox IP must be configured). Click{" "}
+              <strong>Clear</strong> to reset — Aurora will prompt for a drive each
+              time.
+            </Hint>
+          </Section>
+
+          {/* ── Local app data ── */}
+          <Section title="Local app data">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button disabled={dataCheckLoading} onClick={handleDataCheck}>
+                  {dataCheckLoading ? "Checking\u2026" : "Check status"}
+                </Button>
+                <Button disabled={dataClearLoading} onClick={handleDataClear}>
+                  {dataClearLoading ? "Clearing\u2026" : "Clear local data"}
+                </Button>
+              </div>
+              {dataStatusMsg && (
+                <Status className={dataStatus && (dataStatus.active_jobs > 0 || dataStatus.pending_ftp_jobs > 0) ? "text-yellow-400" : ""}>
+                  {dataStatusMsg}
+                </Status>
+              )}
+            </div>
+            <Hint>
+              Shows active jobs, pending FTP retries, and total local data size
+              (Ready/ and Temp/ directories). <strong>Clear local data</strong>{" "}
+              cancels all pending FTP jobs, removes downloaded/converted game files,
+              and resets the job queue. A confirmation prompt will warn if active or
+              pending jobs exist.
             </Hint>
           </Section>
 

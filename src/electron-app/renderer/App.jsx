@@ -3,9 +3,11 @@ import { Loader2 } from "lucide-react";
 import HomePage from "./components/HomePage";
 import SettingsPage from "./components/SettingsPage";
 import LibraryPage from "./components/LibraryPage";
+import QueuePage from "./components/QueuePage";
+import BrowsePage from "./components/BrowsePage";
 
 export default function App() {
-  // "loading" during the initial ping; then "home" | "settings" | "library"
+  // "loading" during the initial ping; then "home" | "settings" | "library" | "queue" | "browse"
   const [page, setPage] = useState("loading");
 
   // ── Console output ────────────────────────────────────────────────────────
@@ -13,35 +15,90 @@ export default function App() {
   const [logInfo, setLogInfo]         = useState(null);
 
   // ── FTP connectivity status ───────────────────────────────────────────────
-  // "checking" | "connected" | "disconnected"
   const [ftpStatus, setFtpStatus] = useState("checking");
+
+  // ── Queue state ───────────────────────────────────────────────────────────
+  const [queueJobs, setQueueJobs] = useState([]);
 
   // ── Xbox library state ────────────────────────────────────────────────────
   const [libraryStatus, setLibraryStatus]           = useState("idle");
   const [libraryGames, setLibraryGames]             = useState([]);
   const [libraryConnectedTo, setLibraryConnectedTo] = useState("");
   const [covers, setCovers]                         = useState({});
+  const [titleVisuals, setTitleVisuals]             = useState({});
   const [libraryLoading, setLibraryLoading]         = useState(false);
+  const [libraryRefreshing, setLibraryRefreshing]  = useState(false);
+  const [librarySources, setLibrarySources]         = useState(["Hdd1"]);
+
+  async function loadAuroraLibrary(opts = {}) {
+    const force = opts.force === true;
+    const navigateOnLibraryError = opts.navigateOnLibraryError !== false;
+
+    const result = await window.godsendApi.listAuroraLibrary(force ? { force: true } : {});
+
+    if (!result.ok) {
+      if (navigateOnLibraryError) {
+        setFtpStatus("disconnected");
+        setLibraryStatus("error");
+        setPage("home");
+      }
+      return result;
+    }
+
+    setLibraryGames(result.games);
+    setLibraryConnectedTo(result.connectedTo);
+    setCovers({});
+    setTitleVisuals({});
+    setLibraryStatus(result.games.length === 0 ? "empty" : "ready");
+
+    if (result.games.length > 0) {
+      const fromDisk =
+        result.fromCache === true && result.libraryUnchanged === true;
+      window.godsendApi
+        .fetchAuroraCovers(
+          result.games.map((g) => ({
+            titleId:     g.titleId,
+            contentId:   g.contentId,
+            gameDataDir: g.gameDataDir,
+          })),
+          fromDisk ? { fromDiskOnly: true } : { force },
+        )
+        .catch(() => {});
+    }
+
+    return result;
+  }
 
   // ── Startup ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Kick off output + log loading in parallel with the ping
     window.godsendApi.getOutputBuffer().then((buf) => setOutputLines(buf));
     window.godsendApi.getLogsInfo().then((info) => setLogInfo(info));
+    window.godsendApi.getAuroraLibrarySources().then((s) => {
+      if (Array.isArray(s) && s.length > 0) setLibrarySources(s);
+    }).catch(() => {});
 
     const cleanupOutput = window.godsendApi.onOutput((line) =>
       setOutputLines((prev) => [...prev, line])
     );
-    const cleanupCover = window.godsendApi.onXboxCover(({ titleId, dataUrl }) =>
-      setCovers((prev) => ({ ...prev, [titleId]: dataUrl }))
+    const cleanupCover = window.godsendApi.onXboxCover(({ titleId, src, dataUrl }) =>
+      setCovers((prev) => ({ ...prev, [titleId]: src || dataUrl }))
+    );
+    const cleanupVisuals = window.godsendApi.onXboxTitleVisuals(({ titleId, visuals }) =>
+      setTitleVisuals((prev) => ({ ...prev, [titleId]: visuals }))
     );
 
-    // Ping → auto-open library on success, fall back to home on failure
     initApp();
+
+    const queueInterval = setInterval(async () => {
+      const r = await window.godsendApi.getQueue().catch(() => ({ ok: false, jobs: [] }));
+      if (r.ok) setQueueJobs(Array.isArray(r.jobs) ? r.jobs : []);
+    }, 5000);
 
     return () => {
       cleanupOutput();
       cleanupCover();
+      cleanupVisuals();
+      clearInterval(queueInterval);
     };
   }, []);
 
@@ -54,33 +111,14 @@ export default function App() {
       return;
     }
 
-    // Connected — go straight to the library
     setFtpStatus("connected");
     setLibraryStatus("connecting");
     setPage("library");
 
-    const result = await window.godsendApi.listXboxGames();
-
-    if (!result.ok) {
-      // Reachable but scan failed — fall back to home and flag as disconnected
-      setFtpStatus("disconnected");
-      setPage("home");
-      return;
-    }
-
-    setLibraryGames(result.games);
-    setLibraryConnectedTo(result.connectedTo);
-    setCovers({});
-    setLibraryStatus(result.games.length === 0 ? "empty" : "ready");
-
-    if (result.games.length > 0) {
-      window.godsendApi
-        .fetchXboxCovers(result.games.map((g) => ({ titleId: g.titleId, ftpPath: g.coverFtpPath })))
-        .catch(() => {});
-    }
+    await loadAuroraLibrary();
   }
 
-  // ── FTP ping (used by reconnect button) ───────────────────────────────────
+  // ── FTP ping (reconnect button) ───────────────────────────────────────────
   async function pingFtp() {
     setFtpStatus("checking");
     const result = await window.godsendApi.pingXbox();
@@ -92,7 +130,39 @@ export default function App() {
     []
   );
 
-  // ── Library toggle (manual open/close from home page) ─────────────────────
+  // ── Aurora library: poll Xbox DB fingerprint every 2 minutes ─────────────
+  useEffect(() => {
+    if (page !== "library") return undefined;
+
+    const pollMs = 120000;
+    const id = setInterval(async () => {
+      const r = await window.godsendApi.listAuroraLibrary({}).catch(() => ({ ok: false }));
+      if (!r.ok || !Array.isArray(r.games)) return;
+      if (r.libraryUnchanged === true) return;
+
+      setLibraryGames(r.games);
+      setLibraryConnectedTo(r.connectedTo || "");
+      setLibraryStatus(r.games.length === 0 ? "empty" : "ready");
+      setCovers({});
+      setTitleVisuals({});
+      if (r.games.length > 0) {
+        window.godsendApi
+          .fetchAuroraCovers(
+            r.games.map((g) => ({
+              titleId:     g.titleId,
+              contentId:   g.contentId,
+              gameDataDir: g.gameDataDir,
+            })),
+            { force: false },
+          )
+          .catch(() => {});
+      }
+    }, pollMs);
+
+    return () => clearInterval(id);
+  }, [page]);
+
+  // ── Library toggle ────────────────────────────────────────────────────────
   async function handleLibraryToggle() {
     if (page === "library") {
       setPage("home");
@@ -103,7 +173,7 @@ export default function App() {
     setLibraryStatus("connecting");
 
     try {
-      const result = await window.godsendApi.listXboxGames();
+      const result = await loadAuroraLibrary({ navigateOnLibraryError: false });
 
       if (!result.ok) {
         appendLine(`[ERROR] Xbox Library: ${result.error}`);
@@ -112,27 +182,38 @@ export default function App() {
         return;
       }
 
-      setLibraryGames(result.games);
-      setLibraryConnectedTo(result.connectedTo);
-      setCovers({});
-      setLibraryStatus(result.games.length === 0 ? "empty" : "ready");
       setPage("library");
-      setLibraryLoading(false);
-
-      if (result.games.length > 0) {
-        window.godsendApi
-          .fetchXboxCovers(result.games.map((g) => ({ titleId: g.titleId, ftpPath: g.coverFtpPath })))
-          .catch(() => {});
-      }
     } catch (err) {
       appendLine(`[ERROR] Xbox Library: ${err.message || "Unknown error"}`);
+    } finally {
       setLibraryLoading(false);
     }
   }
 
-  // ── Routing ───────────────────────────────────────────────────────────────
+  async function handleLibraryRefresh() {
+    setLibraryRefreshing(true);
+    try {
+      const r = await loadAuroraLibrary({
+        force: true,
+        navigateOnLibraryError: false,
+      });
+      if (!r.ok) {
+        appendLine(`[ERROR] Xbox Library refresh: ${r.error}`);
+        setFtpStatus("disconnected");
+      }
+    } catch (err) {
+      appendLine(`[ERROR] Xbox Library refresh: ${err.message || "Unknown error"}`);
+    } finally {
+      setLibraryRefreshing(false);
+    }
+  }
 
-  // Brief spinner while the initial ping is in flight
+  // ── Library sources update (called from SettingsPage) ────────────────────
+  function handleLibrarySourcesChanged(sources) {
+    setLibrarySources(sources);
+  }
+
+  // ── Routing ───────────────────────────────────────────────────────────────
   if (page === "loading") {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -142,7 +223,21 @@ export default function App() {
   }
 
   if (page === "settings") {
-    return <SettingsPage onBack={() => setPage("home")} onAppendLine={appendLine} />;
+    return (
+      <SettingsPage
+        onBack={() => setPage("home")}
+        onAppendLine={appendLine}
+        onLibrarySourcesChanged={handleLibrarySourcesChanged}
+      />
+    );
+  }
+
+  if (page === "queue") {
+    return <QueuePage onBack={() => setPage("home")} />;
+  }
+
+  if (page === "browse") {
+    return <BrowsePage onBack={() => setPage("home")} />;
   }
 
   if (page === "library") {
@@ -151,8 +246,12 @@ export default function App() {
         status={libraryStatus}
         games={libraryGames}
         covers={covers}
+        titleVisuals={titleVisuals}
         connectedTo={libraryConnectedTo}
+        librarySources={librarySources}
         onToggle={handleLibraryToggle}
+        onRefresh={handleLibraryRefresh}
+        refreshBusy={libraryRefreshing}
       />
     );
   }
@@ -163,10 +262,13 @@ export default function App() {
       logInfo={logInfo}
       ftpStatus={ftpStatus}
       onNavigateSettings={() => setPage("settings")}
+      onNavigateQueue={() => setPage("queue")}
+      onNavigateBrowse={() => setPage("browse")}
       onLibraryToggle={handleLibraryToggle}
       onReconnect={pingFtp}
       libraryLoading={libraryLoading}
       onAppendLine={appendLine}
+      queueJobs={queueJobs}
     />
   );
 }

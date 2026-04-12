@@ -17,7 +17,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 ## Internet Archive account & parallel downloads (optional fallback)
 
 - **What:** Authenticated downloads from archive.org collections — useful for titles not available on Minerva.
-- **How:** Settings → **Internet Archive account** → **Log in**; adjust **Parallel download connections** (1–7). Select **Internet Archive** as the source when browsing.
+- **How:** Settings → **Internet Archive account** → **Log in**. Select **Internet Archive** as the source when browsing. Large files use automatic chunked parallel HTTP downloads (no connection slider).
 - **How it works:** The app stores session cookies locally (not your password), passes them to the backend, which fetches items with multiple range-request workers for faster ISO/archive retrieval.
 
 ## Local Transfer folder (your own ISOs)
@@ -40,9 +40,9 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 ## Browse & install: Xbox 360 / original Xbox disc libraries
 
-- **What:** Redump-style ISO libraries from Minerva Archive or Internet Archive, converted for Aurora. After choosing transfer mode (HTTP/FTP) the script offers **GOD**, **DLC** (content install), or **XEX** for every title — pick the install layout that matches the disc.
-- **How:** Main menu → **Xbox 360 Redump ISOs** or **Original Xbox Redump ISOs** → pick source (Minerva / Internet Archive) → letter folder → title → destination drive → FTP or HTTP → install type → confirm → install when **Ready**. A **[Recommended]** label appears when the server can determine the correct layout from the disc.
-- **How it works:** Backend downloads the ISO from Minerva (via BitTorrent) or Internet Archive (parallel HTTP), or uses your local copy. Converts to GOD format natively (no external tools required), stages under `Ready/`, then either serves files over HTTP for the script to pull or pushes them over FTP to the paths you registered. Title names are resolved from XboxUnity → XboxDB → an embedded title list and used to name the GOD folder on the Xbox (e.g. `Open Season - 5454082A`) so Aurora shows the correct title.
+- **What:** Redump-style ISO libraries from Minerva Archive or Internet Archive, converted for Aurora. The script offers **GOD**, **DLC** (content install), or **XEX** for every title — pick the install layout that matches the disc.
+- **How:** Main menu → **Xbox 360 Redump ISOs** or **Original Xbox Redump ISOs** → pick source (Minerva / Internet Archive) → letter folder → title → destination drive → install type → confirm. The backend downloads, converts, and pushes over FTP automatically. A **[Recommended]** label appears when the server can determine the correct layout from the disc.
+- **How it works:** Backend downloads the ISO from Minerva (via BitTorrent) or Internet Archive (chunked parallel HTTP), or uses your local copy. Converts to GOD format natively (no external tools required), then pushes directly to the Xbox over FTP. If the Xbox is unreachable (e.g. a game was launched), the transfer is saved and retried automatically — no data is lost. Title names are resolved from XboxUnity → XboxDB → an embedded title list and used to name the GOD folder on the Xbox (e.g. `Open Season - 5454082A`) so Aurora shows the correct title.
 
 ## Multi-disc game support
 
@@ -54,29 +54,23 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 - **What:** Non-disc content (arcade packages, digital titles, DLC, indie games, pre-packed game archives) from Minerva Archive or Internet Archive.
 - **How:** Choose the matching main-menu entry → pick source (Minerva / Internet Archive) → same browse flow. All content types show the drive picker so you can install to any drive.
-- **How it works:** Backend downloads from Minerva (BitTorrent) or Internet Archive and unpacks archives natively (no external tools required), writes a small `godsend.ini` manifest and payloads the script understands. Install type may be **GOD** (multi-part `.7z`), **raw** (single file into a content path), or **xex** as defined by the manifest.
-
-## HTTP vs FTP transfer mode
-
-- **What:** Two ways to move prepared content from the host computer to the Xbox.
-- **How:** After picking a game, choose **HTTP (Download & Extract)** or **FTP (Direct Transfer - More Reliable)**.
-- **How it works:** **HTTP:** the console downloads from `/files/...` and Aurora's script extracts/places files (ZIP/7z handling on-console where applicable). **FTP:** you register the console IP with `/register`; the server uploads directly to Aurora's FTP server to the drive you selected, so the script only waits for completion.
+- **How it works:** Backend downloads from Minerva (BitTorrent) or Internet Archive and unpacks archives natively (no external tools required), then FTPs content directly to the Xbox. Install type may be **GOD** (content tree to `[drive]\GOD\`), **raw** (package to its content path), or **xex** (loose folder to `[drive]\XEX\`).
 
 ## Install layouts: GOD, XEX folder, content (DLC), raw, ROMs
 
 - **What:** Different on-disk layouts depending on title type. The backend handles all conversion and packaging natively — no external tools required.
-- **How:** After **HTTP vs FTP**, the script asks **every** **Xbox 360 / Original / Local / Games Archive** title for **GOD / DLC / XEX**. Follow prompts until success, then **Settings → Content → Scan** in Aurora (or launch RetroArch for ROMs).
+- **How:** After selecting a game and drive, the script asks **every** **Xbox 360 / Original / Local / Games Archive** title for **GOD / DLC / XEX**. Follow prompts until success, then **Settings → Content → Scan** in Aurora (or launch RetroArch for ROMs).
 - **How it works:**
-  - **GOD** — ISO is converted to Games on Demand format; script downloads manifest + `.7z` parts into the `Games on Demand` folder structure (`GOD\{Name} - {TitleID}\{TitleID}\00007000\`).
-  - **DLC (Content)** — Content files are extracted from the ISO and placed in `Content\0000000000000000\{TitleID}\00000002\` on the target drive. The correct Title ID is resolved from the disc's content packages automatically (see Multi-disc game support above).
-  - **XEX** — The backend walks the XDVDFS filesystem for `default.xex`/`default.xbe` and extracts that game root to a loose folder under `[drive]\XEX\...`.
-  - **Raw** — A `.bin`/package is downloaded directly into the path specified in the manifest, installed to the drive you selected.
-  - **ROM** — Archive is extracted under `[drive]\<ROM root>\<system folder>\` (configurable via Settings).
+  - **GOD** — ISO is converted to Games on Demand format natively; the backend FTPs the content tree directly to `[drive]\GOD\{Name} - {TitleID}\` on the Xbox. If the Xbox goes offline mid-transfer (e.g. a game was launched), the job is saved and retried automatically — no re-download needed.
+  - **DLC (Content)** — Content files are extracted from the ISO and FTP'd to `Content\0000000000000000\{TitleID}\00000002\` on the target drive. The correct Title ID is resolved from the disc's content packages automatically (see Multi-disc game support above).
+  - **XEX** — The backend walks the XDVDFS filesystem for `default.xex`/`default.xbe`, extracts that game root, and FTPs it to `[drive]\XEX\{folderName}\`.
+  - **Raw** — Package is FTP'd directly to the appropriate content path on the target drive.
+  - **ROM** — Archive is extracted and the ROM file is FTP'd to `[drive]\<ROM root>\<system folder>\` (configurable via Settings).
 
 ## Retro ROMs (EdgeEmu, many systems)
 
 - **What:** Browse and install classic ROM sets scraped from EdgeEmu-compatible metadata (dozens of consoles/handhelds).
-- **How:** **Retro ROMs** → pick system → folder → title → drive → HTTP or FTP → same wait/install flow as other libraries.
+- **How:** **Retro ROMs** → pick system → folder → title → drive → same wait/install flow as other libraries.
 - **How it works:** Backend fetches/builds per-system ROM lists (`rom_*` platforms), downloads archives when triggered, and emits a **rom**-type manifest with a drive-relative `rompath`. The script extracts under `[drive]\<ROM root>\<system folder>\`, where **ROM install path** in Settings sets the root (default `Emulators\RetroArch\roms`, passed to the backend as `GODSEND_ROM_PATH`).
 
 ## Persistent server logs

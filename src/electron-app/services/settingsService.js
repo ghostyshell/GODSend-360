@@ -41,14 +41,6 @@ function getConfiguredIAAuthorization() {
   return typeof v === "string" ? v.trim() : "";
 }
 
-function getConfiguredIAConcurrency() {
-  const v = readConfig().iaConcurrency;
-  const n = parseInt(v, 10);
-  if (isNaN(n) || n < 1) return 5;
-  if (n > 7) return 7;
-  return n;
-}
-
 function getConfiguredServerPort() {
   const v = readConfig().serverPort;
   const n = parseInt(v, 10);
@@ -100,6 +92,30 @@ function getConfiguredFtpScriptsPath() {
   return typeof v === "string" && v.trim() ? v.trim() : getDefaultFtpScriptsPath();
 }
 
+function getConfiguredDefaultXboxDrive() {
+  const v = readConfig().defaultXboxDrive;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function getConfiguredAria2ListenPort() {
+  const v = readConfig().aria2ListenPort;
+  const n = parseInt(v, 10);
+  return isNaN(n) || n < 1 || n > 65535 ? "" : String(n);
+}
+
+function getConfiguredAuroraLibrarySources() {
+  const v = readConfig().auroraLibrarySources;
+  if (Array.isArray(v) && v.length > 0) return v.map(String).filter(Boolean);
+  if (typeof v === "string" && v.trim()) return v.split(",").map((s) => s.trim()).filter(Boolean);
+  return ["Hdd1"];
+}
+
+function getConfiguredAria2DhtPort() {
+  const v = readConfig().aria2DhtPort;
+  const n = parseInt(v, 10);
+  return isNaN(n) || n < 1 || n > 65535 ? "" : String(n);
+}
+
 function buildGodsendEnv(writableRoot) {
   const env = { ...process.env, GODSEND_HOME: writableRoot };
   const custom = getConfiguredTransferFolder();
@@ -108,12 +124,17 @@ function buildGodsendEnv(writableRoot) {
   if (iaCookie) env.GODSEND_IA_COOKIE = iaCookie;
   const iaAuth = getConfiguredIAAuthorization();
   if (iaAuth) env.GODSEND_IA_AUTHORIZATION = iaAuth;
-  env.GODSEND_IA_CONCURRENCY = String(getConfiguredIAConcurrency());
   const romPath = getConfiguredROMPath();
   if (romPath) env.GODSEND_ROM_PATH = romPath;
   env.GODSEND_PORT = String(getConfiguredServerPort());
   env.GODSEND_FTP_USER = getConfiguredFtpUser();
   env.GODSEND_FTP_PASS = getConfiguredFtpPassword();
+  const defaultDrive = getConfiguredDefaultXboxDrive();
+  if (defaultDrive) env.GODSEND_DEFAULT_DRIVE = defaultDrive;
+  const aria2Listen = getConfiguredAria2ListenPort();
+  if (aria2Listen) env.GODSEND_ARIA2_LISTEN_PORT = aria2Listen;
+  const aria2Dht = getConfiguredAria2DhtPort();
+  if (aria2Dht) env.GODSEND_ARIA2_DHT_PORT = aria2Dht;
   return env;
 }
 
@@ -126,7 +147,6 @@ module.exports = {
   getDefaultROMPath,
   getConfiguredIACookie,
   getConfiguredIAAuthorization,
-  getConfiguredIAConcurrency,
   getConfiguredServerPort,
   getConfiguredIAEmail,
   getConfiguredIAScreenname,
@@ -135,5 +155,9 @@ module.exports = {
   getConfiguredFtpPassword,
   getDefaultFtpScriptsPath,
   getConfiguredFtpScriptsPath,
+  getConfiguredDefaultXboxDrive,
+  getConfiguredAria2ListenPort,
+  getConfiguredAria2DhtPort,
+  getConfiguredAuroraLibrarySources,
   buildGodsendEnv,
 };

@@ -17,12 +17,16 @@
   ExecWait 'cmd.exe /c netsh advfirewall firewall add rule name="GODsend aria2c" dir=in  action=allow program="$INSTDIR\aria2c.exe" profile=any'
   ExecWait 'cmd.exe /c netsh advfirewall firewall add rule name="GODsend aria2c" dir=out action=allow program="$INSTDIR\aria2c.exe" profile=any'
   ${ifNot} ${isNoDesktopShortcut}
-    ; Use the installed executable icon to avoid broken icon paths.
-    CreateShortcut "$DESKTOP\GODsend.lnk" "$INSTDIR\GODsend.exe" "" "$INSTDIR\GODsend.exe" 0
+    ; Point the shortcut icon directly at the .ico file in resources so it is
+    ; immune to exe-resource indexing issues and Windows icon-cache staleness.
+    CreateShortcut "$DESKTOP\GODsend.lnk" "$INSTDIR\GODsend.exe" "" "$INSTDIR\resources\assets\tray.ico" 0
+    ; Notify the shell to refresh icon caches so the shortcut shows immediately.
+    System::Call 'Shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
   ${endIf}
 !macroend
 
 !macro customUnInstall
   ExecWait 'cmd.exe /c netsh advfirewall firewall delete rule name="GODsend HTTP 8080"'
   ExecWait 'cmd.exe /c netsh advfirewall firewall delete rule name="GODsend aria2c"'
+  Delete "$DESKTOP\GODsend.lnk"
 !macroend
