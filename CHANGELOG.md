@@ -7,6 +7,67 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Version** — **2.7.4** (root + Electron `package.json`, lockfiles, backend banner).
+
+### Added
+- **Game Details: Aurora Asset Editor** — the read-only "Aurora files on Xbox" WIP section is replaced with a full per-slot asset editor. Each slot (Background, Banner, Icon, Cover, Screenshots) shows the currently cached image, a **Search** button that queries XboxUnity by title name and TitleID, and a **File** button that opens a native file picker. Selecting an asset stages it as a pending upload (shown with a blue dot). **Save to Console** uploads all staged images to `Aurora/User/Import/{TitleID}/` via FTP; Aurora processes them on the next library scan.
+- **XboxUnity asset search** — new IPC `xbox:search-assets` queries `xboxunity.net/api/Covers/` by TitleID then by name, sorts results by official/rating, and prepends an Xbox CDN high-res cover when a titleid is returned. Exposed as `window.godsendApi.searchAssets`.
+- **FTP asset upload to console** — new IPC `xbox:upload-asset-to-console` accepts an image as base64 or a URL (fetched server-side), uploads to `User/Import/{TitleID}/{assetType}.{ext}` via FTP using a `Readable` stream, then bumps the cache fingerprint so the next library load re-syncs. Exposed as `window.godsendApi.uploadAssetToConsole`.
+- **Native image file picker** — new IPC `xbox:choose-image-file` opens a dialog filtered to JPEG/PNG/BMP/GIF and returns a data URL for in-app preview. Exposed as `window.godsendApi.chooseAssetImageFile`.
+
+### Fixed
+- **Aurora asset sync: all slots showing "—"** — `syncAuroraTitleVisualAssets` now fetches real displayable images via `GameAssetInfo.bin` (Xbox Live Atom XML stored per-title in `Data/GameData/{dir}/`). The XML contains `download.xbox.com` CDN URLs indexed by `<live:relationshipType>` (23=icon, 25=background, 27=banner, 33=cover) and screenshot URLs in `<live:slideShows>`. All URLs are confirmed live (HTTP 200). New `parseGameAssetInfoXml()` helper extracts them via regex.
+- **Aurora `.asset` binary files removed from sync** — Aurora's `BK/GC/GL/SS{TitleId}.asset` files use the RXEA GPU-texture format (big-endian DXT-compressed Xenos textures) and are **not decodable** as JPEG/PNG without a platform DXT decompressor. The previous magic-byte scan produced false positives from DXT data. These files are now ignored in favour of CDN images.
+- **Aurora asset sync priority order** corrected: `User/Import/{TitleID}/` (highest, user-placed files) → `GameAssetInfo.bin` CDN URLs (Xbox Live images) → `GameCoverInfo.bin` XboxUnity cover (`mediaCover` fallback).
+- **Media/ directory no longer scanned per-title** — `Aurora/Media/` contains Aurora's UI system assets (Fonts, Layouts, Scripts, Effects), not game artwork. The per-title Media scan and the shared `mediaDirSnapshot` LIST are removed; this eliminates hundreds of wasted FTP calls per sync session.
+
+### Changed
+- **Electron: no visible logs during Aurora library / artwork sync** — Aurora FTP steps now call `addOutputLine`, so lines appear in the Home **Console** output and in `godsend-server-*.log` as `ELECTRON_UI` (start, cache hit, DB download, scan-path probe, artwork progress every 25 titles, per-title warnings, fatal errors). `addOutputLine` also falls back to any open `BrowserWindow` if the tray window ref is missing.
+- **Electron: Xbox Library refresh / cover sync appearing stuck** — artwork sync no longer runs `LIST` on the entire Aurora `Media/` folder once per game (which multiplied FTP traffic by library size). The Media directory is listed **once** per `fetchAuroraCovers` session and reused; the main thread also yields every few titles. Scan-path drive probing after a DB download uses a shorter FTP timeout so a bad path cannot stall for minutes per attempt.
+- **Electron: Synced artwork stuck on “loads with the library FTP sync…”** — per-title FTP sync errors no longer skip pushing `xbox-title-visuals`; the main process always emits visuals (empty manifest when needed) in a `finally` block, re-reads the cache when opening game detail (`xbox:refresh-title-visuals-cache`), and falls back to any live `BrowserWindow` when pushing IPC if the tray window ref is stale.
+- **Electron main process startup** — removed duplicate `net` binding (`require("net")` vs Electron’s `net`); Aurora cache protocol handler now uses `electron.net` explicitly so the packaged app loads `bootstrap.js` without a syntax error.
+
+### Added
+- **Electron: Aurora library disk cache** — Xbox Library caches Aurora `content.db` / `settings.db` and a **single primary** cover per title under `%APPDATA%` (per console IP + Aurora root). FTP `SIZE` checks detect DB changes; while unchanged, the UI reads local SQLite and serves the primary image via `godsend-aurora://`. **Refresh** forces a full re-sync; the library page **polls every 2 minutes** for DB changes. **`inspectAuroraGame` IPC** lists each title’s `Data/GameData/…` files (including `.asset`), `Media/{TitleID}*` matches, and a **read-only summary** of `GameCoverInfo.bin` (entry count + flags — no bulk cover downloads). Game detail shows **library DB fields** (scan path, media ID, file/content types, directory) and links to [Aurora Asset Editor](https://github.com/XboxUnity/AuroraAssetEditor) for future in-app editing.
+- **Electron: Aurora artwork sync** — After each title’s primary cover, the app pulls **background, banner, icon, screenshots** from `Aurora/User/Import/<TitleID>/` ([ConsoleMods import layout](https://consolemods.org/wiki/Xbox_360:Aurora_Import_Format)) and image files under flat `Media/<TitleID>*` (suffix heuristics: **GC** cover, **BK/BG** background, **BN/BA** banner, **IC/IL/IS** icon, **SS/SC** screenshots). Files are cached under `aurora-library-cache/.../visual/` and surfaced in game detail via **`xbox-title-visuals`** (`godsend-aurora://` URLs). DDS and other non-web formats are stored but only show a “cached” placeholder in the UI.
+
+### Removed
+- **Browse `title_id` in cache JSON + `/browse?format=json`** — IA and Minerva cache files no longer store optional `title_id` on entries; `/browse` returns only the pipe-separated title list (optional `source=` unchanged). Removed `npm run enrich:cache-title-ids` and `scripts/enrich-cache-title-ids.mjs`.
+
+### Changed
+- **Electron: Xbox Library cover UX** — Removed downloading every `GameCoverInfo` URL and the multi-image gallery; only the best-rated/official primary cover is cached for the grid/detail (alternate entries remain on-console for a future picker / editor).
+- **Electron: Browse Library + cover fetch** — Loads browse lists via plain `/browse` text again. Cover resolution: XboxUnity Covers (and CDN when the row has `titleid`), TitleList (+ series-stripped retry), Microsoft Store Display Catalog → legacy Title ID → CDN, then Wikipedia.
+
+---
+
+## [2.7.3] — 2026-04-12
+
+### Fixed
+- **Minerva lookup vs browse list** — titles scraped with HTML entities in the filename (e.g. `&#39;` for apostrophes) were shown decoded in the Minerva browse UI but failed `/trigger` with “Not found in Minerva Archive”. The backend now indexes and resolves both encoded and decoded forms, and torrent file matching tolerates the same mismatch.
+
+### Added
+- **Browse cache `title_id` + JSON list** — IA and Minerva cache entries may store optional `title_id` (8-char hex). `GET /browse?format=json` returns `[{"name","title_id"},…]` alongside the existing pipe-separated form (default). The Electron Browse Library uses JSON, passes `title_id` into cover fetch to hit the Xbox catalog CDN without an extra TitleList round-trip when the id is known. Script `npm run enrich:cache-title-ids` fills `title_id` using local bulk data first (embedded `iso2god_titles.jsonl`, cached [AdrianCassar gist](https://gist.github.com/AdrianCassar/c0d05a14608168259232b3ed8c77f28c) JSON, cached [XboxDB](https://xboxdb.altervista.org/browse/f) browse scrape), then XboxUnity Covers + TitleList (`cache/title_id_lookup_cache.json` for per-term resume). `--refresh-datasets` re-downloads gist + XboxDB. Cache rebuilds preserve existing `title_id` values when the same title keys are still present.
+- **Electron: Aurora library view** — the Xbox Library panel now reads Aurora's `content.db` and `settings.db` directly via FTP instead of scanning FTP directories. Respects Aurora's hidden-game flag (`UserHidden`), surfaces favorites (`UserFavorites`), play counts and last-played dates (`UserRecentGames`), and full metadata (publisher, developer, description, star rating, release date, disc set). Clicking a game card opens a detail view with cover art, full metadata, and footer TitleID/ContentID.
+- **Electron: Aurora library sources setting** — new Settings section to select which Xbox drives (Hdd1, Usb0, Usb1, Usb2) count as active library sources; games whose drive is not in the selected set are shown greyed-out in the library grid.
+- **Backend: FTP drive-probing for ScanPaths** — drive assignment for each game is determined by probing FTP (`cd /{drive}{Directory}`) per unique `ScanPathId` at library-load time, rather than via the unreliable `ScanPaths.DeviceId → MountedDevices.DeviceId` join (which references stale device configs).
+- **Backend: Persistent pending FTP queue** — if the Xbox goes offline mid-transfer (e.g. a game is launched), downloaded and converted files are preserved on disk and the backend retries the FTP transfer indefinitely (30 s → 5 min exponential backoff) until the console is reachable again. Pending jobs survive backend/app restarts and are resumed automatically.
+- **Electron: Queue viewer** — main window shows a **Queue** button (visible when jobs are active) that opens a live queue view with per-job status, progress, and remove controls; auto-refreshes every 3 seconds.
+- **Electron: Clear local app data** — new Settings section to purge pending FTP jobs, Ready/ and Temp/ directories; warns when active/pending jobs exist and requires confirmation.
+- **Electron: Aria2 port settings** — new Settings section to configure the aria2 listen port and DHT port used for Minerva/torrent downloads; lets users open specific firewall rules.
+- **Electron: Default Xbox drive** — new Settings section to fetch available storage drives from the Xbox via FTP and set a default destination; when set the Aurora script skips the drive picker on every download.
+
+### Changed
+- **Internet Archive HTTP downloads** — Removed the Settings **Parallel download connections** slider and Electron `GODSEND_IA_CONCURRENCY` wiring. Large IA (and EdgeEmu ROM) files now use a download-manager style queue of fixed-size byte ranges with up to 16 parallel range requests by default (pattern inspired by [Gopeed](https://github.com/GopeedLab/gopeed)); optional env `GODSEND_IA_MAX_CONNECTIONS` (1–32) or legacy `GODSEND_IA_CONCURRENCY` for headless tuning. Progress logs no longer show a trailing `Nx` connection count.
+- **Electron: Browse cover fetch** — Uses XboxUnity `/api/Covers` metadata (`titleid`) to prefer Microsoft catalog art when available, with TitleList + series-stripped TitleList retries as fallbacks.
+- **Aurora script** — Background download prompts and the post-dismissal message now say to run **Aurora's Scan Content** after the FTP transfer finishes so the title shows up (replacing wording that implied it would appear automatically).
+- **Aurora: FTP-only transfer mode** — the transfer method prompt (FTP vs HTTP) has been removed; all transfers now go directly via FTP. HTTP packaging is no longer presented as an option.
+- **Version** — **2.7.3** (root + Electron `package.json`, lockfiles, backend banner); Aurora script **11.2.1**.
+
+---
+
 ## [2.7.1] — 2026-04-11
 
 ### Added

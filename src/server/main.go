@@ -58,11 +58,25 @@ const (
 	// Minerva Archive browse base
 	MinervaBrowseBase = "https://minerva-archive.org/browse/"
 
-	// Parallel IA download settings
-	iaChunkRetries      = 5
-	iaChunkRetryBase    = 6 * time.Second
-	iaParallelThreshold = 32 * 1024 * 1024 // files smaller than 32 MB use single stream
+	// Internet Archive / HTTP range downloads: fixed-size segment queue + worker pool
+	// (dynamic work assignment like https://github.com/GopeedLab/gopeed — avoids one slow tail chunk).
+	iaChunkRetries       = 5
+	iaChunkRetryBase     = 6 * time.Second
+	iaParallelThreshold  = 32 * 1024 * 1024 // below this size, use a single HTTP stream
+	iaSegmentSize        = 4 * 1024 * 1024  // bytes per queued range job
+	iaParallelMaxDefault = 16                // default concurrent range GETs
+	iaParallelMaxCap     = 32                // upper bound for env-tuned parallelism
 )
+
+func clampIAParallel(c int) int {
+	if c < 1 {
+		return 1
+	}
+	if c > iaParallelMaxCap {
+		return iaParallelMaxCap
+	}
+	return c
+}
 
 // ==========================================
 // INTERNET ARCHIVE COLLECTION MAP
@@ -361,11 +375,15 @@ var (
 	toolsDir              string
 	godsendExeDir         string // directory containing the godsend binary (bundled cache/ lives here when shipped)
 	transferDir           string // local ISO folder (default toolsDir/Transfer, or GODSEND_TRANSFER)
+	pendingFTPDir         string
+	defaultXboxDrive      string // GODSEND_DEFAULT_DRIVE
+	aria2ListenPort       string // GODSEND_ARIA2_LISTEN_PORT
+	aria2DhtPort          string // GODSEND_ARIA2_DHT_PORT
 	jobQueue              sync.Map
 	suppressedJobs        sync.Map // games removed via /queue/remove — ignore logStatus until next /trigger
 	iaCookieHeader        string   // GODSEND_IA_COOKIE — browser session for archive.org
 	iaAuthorizationHeader string   // GODSEND_IA_AUTHORIZATION — optional Bearer/basic
-	iaDownloadConcurrency int      // GODSEND_IA_CONCURRENCY — parallel chunk workers (1-7, default 4)
+	iaDownloadMaxParallel int      // max concurrent range GETs (GODSEND_IA_MAX_CONNECTIONS or legacy GODSEND_IA_CONCURRENCY)
 	iaHTTPClient          *http.Client
 	serverIP              string
 	serverPort            string
@@ -665,7 +683,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.7.1         ║")
+	fmt.Println("║    GODSend Backend Server v2.7.4         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
@@ -738,6 +756,18 @@ func main() {
 	http.HandleFunc("/register", recoverMiddleware(handleRegister))
 	http.HandleFunc("/disc-info", recoverMiddleware(handleDiscInfo))
 	http.HandleFunc("/files/", recoverMiddleware(handleFileServe))
+	http.HandleFunc("/data/status", recoverMiddleware(handleDataStatus))
+	http.HandleFunc("/data/clear", recoverMiddleware(handleDataClear))
+	http.HandleFunc("/config", recoverMiddleware(handleServerConfig))
+
+	// Resume any pending FTP jobs from previous sessions
+	go func() {
+		for _, job := range loadAllPendingFTPJobs() {
+			logf("FTP PENDING: Resuming job for %s (from previous session)", job.GameName)
+			logStatus(job.GameName, "Pending FTP", "Resumed from previous session — waiting for Xbox FTP...")
+			go retryFTPJobForever(job)
+		}
+	}()
 
 	requestedPort, err := strconv.Atoi(serverPort)
 	if err != nil {
@@ -840,6 +870,13 @@ func setupPaths() error {
 	if v := os.Getenv("GODSEND_FTP_PASS"); v != "" {
 		ftpPassword = v
 	}
+	pendingFTPDir = filepath.Join(toolsDir, "pending_ftp")
+	os.MkdirAll(pendingFTPDir, 0755)
+
+	defaultXboxDrive = strings.TrimSpace(os.Getenv("GODSEND_DEFAULT_DRIVE"))
+	aria2ListenPort = strings.TrimSpace(os.Getenv("GODSEND_ARIA2_LISTEN_PORT"))
+	aria2DhtPort = strings.TrimSpace(os.Getenv("GODSEND_ARIA2_DHT_PORT"))
+
 	cleanupEmptyReadyDirs()
 	return nil
 }
@@ -859,15 +896,16 @@ func loadIAAuthFromEnv() {
 	}
 	iaAuthorizationHeader = strings.TrimSpace(a)
 
-	// Parallel download concurrency (1-7, default 4)
-	iaDownloadConcurrency = 5
-	if c, err := strconv.Atoi(strings.TrimSpace(os.Getenv("GODSEND_IA_CONCURRENCY"))); err == nil {
-		if c < 1 {
-			c = 1
-		} else if c > 7 {
-			c = 7
+	iaDownloadMaxParallel = iaParallelMaxDefault
+	if v := strings.TrimSpace(os.Getenv("GODSEND_IA_MAX_CONNECTIONS")); v != "" {
+		if c, err := strconv.Atoi(v); err == nil {
+			iaDownloadMaxParallel = clampIAParallel(c)
 		}
-		iaDownloadConcurrency = c
+	} else if v := strings.TrimSpace(os.Getenv("GODSEND_IA_CONCURRENCY")); v != "" {
+		// Legacy desktop / docs: same meaning as max parallel range requests (wider clamp than old 1–7).
+		if c, err := strconv.Atoi(v); err == nil {
+			iaDownloadMaxParallel = clampIAParallel(c)
+		}
 	}
 
 	// Shared IA HTTP client: forwards auth headers across redirects (IA redirects to mirrors).
@@ -895,7 +933,7 @@ func loadIAAuthFromEnv() {
 	if iaAuthorizationHeader != "" {
 		logf("[INFO] Internet Archive: Authorization header set (%d chars)", len(iaAuthorizationHeader))
 	}
-	logf("[INFO] Internet Archive: download concurrency = %d", iaDownloadConcurrency)
+	logf("[INFO] Internet Archive: chunked HTTP downloads (max %d parallel range requests)", iaDownloadMaxParallel)
 }
 
 // applyArchiveOrgHeaders adds session/auth headers for archive.org HTTP requests.
@@ -1235,6 +1273,11 @@ func loadMinervaCacheFromDisk(platform string) bool {
 	minervaEntryMapMu.Lock()
 	for k, v := range mc.Entries {
 		minervaEntryMap[k] = v
+		if dk := strings.ToLower(decodeMinervaName(k)); dk != k {
+			if _, taken := minervaEntryMap[dk]; !taken {
+				minervaEntryMap[dk] = v
+			}
+		}
 	}
 	minervaEntryMapMu.Unlock()
 
@@ -1355,15 +1398,22 @@ func buildMinervaCache(platform string) {
 		return
 	}
 
-	newEntries := make(map[string]MinervaEntry, len(entries))
+	newEntries := make(map[string]MinervaEntry, len(entries)*2)
 	var allGames []string
 	for _, e := range entries {
 		name := strings.TrimSuffix(e.FileName, filepath.Ext(e.FileName))
 		lower := strings.ToLower(name)
-		if _, dup := newEntries[lower]; !dup {
-			newEntries[lower] = e
-			allGames = append(allGames, name)
+		if _, dup := newEntries[lower]; dup {
+			continue
 		}
+		me := MinervaEntry{FileName: e.FileName, PathParam: e.PathParam}
+		newEntries[lower] = me
+		if dec := strings.ToLower(decodeMinervaName(name)); dec != lower {
+			if _, taken := newEntries[dec]; !taken {
+				newEntries[dec] = MinervaEntry{FileName: me.FileName, PathParam: me.PathParam}
+			}
+		}
+		allGames = append(allGames, name)
 	}
 	sort.Strings(allGames)
 	setMinervaBuildState(platform, "ready", 1, 1)
@@ -1390,21 +1440,29 @@ func buildMinervaCache(platform string) {
 // Returns the entry and true if found, or false if not found.
 // Triggers a background cache build if the cache is empty for this platform.
 func findMinervaEntry(gameName, platform string) (MinervaEntry, bool) {
-	lower := strings.ToLower(gameName)
+	keys := minervaLookupKeys(gameName)
 
 	minervaEntryMapMu.RLock()
-	if e, ok := minervaEntryMap[lower]; ok {
-		minervaEntryMapMu.RUnlock()
-		return e, true
-	}
-	// Fuzzy: strip region tags and compare base names
-	baseName := strings.ToLower(strings.SplitN(gameName, " (", 2)[0])
-	for k, e := range minervaEntryMap {
-		if strings.Contains(k, lower) {
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		if e, ok := minervaEntryMap[key]; ok {
 			minervaEntryMapMu.RUnlock()
 			return e, true
 		}
-		kBase := strings.ToLower(strings.SplitN(k, " (", 2)[0])
+	}
+	// Fuzzy: strip region tags and compare base names (decode entities for comparison)
+	decName := decodeMinervaName(gameName)
+	lowerDec := strings.ToLower(decName)
+	baseName := strings.ToLower(strings.SplitN(decName, " (", 2)[0])
+	for k, e := range minervaEntryMap {
+		kDec := decodeMinervaName(k)
+		if strings.Contains(strings.ToLower(kDec), lowerDec) {
+			minervaEntryMapMu.RUnlock()
+			return e, true
+		}
+		kBase := strings.ToLower(strings.SplitN(kDec, " (", 2)[0])
 		if kBase == baseName {
 			minervaEntryMapMu.RUnlock()
 			return e, true
@@ -1560,6 +1618,23 @@ func aria2cBinary() (string, error) {
 	return p, nil
 }
 
+// torrentBasenameMatches reports whether a path inside the .torrent matches the Minerva entry
+// filename, including when one side uses HTML entities (e.g. &#39;) and the other uses a literal apostrophe.
+func torrentBasenameMatches(torrentBase, entryFileName string) bool {
+	if strings.EqualFold(torrentBase, entryFileName) {
+		return true
+	}
+	a := decodeMinervaName(torrentBase)
+	b := decodeMinervaName(entryFileName)
+	if strings.EqualFold(a, b) {
+		return true
+	}
+	if strings.EqualFold(a, entryFileName) || strings.EqualFold(torrentBase, b) {
+		return true
+	}
+	return false
+}
+
 // downloadViaTorrent uses aria2c to download a single file from the Minerva collection torrent.
 // It fetches the .torrent from Minerva's URL, finds the target file's 1-based index, then
 // shells out to aria2c with --select-file so only that file is downloaded.
@@ -1591,7 +1666,8 @@ func downloadViaTorrent(platform, destDir, gameName string, entry MinervaEntry) 
 	fileIndex := -1
 	var fileSize int64
 	for i, f := range info.UpvertedFiles() {
-		if strings.EqualFold(filepath.Base(filepath.Join(f.Path...)), entry.FileName) {
+		torrentBase := filepath.Base(filepath.Join(f.Path...))
+		if torrentBasenameMatches(torrentBase, entry.FileName) {
 			fileIndex = i + 1 // aria2c uses 1-based index
 			fileSize = f.Length
 			break
@@ -1640,6 +1716,13 @@ func downloadViaTorrent(platform, destDir, gameName string, entry MinervaEntry) 
 		"--summary-interval=3", // print progress every 3 s
 		"--human-readable=true",
 		torrentFile,
+	}
+	if aria2ListenPort != "" {
+		args = append(args, "--listen-port="+aria2ListenPort)
+		args = append(args, "--dht-listen-port="+aria2ListenPort)
+	}
+	if aria2DhtPort != "" {
+		args = append(args, "--dht-listen-port="+aria2DhtPort)
 	}
 	_ = torrentURL // URL was used to fetch; aria2c gets the temp file
 
@@ -2036,6 +2119,19 @@ func decodeMinervaName(s string) string {
 	s = strings.ReplaceAll(s, "&gt;", ">")
 	s = strings.ReplaceAll(s, "&quot;", "\"")
 	return s
+}
+
+// minervaLookupKeys returns distinct lowercased index keys for a Minerva display/file base name.
+// Cached scrape data often keeps HTML entities in the raw string while /browse decodes them for
+// display; indexing both forms keeps trigger lookup consistent with the UI.
+func minervaLookupKeys(name string) []string {
+	name = strings.TrimSpace(name)
+	raw := strings.ToLower(name)
+	dec := strings.ToLower(decodeMinervaName(name))
+	if raw == dec {
+		return []string{raw}
+	}
+	return []string{raw, dec}
 }
 
 func handleBrowse(w http.ResponseWriter, r *http.Request) {
@@ -2562,8 +2658,98 @@ func handleQueueRemove(w http.ResponseWriter, r *http.Request) {
 	}
 	jobQueue.Delete(game)
 	suppressedJobs.Store(game, struct{}{})
+	// Also cancel any pending FTP job for this game
+	for _, job := range loadAllPendingFTPJobs() {
+		if job.GameName == game {
+			deletePendingFTPJob(job.ID)
+			go func(j PendingFTPJob) {
+				time.Sleep(3 * time.Second)
+				os.RemoveAll(j.SourceDir)
+				if j.GameDir != "" {
+					os.RemoveAll(j.GameDir)
+				}
+			}(job)
+		}
+	}
 	logf("QUEUE: removed job %q", game)
 	jsonSuccess(w, map[string]string{"status": "removed", "game": game})
+}
+
+func handleDataStatus(w http.ResponseWriter, r *http.Request) {
+	var activeJobs int
+	jobQueue.Range(func(k, v interface{}) bool {
+		gs := v.(GameStatus)
+		if gs.State == "Processing" || gs.State == "Pending FTP" {
+			activeJobs++
+		}
+		return true
+	})
+	pendingJobs := loadAllPendingFTPJobs()
+	pendingFTPJobs := len(pendingJobs)
+
+	// Calculate local data size (Ready/ + Temp/ directories)
+	var localDataBytes int64
+	for _, dir := range []string{"Ready", "Temp"} {
+		filepath.Walk(filepath.Join(toolsDir, dir), func(_ string, info os.FileInfo, err error) error {
+			if err == nil && !info.IsDir() {
+				localDataBytes += info.Size()
+			}
+			return nil
+		})
+	}
+	// Also count pending_ftp source dirs
+	for _, job := range pendingJobs {
+		filepath.Walk(job.SourceDir, func(_ string, info os.FileInfo, err error) error {
+			if err == nil && !info.IsDir() {
+				localDataBytes += info.Size()
+			}
+			return nil
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"active_jobs":      activeJobs,
+		"pending_ftp_jobs": pendingFTPJobs,
+		"local_data_bytes": localDataBytes,
+		"local_data_mb":    localDataBytes / 1048576,
+	})
+}
+
+func handleDataClear(w http.ResponseWriter, r *http.Request) {
+	// Clear all job statuses
+	jobQueue.Range(func(k, v interface{}) bool {
+		suppressedJobs.Store(k, true)
+		jobQueue.Delete(k)
+		return true
+	})
+	// Clear pending FTP jobs (goroutines will detect suppression and exit)
+	pendingJobs := loadAllPendingFTPJobs()
+	for _, job := range pendingJobs {
+		suppressedJobs.Store(job.GameName, true)
+		deletePendingFTPJob(job.ID)
+		go func(j PendingFTPJob) {
+			time.Sleep(2 * time.Second)
+			os.RemoveAll(j.SourceDir)
+			if j.GameDir != "" {
+				os.RemoveAll(j.GameDir)
+			}
+		}(job)
+	}
+	// Clear Ready/ and Temp/ directories
+	os.RemoveAll(filepath.Join(toolsDir, "Ready"))
+	os.RemoveAll(filepath.Join(toolsDir, "Temp"))
+	os.MkdirAll(filepath.Join(toolsDir, "Ready"), 0755)
+	os.MkdirAll(filepath.Join(toolsDir, "Temp"), 0755)
+
+	jsonSuccess(w, map[string]string{"status": "cleared"})
+}
+
+func handleServerConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"default_drive": defaultXboxDrive,
+	})
 }
 
 func handleDebug(w http.ResponseWriter, r *http.Request) {
@@ -2981,7 +3167,19 @@ func processLocalISO(gameName, isoPath string) {
 		folderName := safeName
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			if err := ftpTransferXEX(xexDir, folderName, xboxConn, gameName); err != nil {
-				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+				logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+				job := PendingFTPJob{
+					ID:         sanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
+					GameName:   gameName,
+					Type:       "xex",
+					SourceDir:  xexDir,
+					GameDir:    gameDir,
+					XboxIP:     xboxConn.IP,
+					Drive:      xboxConn.Drive,
+					FolderName: folderName,
+					CreatedAt:  time.Now(),
+				}
+				schedulePendingFTP(job)
 				return
 			}
 			os.RemoveAll(gameDir)
@@ -3107,7 +3305,19 @@ func processGame(gameName, platform string) {
 		logStatus(gameName, "Processing", fmt.Sprintf("XEX folder: %s", folderName))
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+				logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+				job := PendingFTPJob{
+					ID:         sanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
+					GameName:   gameName,
+					Type:       "xex",
+					SourceDir:  xexFolder,
+					GameDir:    gameDir,
+					XboxIP:     xboxConn.IP,
+					Drive:      xboxConn.Drive,
+					FolderName: folderName,
+					CreatedAt:  time.Now(),
+				}
+				schedulePendingFTP(job)
 			} else {
 				os.RemoveAll(gameDir)
 				logStatus(gameName, "Ready", "FTP Transfer Complete!")
@@ -3172,9 +3382,21 @@ func finalizeGOD(gameName, safeName, gameDir, godDir, titleID, mediaID string, x
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
 		logStatus(gameName, "Processing", "FTP Transfer starting...")
 		if err := ftpTransferGame(godDir, xboxConn, gameName, titleID, mediaID, resolvedName); err != nil {
-			logStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
-			os.RemoveAll(godDir)
-			os.RemoveAll(gameDir) // always empty in FTP mode
+			logf("FTP: initial transfer failed for %s: %v — scheduling for retry", gameName, err)
+			job := PendingFTPJob{
+				ID:           sanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
+				GameName:     gameName,
+				Type:         "god",
+				SourceDir:    godDir,
+				GameDir:      gameDir,
+				XboxIP:       xboxConn.IP,
+				Drive:        xboxConn.Drive,
+				TitleID:      titleID,
+				MediaID:      mediaID,
+				ResolvedName: resolvedName,
+				CreatedAt:    time.Now(),
+			}
+			schedulePendingFTP(job)
 			return
 		}
 		os.RemoveAll(godDir)
@@ -3249,7 +3471,19 @@ func processMinervaGame(gameName string, entry MinervaEntry, platform string) {
 		folderName := filepath.Base(xexFolder)
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+				logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+				job := PendingFTPJob{
+					ID:         sanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
+					GameName:   gameName,
+					Type:       "xex",
+					SourceDir:  xexFolder,
+					GameDir:    gameDir,
+					XboxIP:     xboxConn.IP,
+					Drive:      xboxConn.Drive,
+					FolderName: folderName,
+					CreatedAt:  time.Now(),
+				}
+				schedulePendingFTP(job)
 			} else {
 				os.RemoveAll(gameDir)
 				logStatus(gameName, "Ready", "FTP Transfer Complete!")
@@ -3369,7 +3603,19 @@ func processMinervaGenericGame(gameName string, entry MinervaEntry) {
 	folderName := filepath.Base(xexFolder)
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
 		if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-			logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+			logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+			job := PendingFTPJob{
+				ID:         sanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
+				GameName:   gameName,
+				Type:       "xex",
+				SourceDir:  xexFolder,
+				GameDir:    gameDir,
+				XboxIP:     xboxConn.IP,
+				Drive:      xboxConn.Drive,
+				FolderName: folderName,
+				CreatedAt:  time.Now(),
+			}
+			schedulePendingFTP(job)
 		} else {
 			os.RemoveAll(gameDir)
 			logStatus(gameName, "Ready", "FTP Transfer Complete!")
@@ -3524,8 +3770,20 @@ func processContentInstallFromISO(gameName, safeName, isoPath string, xboxConn *
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
 		logStatus(gameName, "Processing", "FTP Transfer starting...")
 		if err := ftpTransferContent(contentDir, xboxConn, gameName, titleID); err != nil {
-			logStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
-			os.RemoveAll(contentDir)
+			logf("FTP: initial content transfer failed for %s: %v — scheduling for retry", gameName, err)
+			gameDir := filepath.Join(toolsDir, "Ready", safeName)
+			job := PendingFTPJob{
+				ID:        sanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
+				GameName:  gameName,
+				Type:      "content",
+				SourceDir: contentDir,
+				GameDir:   gameDir,
+				XboxIP:    xboxConn.IP,
+				Drive:     xboxConn.Drive,
+				TitleID:   titleID,
+				CreatedAt: time.Now(),
+			}
+			schedulePendingFTP(job)
 			return
 		}
 		os.RemoveAll(contentDir)
@@ -3677,7 +3935,19 @@ func processGenericGame(gameName string) {
 		logStatus(gameName, "Processing", fmt.Sprintf("XEX folder: %s", folderName))
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			if err := ftpTransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-				logStatus(gameName, "Error", fmt.Sprintf("FTP XEX: %v", err))
+				logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+				job := PendingFTPJob{
+					ID:         sanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
+					GameName:   gameName,
+					Type:       "xex",
+					SourceDir:  xexFolder,
+					GameDir:    gameDir,
+					XboxIP:     xboxConn.IP,
+					Drive:      xboxConn.Drive,
+					FolderName: folderName,
+					CreatedAt:  time.Now(),
+				}
+				schedulePendingFTP(job)
 			} else {
 				os.RemoveAll(gameDir)
 				logStatus(gameName, "Ready", "FTP Transfer Complete!")
@@ -3966,6 +4236,143 @@ func ftpTransferGame(godDir string, conn *XboxConnection, gameName, titleID, med
 }
 
 // ==========================================
+// PENDING FTP QUEUE
+// ==========================================
+
+// PendingFTPJob describes a game transfer that should be retried indefinitely.
+type PendingFTPJob struct {
+	ID           string    `json:"id"`
+	GameName     string    `json:"game_name"`
+	Type         string    `json:"type"`         // "god", "xex", "content"
+	SourceDir    string    `json:"source_dir"`   // directory with files to upload
+	GameDir      string    `json:"game_dir"`     // Ready/ dir to remove on success (may be "")
+	XboxIP       string    `json:"xbox_ip"`
+	Drive        string    `json:"drive"`
+	TitleID      string    `json:"title_id,omitempty"`
+	MediaID      string    `json:"media_id,omitempty"`
+	ResolvedName string    `json:"resolved_name,omitempty"`
+	FolderName   string    `json:"folder_name,omitempty"` // xex only
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+func pendingFTPJobPath(id string) string {
+	return filepath.Join(pendingFTPDir, id+".json")
+}
+
+func savePendingFTPJob(job PendingFTPJob) error {
+	data, err := json.Marshal(job)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(pendingFTPJobPath(job.ID), data, 0644)
+}
+
+func deletePendingFTPJob(id string) {
+	os.Remove(pendingFTPJobPath(id))
+}
+
+func loadAllPendingFTPJobs() []PendingFTPJob {
+	entries, err := os.ReadDir(pendingFTPDir)
+	if err != nil {
+		return nil
+	}
+	var jobs []PendingFTPJob
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(pendingFTPDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		var job PendingFTPJob
+		if err := json.Unmarshal(data, &job); err != nil {
+			continue
+		}
+		jobs = append(jobs, job)
+	}
+	return jobs
+}
+
+// executePendingFTPJob runs the actual FTP transfer for a pending job.
+// Returns nil on success. On success, removes source files.
+func executePendingFTPJob(job PendingFTPJob) error {
+	conn := &XboxConnection{IP: job.XboxIP, Drive: job.Drive}
+	switch job.Type {
+	case "god":
+		if err := ftpTransferGame(job.SourceDir, conn, job.GameName, job.TitleID, job.MediaID, job.ResolvedName); err != nil {
+			return err
+		}
+	case "xex":
+		if err := ftpTransferXEX(job.SourceDir, job.FolderName, conn, job.GameName); err != nil {
+			return err
+		}
+	case "content":
+		if err := ftpTransferContent(job.SourceDir, conn, job.GameName, job.TitleID); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown pending FTP job type: %s", job.Type)
+	}
+	// Clean up on success
+	os.RemoveAll(job.SourceDir)
+	if job.GameDir != "" {
+		os.RemoveAll(job.GameDir)
+	}
+	return nil
+}
+
+// retryFTPJobForever retries a pending FTP job indefinitely until it succeeds or is cancelled.
+func retryFTPJobForever(job PendingFTPJob) {
+	backoff := 30 * time.Second
+	const maxBackoff = 5 * time.Minute
+	logf("FTP PENDING: %s — will retry every %s", job.GameName, backoff)
+	logStatus(job.GameName, "Pending FTP", "Xbox unreachable — will retry automatically when FTP comes back online")
+
+	for {
+		time.Sleep(backoff)
+
+		// Stop if job was removed from queue
+		if _, suppressed := suppressedJobs.Load(job.GameName); suppressed {
+			logf("FTP PENDING: %s — cancelled, removing", job.GameName)
+			deletePendingFTPJob(job.ID)
+			os.RemoveAll(job.SourceDir)
+			if job.GameDir != "" {
+				os.RemoveAll(job.GameDir)
+			}
+			return
+		}
+
+		logf("FTP PENDING: Retrying %s...", job.GameName)
+		logStatus(job.GameName, "Processing", "FTP retry: reconnecting to Xbox...")
+		if err := executePendingFTPJob(job); err != nil {
+			logf("FTP PENDING: Retry failed for %s: %v", job.GameName, err)
+			logStatus(job.GameName, "Pending FTP", fmt.Sprintf("FTP retry failed — will try again: %v", err))
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			continue
+		}
+
+		// Success
+		deletePendingFTPJob(job.ID)
+		logStatus(job.GameName, "Ready", "FTP Transfer Complete!")
+		logf("=== FTP PENDING Complete: %s ===", job.GameName)
+		return
+	}
+}
+
+// schedulePendingFTP saves the job to disk and starts retrying in the background.
+// Call this when an initial FTP transfer attempt has failed.
+func schedulePendingFTP(job PendingFTPJob) {
+	if err := savePendingFTPJob(job); err != nil {
+		logf("FTP PENDING: Failed to save job for %s: %v", job.GameName, err)
+	}
+	go retryFTPJobForever(job)
+}
+
+// ==========================================
 // INI MANAGEMENT
 // ==========================================
 
@@ -4200,17 +4607,19 @@ func parseXboxHeader(path string) (string, uint32) {
 	return strings.ToUpper(hex.EncodeToString(h[0x360:0x364])), binary.BigEndian.Uint32(h[0x344:0x348])
 }
 
-// downloadWithProgress downloads urlStr to dest, using parallel range-request workers
-// for IA URLs when the server supports it. Falls back to a single stream otherwise.
+// downloadWithProgress downloads urlStr to dest. For Internet Archive URLs it uses a
+// Gopeed-style segment queue (fixed-size ranges, worker pool) when Range is supported.
 func downloadWithProgress(urlStr, dest, name, ref string) error {
 	isIA := strings.Contains(strings.ToLower(urlStr), "archive.org")
-	if isIA && iaDownloadConcurrency > 1 {
+	if isIA && iaDownloadMaxParallel > 1 {
 		size, rangeOK, err := iaProbeDownload(urlStr, ref)
 		if err != nil {
 			logf("WARN [%s]: probe failed (%v), using single stream", name, err)
 		} else if rangeOK && size >= iaParallelThreshold {
-			logf("[%s] Parallel download: %d workers, %.0f MB", name, iaDownloadConcurrency, float64(size)/1048576)
-			return iaDownloadParallel(urlStr, dest, name, ref, size, iaDownloadConcurrency)
+			nSeg := (size + iaSegmentSize - 1) / iaSegmentSize
+			logf("[%s] Chunked download: %.0f MB, %d segments (~%d MiB each), up to %d parallel HTTP",
+				name, float64(size)/1048576, nSeg, iaSegmentSize/(1024*1024), iaDownloadMaxParallel)
+			return iaDownloadChunkedParallel(urlStr, dest, name, ref, size)
 		}
 	}
 	return iaDownloadSingle(urlStr, dest, name, ref)
@@ -4234,38 +4643,43 @@ func iaProbeDownload(urlStr, ref string) (size int64, rangeOK bool, err error) {
 	return size, rangeOK, nil
 }
 
-// iaDownloadParallel splits the file into `workers` equal chunks, downloads them
-// concurrently with per-chunk retries, then joins them into dest.
-func iaDownloadParallel(urlStr, dest, name, ref string, totalSize int64, workers int) error {
-	chunkSize := (totalSize + int64(workers) - 1) / int64(workers)
-
-	type chunkSpec struct {
-		index int
-		start int64
-		end   int64
-		path  string
+// iaDownloadChunkedParallel downloads the file into a single pre-sized destination using a
+// queue of fixed-size byte ranges and a bounded worker pool (Gopeed-style work stealing
+// across many small segments instead of one range per worker).
+func iaDownloadChunkedParallel(urlStr, dest, name, ref string, totalSize int64) error {
+	out, err := os.Create(dest)
+	if err != nil {
+		return fmt.Errorf("create dest: %w", err)
 	}
-	chunks := make([]chunkSpec, 0, workers)
-	for i := 0; i < workers; i++ {
-		start := int64(i) * chunkSize
-		end := start + chunkSize - 1
+	if err := out.Truncate(totalSize); err != nil {
+		out.Close()
+		os.Remove(dest)
+		return fmt.Errorf("truncate: %w", err)
+	}
+
+	type seg struct {
+		start, end int64
+	}
+	var segments []seg
+	for off := int64(0); off < totalSize; off += iaSegmentSize {
+		end := off + iaSegmentSize - 1
 		if end >= totalSize {
 			end = totalSize - 1
 		}
-		chunks = append(chunks, chunkSpec{
-			index: i,
-			start: start,
-			end:   end,
-			path:  dest + fmt.Sprintf(".part%d", i),
-		})
+		segments = append(segments, seg{off, end})
 	}
 
-	// Shared atomic progress counter across all chunks.
+	jobs := make(chan seg, len(segments))
+	for _, s := range segments {
+		jobs <- s
+	}
+	close(jobs)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var written int64
 	startTime := time.Now()
-
-	// Progress reporter goroutine.
-	// logStatus fires every 500 ms (feeds Lua); logf fires every 15 s (feeds Electron terminal).
 	progressDone := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(500 * time.Millisecond)
@@ -4291,90 +4705,72 @@ func iaDownloadParallel(urlStr, dest, name, ref string, totalSize int64, workers
 					etaStr = "~" + fmtDuration(etaSecs) + " left"
 				}
 				logStatus(name, "Processing",
-					fmt.Sprintf("Downloading: %.0f%% (%.0f/%.0f MB) @ %.1f MB/s | %s | %dx",
-						pct, wMB, tMB, speedMBs, etaStr, workers))
+					fmt.Sprintf("Downloading: %.0f%% (%.0f/%.0f MB) @ %.1f MB/s | %s",
+						pct, wMB, tMB, speedMBs, etaStr))
 				if now.Sub(lastConsole) > 15*time.Second {
-					logf("Download [%s]: %.1f%% (%.1f/%.1f MB) @ %.1f MB/s | %dx",
-						name, pct, wMB, tMB, speedMBs, workers)
+					logf("Download [%s]: %.1f%% (%.1f/%.1f MB) @ %.1f MB/s (chunked HTTP)",
+						name, pct, wMB, tMB, speedMBs)
 					lastConsole = now
 				}
 			}
 		}
 	}()
 
-	// Download all chunks concurrently.
+	workers := iaDownloadMaxParallel
+	if workers < 1 {
+		workers = 1
+	}
 	var wg sync.WaitGroup
-	errs := make([]error, len(chunks))
-	for i, c := range chunks {
+	var firstErr error
+	var errMu sync.Mutex
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
-		go func(idx int, spec chunkSpec) {
+		go func() {
 			defer wg.Done()
-			errs[idx] = iaDownloadChunk(urlStr, spec.path, ref, spec.start, spec.end, &written)
-		}(i, c)
+			for s := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				if err := iaDownloadRange(ctx, urlStr, ref, out, s.start, s.end, &written); err != nil {
+					errMu.Lock()
+					if firstErr == nil {
+						firstErr = err
+						cancel()
+					}
+					errMu.Unlock()
+					return
+				}
+			}
+		}()
 	}
 	wg.Wait()
 	close(progressDone)
-
-	// Check chunk errors — clean up part files on any failure.
-	for i, e := range errs {
-		if e != nil {
-			for _, c := range chunks {
-				os.Remove(c.path)
-			}
-			return fmt.Errorf("chunk %d/%d failed: %w", i+1, len(chunks), e)
-		}
-	}
-
-	// Join parts into the final destination file.
-	logf("[%s] Joining %d parts...", name, len(chunks))
-	out, err := os.Create(dest)
-	if err != nil {
-		return fmt.Errorf("create dest: %w", err)
-	}
-	bw := bufio.NewWriterSize(out, CopyBufferSize)
-	joinErr := func() error {
-		for _, c := range chunks {
-			f, err := os.Open(c.path)
-			if err != nil {
-				return fmt.Errorf("open part %d: %w", c.index, err)
-			}
-			_, err = io.Copy(bw, f)
-			f.Close()
-			os.Remove(c.path)
-			if err != nil {
-				return fmt.Errorf("join part %d: %w", c.index, err)
-			}
-		}
-		return bw.Flush()
-	}()
 	out.Close()
-	if joinErr != nil {
+
+	if firstErr != nil {
 		os.Remove(dest)
-		return fmt.Errorf("join: %w", joinErr)
+		return firstErr
 	}
 	return nil
 }
 
-// iaDownloadChunk downloads the byte range [start, end] for one parallel worker,
-// writing to destPath using WriteAt (position-independent, safe to retry).
-// writtenAtomic is updated in real-time; on retry any partial count is rolled back.
-func iaDownloadChunk(urlStr, destPath, ref string, start, end int64, writtenAtomic *int64) error {
-	f, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("create part: %w", err)
-	}
-	defer f.Close()
-
+// iaDownloadRange downloads the inclusive byte range [start,end] into out at the same file offsets.
+func iaDownloadRange(ctx context.Context, urlStr, ref string, out *os.File, start, end int64, writtenAtomic *int64) error {
+	expect := end - start + 1
 	var lastErr error
 	for attempt := 0; attempt <= iaChunkRetries; attempt++ {
 		if attempt > 0 {
 			wait := time.Duration(attempt) * iaChunkRetryBase
 			logf("RETRY chunk bytes=%d-%d (attempt %d/%d): %v — waiting %s",
 				start, end, attempt, iaChunkRetries, lastErr, wait)
-			time.Sleep(wait)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(wait):
+			}
 		}
 
-		req, err := http.NewRequest("GET", urlStr, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 		if err != nil {
 			lastErr = err
 			continue
@@ -4398,13 +4794,21 @@ func iaDownloadChunk(urlStr, destPath, ref string, start, end int64, writtenAtom
 		buf := make([]byte, 256*1024)
 		var readErr error
 		for {
+			select {
+			case <-ctx.Done():
+				resp.Body.Close()
+				atomic.AddInt64(writtenAtomic, -chunkWritten)
+				return ctx.Err()
+			default:
+			}
 			var n int
 			n, readErr = resp.Body.Read(buf)
 			if n > 0 {
-				if _, writeErr := f.WriteAt(buf[:n], chunkWritten); writeErr != nil {
+				off := start + chunkWritten
+				if _, wErr := out.WriteAt(buf[:n], off); wErr != nil {
 					resp.Body.Close()
 					atomic.AddInt64(writtenAtomic, -chunkWritten)
-					lastErr = fmt.Errorf("write at +%d: %w", chunkWritten, writeErr)
+					lastErr = fmt.Errorf("write at +%d: %w", chunkWritten, wErr)
 					chunkWritten = 0
 					goto nextAttempt
 				}
@@ -4422,6 +4826,11 @@ func iaDownloadChunk(urlStr, destPath, ref string, start, end int64, writtenAtom
 		if readErr != nil && readErr != io.EOF {
 			atomic.AddInt64(writtenAtomic, -chunkWritten)
 			lastErr = fmt.Errorf("read after %d bytes: %w", chunkWritten, readErr)
+			continue
+		}
+		if chunkWritten != expect {
+			atomic.AddInt64(writtenAtomic, -chunkWritten)
+			lastErr = fmt.Errorf("range incomplete: got %d want %d bytes", chunkWritten, expect)
 			continue
 		}
 		return nil
@@ -4888,9 +5297,11 @@ func downloadEdgeEmuWithProgress(urlStr, dest, name string) error {
 			if resp.StatusCode == 200 {
 				size := resp.ContentLength
 				rangeOK := strings.EqualFold(resp.Header.Get("Accept-Ranges"), "bytes") && size > 0
-				if rangeOK && size >= iaParallelThreshold && iaDownloadConcurrency > 1 {
-					logf("[%s] ROM parallel: %d workers, %.0f MB", name, iaDownloadConcurrency, float64(size)/1048576)
-					return downloadEdgeEmuParallel(urlStr, dest, name, size, iaDownloadConcurrency)
+				if rangeOK && size >= iaParallelThreshold && iaDownloadMaxParallel > 1 {
+					nSeg := (size + iaSegmentSize - 1) / iaSegmentSize
+					logf("[%s] Chunked ROM download: %.0f MB, %d segments (~%d MiB each), up to %d parallel HTTP",
+						name, float64(size)/1048576, nSeg, iaSegmentSize/(1024*1024), iaDownloadMaxParallel)
+					return downloadEdgeEmuChunkedParallel(urlStr, dest, name, size)
 				}
 			}
 		}
@@ -4944,24 +5355,38 @@ func downloadEdgeEmuSingle(urlStr, dest, name string) error {
 	return lastErr
 }
 
-// downloadEdgeEmuParallel downloads a file from edgeemu.net using concurrent range requests.
-func downloadEdgeEmuParallel(urlStr, dest, name string, totalSize int64, workers int) error {
-	chunkSize := (totalSize + int64(workers) - 1) / int64(workers)
-	type chunkSpec struct {
-		index int
-		start int64
-		end   int64
-		path  string
+// downloadEdgeEmuChunkedParallel is the edgeemu.net counterpart to iaDownloadChunkedParallel.
+func downloadEdgeEmuChunkedParallel(urlStr, dest, name string, totalSize int64) error {
+	out, err := os.Create(dest)
+	if err != nil {
+		return err
 	}
-	chunks := make([]chunkSpec, 0, workers)
-	for i := 0; i < workers; i++ {
-		start := int64(i) * chunkSize
-		end := start + chunkSize - 1
+	if err := out.Truncate(totalSize); err != nil {
+		out.Close()
+		os.Remove(dest)
+		return err
+	}
+
+	type seg struct {
+		start, end int64
+	}
+	var segments []seg
+	for off := int64(0); off < totalSize; off += iaSegmentSize {
+		end := off + iaSegmentSize - 1
 		if end >= totalSize {
 			end = totalSize - 1
 		}
-		chunks = append(chunks, chunkSpec{i, start, end, dest + fmt.Sprintf(".part%d", i)})
+		segments = append(segments, seg{off, end})
 	}
+
+	jobs := make(chan seg, len(segments))
+	for _, s := range segments {
+		jobs <- s
+	}
+	close(jobs)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	var written int64
 	startTime := time.Now()
@@ -4988,82 +5413,68 @@ func downloadEdgeEmuParallel(urlStr, dest, name string, totalSize int64, workers
 					etaStr = "~" + fmtDuration(etaSecs) + " left"
 				}
 				logStatus(name, "Processing",
-					fmt.Sprintf("Downloading: %.0f%% (%.0f/%.0f MB) @ %.1f MB/s | %s | %dx",
-						pct, float64(w)/1048576, float64(totalSize)/1048576, speedMBs, etaStr, workers))
+					fmt.Sprintf("Downloading: %.0f%% (%.0f/%.0f MB) @ %.1f MB/s | %s",
+						pct, float64(w)/1048576, float64(totalSize)/1048576, speedMBs, etaStr))
 				if now.Sub(lastConsole) > 15*time.Second {
-					logf("ROM Download [%s]: %.1f%% @ %.1f MB/s | %dx", name, pct, speedMBs, workers)
+					logf("ROM Download [%s]: %.1f%% @ %.1f MB/s (chunked HTTP)", name, pct, speedMBs)
 					lastConsole = now
 				}
 			}
 		}
 	}()
 
+	workers := iaDownloadMaxParallel
+	if workers < 1 {
+		workers = 1
+	}
 	var wg sync.WaitGroup
-	errs := make([]error, len(chunks))
-	for i, c := range chunks {
+	var firstErr error
+	var errMu sync.Mutex
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
-		go func(idx int, spec chunkSpec) {
+		go func() {
 			defer wg.Done()
-			errs[idx] = downloadEdgeEmuChunk(urlStr, spec.path, spec.start, spec.end, &written)
-		}(i, c)
+			for s := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				if err := edgeEmuDownloadRange(ctx, urlStr, out, s.start, s.end, &written); err != nil {
+					errMu.Lock()
+					if firstErr == nil {
+						firstErr = err
+						cancel()
+					}
+					errMu.Unlock()
+					return
+				}
+			}
+		}()
 	}
 	wg.Wait()
 	close(progressDone)
-
-	for i, e := range errs {
-		if e != nil {
-			for _, c := range chunks {
-				os.Remove(c.path)
-			}
-			return fmt.Errorf("chunk %d/%d: %w", i+1, len(chunks), e)
-		}
-	}
-
-	logf("[%s] Joining %d ROM parts...", name, len(chunks))
-	out, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	bw := bufio.NewWriterSize(out, CopyBufferSize)
-	joinErr := func() error {
-		for _, c := range chunks {
-			f, err := os.Open(c.path)
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(bw, f)
-			f.Close()
-			os.Remove(c.path)
-			if err != nil {
-				return err
-			}
-		}
-		return bw.Flush()
-	}()
 	out.Close()
-	if joinErr != nil {
+
+	if firstErr != nil {
 		os.Remove(dest)
-		return joinErr
+		return firstErr
 	}
 	return nil
 }
 
-// downloadEdgeEmuChunk downloads one byte-range chunk from edgeemu.net with retries.
-func downloadEdgeEmuChunk(urlStr, destPath string, start, end int64, writtenAtomic *int64) error {
-	f, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("create part: %w", err)
-	}
-	defer f.Close()
-
+func edgeEmuDownloadRange(ctx context.Context, urlStr string, out *os.File, start, end int64, writtenAtomic *int64) error {
+	expect := end - start + 1
 	var lastErr error
 	for attempt := 0; attempt <= iaChunkRetries; attempt++ {
 		if attempt > 0 {
 			wait := time.Duration(attempt) * iaChunkRetryBase
 			logf("RETRY ROM chunk bytes=%d-%d attempt %d: %v — waiting %s", start, end, attempt, lastErr, wait)
-			time.Sleep(wait)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(wait):
+			}
 		}
-		req, err := http.NewRequest("GET", urlStr, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 		if err != nil {
 			lastErr = err
 			continue
@@ -5084,10 +5495,18 @@ func downloadEdgeEmuChunk(urlStr, destPath string, start, end int64, writtenAtom
 		buf := make([]byte, 256*1024)
 		var readErr error
 		for {
+			select {
+			case <-ctx.Done():
+				resp.Body.Close()
+				atomic.AddInt64(writtenAtomic, -chunkWritten)
+				return ctx.Err()
+			default:
+			}
 			var n int
 			n, readErr = resp.Body.Read(buf)
 			if n > 0 {
-				if _, wErr := f.WriteAt(buf[:n], chunkWritten); wErr != nil {
+				off := start + chunkWritten
+				if _, wErr := out.WriteAt(buf[:n], off); wErr != nil {
 					resp.Body.Close()
 					atomic.AddInt64(writtenAtomic, -chunkWritten)
 					lastErr = fmt.Errorf("write: %w", wErr)
@@ -5108,6 +5527,11 @@ func downloadEdgeEmuChunk(urlStr, destPath string, start, end int64, writtenAtom
 		if readErr != nil && readErr != io.EOF {
 			atomic.AddInt64(writtenAtomic, -chunkWritten)
 			lastErr = fmt.Errorf("read: %w", readErr)
+			continue
+		}
+		if chunkWritten != expect {
+			atomic.AddInt64(writtenAtomic, -chunkWritten)
+			lastErr = fmt.Errorf("range incomplete: got %d want %d bytes", chunkWritten, expect)
 			continue
 		}
 		return nil

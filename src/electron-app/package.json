@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "2.7.1",
+  "version": "2.7.4",
   "description": "Minimal Electron UI for running and monitoring godsend.exe",
   "main": "main.js",
   "scripts": {
@@ -38,6 +38,7 @@
     "lucide-react": "^0.475.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "sql.js": "^1.14.1",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
@@ -55,6 +56,9 @@
   },
   "build": {
     "afterPack": "./scripts/after-pack-win-icon.js",
+    "asarUnpack": [
+      "**/node_modules/sql.js/dist/**"
+    ],
     "appId": "com.abbu.godsend",
     "productName": "GODsend",
     "executableName": "GODsend",
