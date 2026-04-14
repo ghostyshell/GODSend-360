@@ -32,6 +32,8 @@
     "@radix-ui/react-scroll-area": "^1.2.3",
     "@radix-ui/react-slider": "^1.2.2",
     "@radix-ui/react-slot": "^1.1.2",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.0",
     "basic-ftp": "^5.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -39,7 +41,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "sql.js": "^1.14.1",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",

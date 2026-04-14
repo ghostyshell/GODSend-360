@@ -63,6 +63,21 @@ contextBridge.exposeInMainWorld("godsendApi", {
   decodeAsset: (payload) => ipcRenderer.invoke("xbox:decode-asset", payload),
   encodeAsset: (payload) => ipcRenderer.invoke("xbox:encode-asset", payload),
 
+  // Toolbox APIs
+  toolsChooseIsoFiles:   () => ipcRenderer.invoke("tools:choose-iso-files"),
+  toolsChooseOutputFolder: () => ipcRenderer.invoke("tools:choose-output-folder"),
+  toolsProbeIso:         (isoPath) => ipcRenderer.invoke("tools:probe-iso", isoPath),
+  toolsIso2God:          (payload) => ipcRenderer.invoke("tools:iso2god", payload),
+  toolsIso2Xex:          (payload) => ipcRenderer.invoke("tools:iso2xex", payload),
+  toolsFtpList:          (remotePath) => ipcRenderer.invoke("tools:ftp-list", remotePath),
+  toolsFtpChooseFiles:   () => ipcRenderer.invoke("tools:ftp-choose-files"),
+  toolsFtpChooseFolder:  () => ipcRenderer.invoke("tools:ftp-choose-folder"),
+  toolsFtpUpload:        (payload) => ipcRenderer.invoke("tools:ftp-upload", payload),
+  toolsFtpUploadStatus:  () => ipcRenderer.invoke("tools:ftp-upload-status"),
+  toolsFtpUploadRemove:  (id) => ipcRenderer.invoke("tools:ftp-upload-remove", id),
+  toolsFtpDelete:        (remotePath) => ipcRenderer.invoke("tools:ftp-delete", remotePath),
+  toolsFtpMkdir:         (remotePath) => ipcRenderer.invoke("tools:ftp-mkdir", remotePath),
+
   // Each subscription function returns a cleanup function for React useEffect.
   onFtpDebugLog: (callback) => {
     const handler = (_event, line) => callback(line);

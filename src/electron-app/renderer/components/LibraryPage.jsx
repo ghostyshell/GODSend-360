@@ -6,6 +6,7 @@ import {
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "../lib/utils";
+import XboxBoxCover from "./XboxBoxCover";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -748,102 +749,19 @@ function GameDetail({
               const activeSrc   = rxeaCoverSrc || coverDataUrl;
               const isRxea      = !!rxeaCoverSrc;
               return (
-                /* perspective wrapper */
                 <div
-                  className={cn("shrink-0", !isOnSource && "opacity-50 grayscale")}
-                  style={{
-                    width: 110,
-                    aspectRatio: "3/4",
-                    perspective: "700px",
-                    cursor: "default",
-                  }}
+                  className="shrink-0"
                   onMouseEnter={() => setCoverFlipped(true)}
                   onMouseLeave={() => setCoverFlipped(false)}
                 >
-                  {/* flip card */}
-                  <div
-                    style={{
-                      width: "100%", height: "100%",
-                      position: "relative",
-                      transformStyle: "preserve-3d",
-                      transition: "transform 0.55s cubic-bezier(0.4,0,0.2,1)",
-                      transform: coverFlipped ? "rotateY(180deg) translateY(-10px)" : "rotateY(0deg)",
-                    }}
-                  >
-                    {/* Front face */}
-                    <div
-                      className="absolute inset-0 rounded-lg overflow-hidden border border-border bg-[#0d1117]"
-                      style={{
-                        backfaceVisibility: "hidden",
-                        WebkitBackfaceVisibility: "hidden",
-                      }}
-                    >
-                      {activeSrc === undefined ? (
-                        <div className="absolute inset-0 bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
-                      ) : !activeSrc ? (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Gamepad2 className="h-7 w-7 text-border" />
-                        </div>
-                      ) : isRxea ? (
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            backgroundImage: `url(${activeSrc})`,
-                            backgroundSize: "211% auto",
-                            backgroundPosition: "right center",
-                            backgroundRepeat: "no-repeat",
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src={activeSrc}
-                          alt={game.name}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          draggable={false}
-                        />
-                      )}
-                    </div>
-                    {/* Spine (perpendicular to front, visible at ~90° during flip) */}
-                    {isRxea && (
-                      <div
-                        className="absolute top-0 overflow-hidden"
-                        style={{
-                          right: -6,
-                          width: 12,
-                          height: "100%",
-                          transform: "rotateY(90deg)",
-                          backgroundImage: `url(${activeSrc})`,
-                          backgroundSize: "2200% auto",
-                          backgroundPosition: "50% 50%",
-                          backgroundRepeat: "no-repeat",
-                          backgroundColor: "#0d1117",
-                        }}
-                      />
-                    )}
-                    {/* Back face */}
-                    <div
-                      className="absolute inset-0 rounded-lg overflow-hidden border border-border/50 bg-[#0d1117]"
-                      style={{
-                        backfaceVisibility: "hidden",
-                        WebkitBackfaceVisibility: "hidden",
-                        transform: "rotateY(180deg)",
-                      }}
-                    >
-                      {isRxea ? (
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            backgroundImage: `url(${activeSrc})`,
-                            backgroundSize: "211% auto",
-                            backgroundPosition: "left center",
-                            backgroundRepeat: "no-repeat",
-                          }}
-                        />
-                      ) : (
-                        <DiscFace />
-                      )}
-                    </div>
-                  </div>
+                  <XboxBoxCover
+                    bookletSrc={isRxea ? activeSrc : null}
+                    frontSrc={!isRxea ? activeSrc : null}
+                    width={120}
+                    height={160}
+                    flipped={coverFlipped}
+                    greyed={!isOnSource}
+                  />
                 </div>
               );
             })()}
@@ -937,122 +855,48 @@ function GameCard({ game, coverDataUrl, rxeaCover, isOnSource, onClick }) {
     <button
       className={cn(
         "flex flex-col gap-1 select-none text-left rounded-lg",
-        "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        !isOnSource && "opacity-50"
+        "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       )}
       onClick={onClick}
       onMouseEnter={() => setFlipped(true)}
       onMouseLeave={() => setFlipped(false)}
-      style={{ perspective: "600px" }}
     >
-      {/* flip wrapper */}
-      <div
-        className="relative w-full"
-        style={{
-          aspectRatio: "3/4",
-          transformStyle: "preserve-3d",
-          transition: "transform 0.52s cubic-bezier(0.4,0,0.2,1)",
-          transform: flipped ? "rotateY(180deg) translateY(-8px)" : "rotateY(0deg)",
-        }}
-      >
-        {/* ── Front face ── */}
-        <div
-          className="absolute inset-0 rounded-lg overflow-hidden border border-border bg-[#0d1117]"
-          style={{
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-          }}
-        >
-          {coverDataUrl === undefined && !rxeaCover ? (
-            <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
-            </div>
-          ) : rxeaCover ? (
-            <div
-              className={cn("absolute inset-0", !isOnSource && "grayscale")}
-              style={{
-                backgroundImage: `url(${rxeaCover})`,
-                backgroundSize: "211% auto",
-                backgroundPosition: "right center",
-                backgroundRepeat: "no-repeat",
-              }}
+      <div className="relative w-full" style={{ aspectRatio: "3/4" }}>
+        {coverDataUrl === undefined && !rxeaCover ? (
+          <div className="absolute inset-0 rounded-lg overflow-hidden bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <XboxBoxCover
+              bookletSrc={rxeaCover || null}
+              frontSrc={!rxeaCover ? coverDataUrl : null}
+              width="100%"
+              height="100%"
+              flipped={flipped}
+              greyed={!isOnSource}
             />
-          ) : coverDataUrl ? (
-            <img
-              src={coverDataUrl}
-              alt={game.name}
-              className={cn("absolute inset-0 w-full h-full object-cover", !isOnSource && "grayscale")}
-              draggable={false}
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Gamepad2 className="h-7 w-7 text-border" />
-            </div>
-          )}
-
-          <div className="absolute top-1 left-1 flex flex-col gap-0.5">
-            {game.isFavorite && (
-              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-black/60">
-                <Star className="h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />
-              </span>
-            )}
-            {game.discsInSet > 1 && (
-              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-black/60">
-                <Disc3 className="h-2.5 w-2.5 text-blue-400" />
-              </span>
-            )}
           </div>
-
-          {!isOnSource && (
-            <div className="absolute inset-x-0 bottom-0 bg-black/70 py-0.5 px-1">
-              <p className="text-[8px] text-white/60 text-center truncate">
-                {game.sourceDrive || "Not found"}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* ── Spine (perpendicular to front, visible at ~90° during flip) ── */}
-        {rxeaCover && (
-          <div
-            className="absolute top-0 overflow-hidden"
-            style={{
-              right: -5,
-              width: 10,
-              height: "100%",
-              transform: "rotateY(90deg)",
-              backgroundImage: `url(${rxeaCover})`,
-              backgroundSize: "2200% auto",
-              backgroundPosition: "50% 50%",
-              backgroundRepeat: "no-repeat",
-              backgroundColor: "#0d1117",
-            }}
-          />
         )}
 
-        {/* ── Back face ── */}
-        <div
-          className="absolute inset-0 rounded-lg overflow-hidden border border-border/50 bg-[#0d1117]"
-          style={{
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "rotateY(180deg)",
-          }}
-        >
-          {rxeaCover ? (
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${rxeaCover})`,
-                backgroundSize: "211% auto",
-                backgroundPosition: "left center",
-                backgroundRepeat: "no-repeat",
-              }}
-            />
-          ) : (
-            <DiscFace />
+        <div className="absolute top-1 left-1 flex flex-col gap-0.5 z-10 pointer-events-none">
+          {game.isFavorite && (
+            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-black/60">
+              <Star className="h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />
+            </span>
+          )}
+          {game.discsInSet > 1 && (
+            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-black/60">
+              <Disc3 className="h-2.5 w-2.5 text-blue-400" />
+            </span>
           )}
         </div>
+
+        {!isOnSource && (
+          <div className="absolute inset-x-0 bottom-0 bg-black/70 py-0.5 px-1 z-10 pointer-events-none rounded-b-lg">
+            <p className="text-[8px] text-white/70 text-center truncate">
+              {game.sourceDrive || "Not found"}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="px-0.5 min-w-0">

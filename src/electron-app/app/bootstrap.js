@@ -1900,9 +1900,9 @@ function registerIpcHandlers() {
     const scriptsPath = getConfiguredFtpScriptsPath();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured. Set it in Settings." };
 
-    const auroraRoot = xboxAuroraRoot(scriptsPath);
-    const dbDir      = `${auroraRoot}/Data/Databases`;
-    const cacheRoot  = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
+    let auroraRoot = xboxAuroraRoot(scriptsPath);
+    let dbDir      = `${auroraRoot}/Data/Databases`;
+    let cacheRoot  = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
     setActiveAuroraCacheRoot(cacheRoot);
 
     const client = new ftp.Client();
@@ -1923,6 +1923,29 @@ function registerIpcHandlers() {
       try {
         settingsSz = await client.size(`${dbDir}/settings.db`);
       } catch { /* missing */ }
+
+      // If the configured Aurora root has no databases, auto-discover the
+      // real install location (XEXMenu / Apps/Aurora layouts, USB installs).
+      if (contentSz < 0 || settingsSz < 0) {
+        addOutputLine(
+          `[INFO] Aurora library: ${auroraRoot}/Data/Databases not found — auto-discovering Aurora install…`
+        );
+        const discovered = await discoverAuroraRoot(client);
+        if (discovered) {
+          _lastDiscoveredAuroraRoot = discovered;
+          auroraRoot = discovered;
+          dbDir      = `${auroraRoot}/Data/Databases`;
+          cacheRoot  = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
+          setActiveAuroraCacheRoot(cacheRoot);
+          addOutputLine(`[INFO] Aurora library: discovered Aurora at ${auroraRoot}`);
+          try { contentSz = await client.size(`${dbDir}/content.db`); } catch {}
+          try { settingsSz = await client.size(`${dbDir}/settings.db`); } catch {}
+        } else {
+          addOutputLine(
+            `[ERROR] Aurora library: could not find an Aurora install on the console.`
+          );
+        }
+      }
 
       const meta = readMeta(cacheRoot);
       const fingerprintMatch =
@@ -2603,6 +2626,247 @@ function registerIpcHandlers() {
       client.close();
     }
   });
+
+  // ── Toolbox: backend POST helper ──────────────────────────────────────────
+  function backendPost(urlPath, body, timeoutMs = 600000) {
+    const port = getConfiguredServerPort();
+    const payload = JSON.stringify(body);
+    return new Promise((resolve, reject) => {
+      const opts = {
+        hostname: "localhost",
+        port,
+        path: urlPath,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+      };
+      const req = http.request(opts, (res) => {
+        let data = "";
+        res.on("data", (c) => { data += c; });
+        res.on("end", () => {
+          try { resolve(JSON.parse(data)); }
+          catch { resolve({ error: data }); }
+        });
+      });
+      req.on("error", reject);
+      req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error("Timeout")); });
+      req.write(payload);
+      req.end();
+    });
+  }
+
+  // ── Toolbox: choose ISO files ─────────────────────────────────────────────
+  ipcMain.handle("tools:choose-iso-files", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Select Xbox 360 ISO files",
+      filters: [{ name: "ISO images", extensions: ["iso"] }],
+      properties: ["openFile", "multiSelections"],
+    });
+    if (result.canceled || !result.filePaths.length) return { ok: false };
+    return { ok: true, files: result.filePaths };
+  });
+
+  // ── Toolbox: choose output folder ─────────────────────────────────────────
+  ipcMain.handle("tools:choose-output-folder", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Select output folder",
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (result.canceled || !result.filePaths.length) return { ok: false };
+    return { ok: true, folder: result.filePaths[0] };
+  });
+
+  // ── Toolbox: probe ISO ────────────────────────────────────────────────────
+  ipcMain.handle("tools:probe-iso", async (_event, isoPath) => {
+    try {
+      const r = await backendPost("/tools/probe-iso", { isoPath });
+      if (r.error && !r.titleId) return { ok: false, error: r.error };
+      return { ok: true, ...r };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
+  });
+
+  // ── Toolbox: ISO → GOD ────────────────────────────────────────────────────
+  ipcMain.handle("tools:iso2god", async (_event, { isoPath, outDir }) => {
+    try {
+      const r = await backendPost("/tools/iso2god", { isoPath, outDir });
+      if (r.error && !r.ok) return { ok: false, error: r.error };
+      return { ok: true, ...r };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
+  });
+
+  // ── Toolbox: ISO → XEX ────────────────────────────────────────────────────
+  ipcMain.handle("tools:iso2xex", async (_event, { isoPath, outDir }) => {
+    try {
+      const r = await backendPost("/tools/iso2xex", { isoPath, outDir });
+      if (r.error && !r.ok) return { ok: false, error: r.error };
+      return { ok: true, ...r };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
+  });
+
+  // ── Toolbox: FTP Manager — list directory ─────────────────────────────────
+  ipcMain.handle("tools:ftp-list", async (_event, remotePath) => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 15000;
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      await client.cd(remotePath || "/");
+      const list = await client.list();
+      const entries = list.map(e => ({
+        name: e.name,
+        type: e.type === 2 ? "dir" : "file",
+        size: e.size || 0,
+      }));
+      return { ok: true, entries, cwd: remotePath || "/" };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+    }
+  });
+
+  // ── Toolbox: FTP Manager — choose local files to upload ───────────────────
+  ipcMain.handle("tools:ftp-choose-files", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Select files to upload to Xbox",
+      properties: ["openFile", "multiSelections"],
+    });
+    if (result.canceled || !result.filePaths.length) return { ok: false };
+    return { ok: true, files: result.filePaths };
+  });
+
+  // ── Toolbox: FTP Manager — choose local folder to upload ──────────────────
+  ipcMain.handle("tools:ftp-choose-folder", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Select folder to upload to Xbox",
+      properties: ["openDirectory"],
+    });
+    if (result.canceled || !result.filePaths.length) return { ok: false };
+    return { ok: true, folder: result.filePaths[0] };
+  });
+
+  // ── Toolbox: FTP Manager — upload files (adds to queue) ───────────────────
+  let _ftpUploadId = 0;
+  const _ftpUploadJobs = new Map(); // id → { id, name, state, progress, error }
+
+  ipcMain.handle("tools:ftp-upload", async (_event, { localPaths, remotePath }) => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const jobs = [];
+    for (const lp of localPaths) {
+      const id = ++_ftpUploadId;
+      const name = path.basename(lp);
+      const job = { id, name, localPath: lp, remotePath: `${remotePath}/${name}`, state: "Queued", progress: 0, error: null };
+      _ftpUploadJobs.set(id, job);
+      jobs.push({ id, name });
+
+      // Start upload in background
+      (async () => {
+        const client = new ftp.Client();
+        client.ftp.verbose = false;
+        client.ftp.timeout = 30000;
+        try {
+          job.state = "Processing";
+          await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+
+          const stat = fs.statSync(lp);
+          if (stat.isDirectory()) {
+            await client.uploadFromDir(lp, `${remotePath}/${name}`);
+          } else {
+            client.trackProgress((info) => {
+              if (stat.size > 0) job.progress = Math.round((info.bytes / stat.size) * 100);
+            });
+            await client.uploadFrom(lp, `${remotePath}/${name}`);
+          }
+          job.state = "Ready";
+          job.progress = 100;
+        } catch (err) {
+          job.state = "Error";
+          job.error = err.message || String(err);
+        } finally {
+          client.close();
+        }
+      })();
+    }
+    return { ok: true, jobs };
+  });
+
+  // ── Toolbox: FTP Manager — get upload queue status ────────────────────────
+  ipcMain.handle("tools:ftp-upload-status", async () => {
+    const jobs = [];
+    for (const [, job] of _ftpUploadJobs) {
+      jobs.push({ id: job.id, name: job.name, state: job.state, progress: job.progress, error: job.error, remotePath: job.remotePath });
+    }
+    return { ok: true, jobs };
+  });
+
+  // ── Toolbox: FTP Manager — remove completed/errored upload ────────────────
+  ipcMain.handle("tools:ftp-upload-remove", async (_event, id) => {
+    _ftpUploadJobs.delete(id);
+    return { ok: true };
+  });
+
+  // ── Toolbox: FTP Manager — delete remote file/folder ──────────────────────
+  ipcMain.handle("tools:ftp-delete", async (_event, remotePath) => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 15000;
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      try {
+        await client.remove(remotePath);
+      } catch {
+        await client.removeDir(remotePath);
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+    }
+  });
+
+  // ── Toolbox: FTP Manager — create remote directory ────────────────────────
+  ipcMain.handle("tools:ftp-mkdir", async (_event, remotePath) => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 15000;
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      await client.ensureDir(remotePath);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+    }
+  });
 }
 
 // ── Game library helpers ───────────────────────────────────────────────────────
@@ -2610,13 +2874,48 @@ function registerIpcHandlers() {
 // Derive the Aurora root from the configured FTP scripts path.
 //   /Hdd1/Aurora/User/Scripts/Utility/GODSend  →  /Hdd1/Aurora
 //   /Usb0/Apps/Aurora/User/Scripts/Utility/…   →  /Usb0/Apps/Aurora
+let _lastDiscoveredAuroraRoot = null;
 function xboxAuroraRoot(ftpScriptsPath) {
   if (ftpScriptsPath) {
     const parts = ftpScriptsPath.replace(/\\/g, "/").split("/").filter(Boolean);
     const idx   = parts.findIndex((p) => p.toLowerCase() === "aurora");
     if (idx !== -1) return "/" + parts.slice(0, idx + 1).join("/");
   }
+  if (_lastDiscoveredAuroraRoot) return _lastDiscoveredAuroraRoot;
   return "/Hdd1/Aurora";
+}
+
+/**
+ * Auto-discover the Aurora install path by probing common locations on the
+ * console's FTP. Aurora's FTP server returns the root listing for any
+ * non-existent absolute path, so we walk paths segment-by-segment and
+ * verify with `pwd`. Returns the first location whose `Data/Databases`
+ * subfolder exists.
+ */
+async function discoverAuroraRoot(client) {
+  const candidates = [
+    ["Hdd1", "Aurora"],
+    ["Usb0", "Apps", "Aurora"],
+    ["Hdd1", "Apps", "Aurora"],
+    ["Usb0", "Aurora"],
+    ["Usb1", "Apps", "Aurora"],
+    ["Usb1", "Aurora"],
+    ["HddX", "Aurora"],
+  ];
+  for (const segs of candidates) {
+    try {
+      await client.cd("/");
+      for (const s of segs) await client.cd(s);
+      await client.cd("Data");
+      await client.cd("Databases");
+      const pwd = (await client.pwd()).replace(/\\/g, "/").replace(/\/+$/, "");
+      const expected = "/" + segs.join("/") + "/Data/Databases";
+      if (pwd.toLowerCase() === expected.toLowerCase()) {
+        return "/" + segs.join("/");
+      }
+    } catch { /* try next */ }
+  }
+  return null;
 }
 
 function xboxAuroraMediaDir(ftpScriptsPath) {

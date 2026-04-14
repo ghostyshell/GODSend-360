@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,10 +19,10 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
-	"syscall"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -66,8 +66,8 @@ const (
 	iaChunkRetryBase     = 6 * time.Second
 	iaParallelThreshold  = 32 * 1024 * 1024 // below this size, use a single HTTP stream
 	iaSegmentSize        = 4 * 1024 * 1024  // bytes per queued range job
-	iaParallelMaxDefault = 16                // default concurrent range GETs
-	iaParallelMaxCap     = 32                // upper bound for env-tuned parallelism
+	iaParallelMaxDefault = 16               // default concurrent range GETs
+	iaParallelMaxCap     = 32               // upper bound for env-tuned parallelism
 )
 
 func clampIAParallel(c int) int {
@@ -590,7 +590,8 @@ func (pw *ProgressWriter) Write(p []byte) (int, error) {
 // Query: ?slot=0..24  (optional — when absent, returns all non-empty slots)
 //
 // Response JSON:
-//   { "slots": [ { "slot": 4, "width": 1024, "height": 960, "png": "<base64>" }, ... ] }
+//
+//	{ "slots": [ { "slot": 4, "width": 1024, "height": 960, "png": "<base64>" }, ... ] }
 func handleRXEADecode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -809,7 +810,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.7.6         ║")
+	fmt.Println("║    GODSend Backend Server v2.7.7         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
@@ -887,6 +888,11 @@ func main() {
 	http.HandleFunc("/data/status", recoverMiddleware(handleDataStatus))
 	http.HandleFunc("/data/clear", recoverMiddleware(handleDataClear))
 	http.HandleFunc("/config", recoverMiddleware(handleServerConfig))
+
+	// Toolbox endpoints (ISO conversion)
+	http.HandleFunc("/tools/probe-iso", recoverMiddleware(handleToolsProbeISO))
+	http.HandleFunc("/tools/iso2god", recoverMiddleware(handleToolsISO2GOD))
+	http.HandleFunc("/tools/iso2xex", recoverMiddleware(handleToolsISO2XEX))
 
 	// Resume any pending FTP jobs from previous sessions
 	go func() {
@@ -1881,8 +1887,8 @@ func downloadViaTorrent(platform, destDir, gameName string, entry MinervaEntry) 
 	// memory on long-running downloads.
 	const tailMax = 50
 	var (
-		tailMu   sync.Mutex
-		tailBuf  []string
+		tailMu  sync.Mutex
+		tailBuf []string
 	)
 	appendTail := func(line string) {
 		tailMu.Lock()
@@ -4371,9 +4377,9 @@ func ftpTransferGame(godDir string, conn *XboxConnection, gameName, titleID, med
 type PendingFTPJob struct {
 	ID           string    `json:"id"`
 	GameName     string    `json:"game_name"`
-	Type         string    `json:"type"`         // "god", "xex", "content"
-	SourceDir    string    `json:"source_dir"`   // directory with files to upload
-	GameDir      string    `json:"game_dir"`     // Ready/ dir to remove on success (may be "")
+	Type         string    `json:"type"`       // "god", "xex", "content"
+	SourceDir    string    `json:"source_dir"` // directory with files to upload
+	GameDir      string    `json:"game_dir"`   // Ready/ dir to remove on success (may be "")
 	XboxIP       string    `json:"xbox_ip"`
 	Drive        string    `json:"drive"`
 	TitleID      string    `json:"title_id,omitempty"`
@@ -5666,4 +5672,154 @@ func edgeEmuDownloadRange(ctx context.Context, urlStr string, out *os.File, star
 	nextAttempt:
 	}
 	return lastErr
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Toolbox HTTP handlers — local ISO conversion tools
+// ══════════════════════════════════════════════════════════════════════════════
+
+// POST /tools/probe-iso  { "isoPath": "C:\\...\\game.iso" }
+// Returns title info from the ISO without converting.
+func handleToolsProbeISO(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonError(w, 405, "POST required")
+		return
+	}
+	var req struct {
+		ISOPath string `json:"isoPath"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ISOPath == "" {
+		jsonError(w, 400, "Missing isoPath")
+		return
+	}
+	info, err := utils.ProbeISODiscInfo(req.ISOPath)
+	if err != nil {
+		jsonError(w, 500, fmt.Sprintf("Probe failed: %v", err))
+		return
+	}
+	titleIDStr := fmt.Sprintf("%08X", info.TitleID)
+	displayName := services.LookupTitleName(titleIDStr)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"titleId":        titleIDStr,
+		"mediaId":        fmt.Sprintf("%08X", info.MediaID),
+		"discNumber":     info.DiscNumber,
+		"discCount":      info.DiscCount,
+		"isOriginalXbox": info.IsOriginalXbox,
+		"displayName":    displayName,
+	})
+}
+
+// POST /tools/iso2god  { "isoPath": "...", "outDir": "..." }
+// Converts an ISO to GOD format. Output goes into outDir/{DisplayName} - {TitleID}/
+func handleToolsISO2GOD(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonError(w, 405, "POST required")
+		return
+	}
+	var req struct {
+		ISOPath string `json:"isoPath"`
+		OutDir  string `json:"outDir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ISOPath == "" || req.OutDir == "" {
+		jsonError(w, 400, "Missing isoPath or outDir")
+		return
+	}
+
+	info, err := utils.ProbeISODiscInfo(req.ISOPath)
+	if err != nil {
+		jsonError(w, 500, fmt.Sprintf("Probe failed: %v", err))
+		return
+	}
+	titleIDStr := fmt.Sprintf("%08X", info.TitleID)
+	displayName := services.LookupTitleName(titleIDStr)
+	if displayName == "" {
+		displayName = strings.TrimSuffix(filepath.Base(req.ISOPath), filepath.Ext(req.ISOPath))
+	}
+
+	safeName := toolsSanitizeFileName(displayName)
+	folderName := fmt.Sprintf("%s - %s", safeName, titleIDStr)
+	godOutDir := filepath.Join(req.OutDir, folderName)
+	if err := os.MkdirAll(godOutDir, 0755); err != nil {
+		jsonError(w, 500, fmt.Sprintf("mkdir: %v", err))
+		return
+	}
+
+	logf("[TOOLS] ISO2GOD: %s → %s", filepath.Base(req.ISOPath), godOutDir)
+	resolveTitle := func(tid uint32) string {
+		return services.LookupTitleName(fmt.Sprintf("%08X", tid))
+	}
+	if err := utils.RunIso2GodNative(req.ISOPath, godOutDir, resolveTitle); err != nil {
+		jsonError(w, 500, fmt.Sprintf("ISO2GOD failed: %v", err))
+		return
+	}
+	logf("[TOOLS] ISO2GOD: Conversion complete — %s", folderName)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"ok":          true,
+		"titleId":     titleIDStr,
+		"displayName": displayName,
+		"outputDir":   godOutDir,
+	})
+}
+
+// POST /tools/iso2xex  { "isoPath": "...", "outDir": "..." }
+// Extracts XEX folder from ISO. Output goes into outDir/{DisplayName} - {TitleID}/
+func handleToolsISO2XEX(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonError(w, 405, "POST required")
+		return
+	}
+	var req struct {
+		ISOPath string `json:"isoPath"`
+		OutDir  string `json:"outDir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ISOPath == "" || req.OutDir == "" {
+		jsonError(w, 400, "Missing isoPath or outDir")
+		return
+	}
+
+	info, err := utils.ProbeISODiscInfo(req.ISOPath)
+	if err != nil {
+		jsonError(w, 500, fmt.Sprintf("Probe failed: %v", err))
+		return
+	}
+	titleIDStr := fmt.Sprintf("%08X", info.TitleID)
+	displayName := services.LookupTitleName(titleIDStr)
+	if displayName == "" {
+		displayName = strings.TrimSuffix(filepath.Base(req.ISOPath), filepath.Ext(req.ISOPath))
+	}
+
+	safeName := toolsSanitizeFileName(displayName)
+	folderName := fmt.Sprintf("%s - %s", safeName, titleIDStr)
+	xexOutDir := filepath.Join(req.OutDir, folderName)
+
+	logf("[TOOLS] ISO2XEX: %s → %s", filepath.Base(req.ISOPath), xexOutDir)
+	if err := utils.ExtractXEXFolderFromISO(req.ISOPath, xexOutDir); err != nil {
+		jsonError(w, 500, fmt.Sprintf("ISO2XEX failed: %v", err))
+		return
+	}
+	logf("[TOOLS] ISO2XEX: Extraction complete — %s", folderName)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"ok":          true,
+		"titleId":     titleIDStr,
+		"displayName": displayName,
+		"outputDir":   xexOutDir,
+	})
+}
+
+// toolsSanitizeFileName removes characters not allowed in file/folder names.
+func toolsSanitizeFileName(name string) string {
+	replacer := strings.NewReplacer(
+		"/", "_", "\\", "_", ":", "_", "*", "_",
+		"?", "_", "\"", "_", "<", "_", ">", "_", "|", "_",
+	)
+	s := replacer.Replace(name)
+	for strings.Contains(s, "__") {
+		s = strings.ReplaceAll(s, "__", "_")
+	}
+	return strings.TrimSpace(strings.Trim(s, "_. "))
 }

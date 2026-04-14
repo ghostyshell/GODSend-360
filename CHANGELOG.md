@@ -9,6 +9,18 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Toolbox dropdown** — new wrench icon button in the HomePage header bar, between Browse and Restart, with three tools:
+  - **ISO to GOD** — select one or more Xbox 360 ISO files, choose an output folder, and batch-convert to Games-on-Demand format. Output folders are named `Title Name - TitleID`. ISOs are probed on selection to show title info.
+  - **ISO to XEX** — same UX as ISO2GOD but extracts the loose XEX folder (default.xex + supporting files) from each ISO. Output folders named `Title Name - TitleID`.
+  - **FTP Manager** — full file manager for the Xbox 360 console over FTP. Browse directories, upload files/folders, create directories, and delete entries. Uploads run in the background and appear in a live "Transfers" panel with progress tracking (does not interfere with the existing server queue).
+- **Go backend toolbox endpoints** — `POST /tools/probe-iso`, `POST /tools/iso2god`, `POST /tools/iso2xex` for local ISO conversion via the pure-Go converter and XEX extractor.
+- **Toolbox IPC surface** — 13 new Electron IPC channels (`tools:*`) and matching `preload.js` APIs for file pickers, ISO probing, conversion, and FTP file management.
+
+### Fixed
+- **Library covers flash to empty** — `loadAuroraLibrary()` and the 2-minute poll no longer wipe `covers` / `titleVisuals` state before async re-fetch; cover push events now update incrementally so the grid never shows blank cards. State is only cleared on an explicit force refresh.
+- **3D box cover clipped in grid and detail view** — moved the Three.js camera back from z=3.2 to z=3.8 so the full Xbox 360 case geometry (1.5 x 2.0) fits within the viewport with margin instead of being cropped on all edges.
+
 ### Changed
 - **Version** — **2.7.6** (root + Electron `package.json`, lockfiles, backend banner).
 

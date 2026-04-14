@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { RefreshCw, Settings, Gamepad2, Loader2, RotateCcw, ListOrdered, Store } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { RefreshCw, Settings, Gamepad2, Loader2, RotateCcw, ListOrdered, Store, Wrench, Disc, FolderOpen, HardDrive } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 
@@ -29,6 +29,54 @@ function FtpIndicator({ status }) {
   );
 }
 
+// Toolbox dropdown menu
+function ToolboxDropdown({ onIso2God, onIso2Xex, onFtpManager }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <Button size="icon" title="Toolbox" onClick={() => setOpen(!open)}>
+        <Wrench className="h-4 w-4" />
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-surface border border-border rounded-lg shadow-lg overflow-hidden">
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent transition-colors"
+            onClick={() => { setOpen(false); onIso2God(); }}
+          >
+            <Disc className="h-3.5 w-3.5 text-blue-400" />
+            ISO to GOD
+          </button>
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent transition-colors"
+            onClick={() => { setOpen(false); onIso2Xex(); }}
+          >
+            <FolderOpen className="h-3.5 w-3.5 text-green-400" />
+            ISO to XEX
+          </button>
+          <button
+            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent transition-colors"
+            onClick={() => { setOpen(false); onFtpManager(); }}
+          >
+            <HardDrive className="h-3.5 w-3.5 text-yellow-400" />
+            FTP Manager
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage({
   outputLines,
   logInfo,
@@ -36,6 +84,9 @@ export default function HomePage({
   onNavigateSettings,
   onNavigateQueue,
   onNavigateBrowse,
+  onNavigateIso2God,
+  onNavigateIso2Xex,
+  onNavigateFtpManager,
   onLibraryToggle,
   onReconnect,
   libraryLoading,
@@ -115,6 +166,13 @@ export default function HomePage({
         <Button size="icon" title="Browse & Download" onClick={onNavigateBrowse}>
           <Store className="h-4 w-4" />
         </Button>
+
+        {/* Toolbox dropdown */}
+        <ToolboxDropdown
+          onIso2God={onNavigateIso2God}
+          onIso2Xex={onNavigateIso2Xex}
+          onFtpManager={onNavigateFtpManager}
+        />
 
         {/* Restart backend */}
         <Button

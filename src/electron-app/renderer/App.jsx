@@ -5,9 +5,12 @@ import SettingsPage from "./components/SettingsPage";
 import LibraryPage from "./components/LibraryPage";
 import QueuePage from "./components/QueuePage";
 import BrowsePage from "./components/BrowsePage";
+import ISO2GODPage from "./components/ISO2GODPage";
+import ISO2XEXPage from "./components/ISO2XEXPage";
+import FTPManagerPage from "./components/FTPManagerPage";
 
 export default function App() {
-  // "loading" during the initial ping; then "home" | "settings" | "library" | "queue" | "browse"
+  // "loading" during the initial ping; then "home" | "settings" | "library" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager"
   const [page, setPage] = useState("loading");
 
   // ── Console output ────────────────────────────────────────────────────────
@@ -47,8 +50,12 @@ export default function App() {
 
     setLibraryGames(result.games);
     setLibraryConnectedTo(result.connectedTo);
-    setCovers({});
-    setTitleVisuals({});
+    // Only wipe cover caches on an explicit force refresh so that
+    // incremental push-event updates don't flash empty.
+    if (force) {
+      setCovers({});
+      setTitleVisuals({});
+    }
     setLibraryStatus(result.games.length === 0 ? "empty" : "ready");
 
     if (result.games.length > 0) {
@@ -143,8 +150,8 @@ export default function App() {
       setLibraryGames(r.games);
       setLibraryConnectedTo(r.connectedTo || "");
       setLibraryStatus(r.games.length === 0 ? "empty" : "ready");
-      setCovers({});
-      setTitleVisuals({});
+      // Don't clear covers/titleVisuals here — let push events update
+      // them incrementally to avoid flashing empty covers on the grid.
       if (r.games.length > 0) {
         window.godsendApi
           .fetchAuroraCovers(
@@ -240,6 +247,18 @@ export default function App() {
     return <BrowsePage onBack={() => setPage("home")} />;
   }
 
+  if (page === "iso2god") {
+    return <ISO2GODPage onBack={() => setPage("home")} />;
+  }
+
+  if (page === "iso2xex") {
+    return <ISO2XEXPage onBack={() => setPage("home")} />;
+  }
+
+  if (page === "ftpmanager") {
+    return <FTPManagerPage onBack={() => setPage("home")} />;
+  }
+
   if (page === "library") {
     return (
       <LibraryPage
@@ -264,6 +283,9 @@ export default function App() {
       onNavigateSettings={() => setPage("settings")}
       onNavigateQueue={() => setPage("queue")}
       onNavigateBrowse={() => setPage("browse")}
+      onNavigateIso2God={() => setPage("iso2god")}
+      onNavigateIso2Xex={() => setPage("iso2xex")}
+      onNavigateFtpManager={() => setPage("ftpmanager")}
       onLibraryToggle={handleLibraryToggle}
       onReconnect={pingFtp}
       libraryLoading={libraryLoading}
