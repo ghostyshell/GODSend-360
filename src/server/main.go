@@ -809,7 +809,7 @@ func main() {
 	copyBuffer = make([]byte, CopyBufferSize)
 
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.7.5         ║")
+	fmt.Println("║    GODSend Backend Server v2.7.6         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",

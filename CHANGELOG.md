@@ -9,6 +9,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Version** — **2.7.6** (root + Electron `package.json`, lockfiles, backend banner).
+
 ## [2.7.5] — 2026-04-14
 
 ### Changed
