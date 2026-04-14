@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Gamepad2, Loader2, WifiOff,
-  Star, Disc3, RefreshCw, Upload, Search, X, Check,
+  Star, Disc3, RefreshCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
@@ -47,6 +47,68 @@ function StarRating({ rating, raters }) {
   );
 }
 
+// ── Lightbox viewer ───────────────────────────────────────────────────────────
+
+function ImageLightbox({ images, startIndex, onClose }) {
+  const [idx, setIdx] = useState(startIndex ?? 0);
+  const total = images.length;
+  const prev = useCallback(() => setIdx((i) => (i - 1 + total) % total), [total]);
+  const next = useCallback(() => setIdx((i) => (i + 1) % total), [total]);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape")     onClose();
+      if (e.key === "ArrowLeft")  prev();
+      if (e.key === "ArrowRight") next();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, prev, next]);
+
+  const src = images[idx];
+  if (!src) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+      onClick={onClose}
+    >
+      <button
+        className="absolute top-3 right-3 text-white/60 hover:text-white z-10"
+        onClick={onClose}
+      >
+        <X className="h-6 w-6" />
+      </button>
+      {total > 1 && (
+        <>
+          <button
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white z-10 p-1"
+            onClick={(e) => { e.stopPropagation(); prev(); }}
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </button>
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white z-10 p-1"
+            onClick={(e) => { e.stopPropagation(); next(); }}
+          >
+            <ChevronRight className="h-8 w-8" />
+          </button>
+          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-white/50">
+            {idx + 1} / {total}
+          </span>
+        </>
+      )}
+      <img
+        src={src}
+        alt=""
+        className="max-w-[90vw] max-h-[90vh] object-contain rounded shadow-2xl"
+        draggable={false}
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 // ── Asset slot definitions ────────────────────────────────────────────────────
 
 const MAIN_SLOTS = [
@@ -60,7 +122,11 @@ const SCREENSHOT_COUNT = 5;
 
 // ── Single asset slot card ────────────────────────────────────────────────────
 
-function AssetSlotCard({ slotKey, label, aspect, currentAsset, pendingAsset, onSearch, onUpload, onClearPending }) {
+function AssetSlotCard({
+  slotKey, label, aspect, currentAsset, pendingAsset,
+  onSearch, onUpload, onClearPending, onImageClick,
+  objectFit = "cover", objectPosition = "center",
+}) {
   const hasPending = !!pendingAsset;
   const displaySrc  = hasPending
     ? (pendingAsset.dataUrl || pendingAsset.previewUrl || pendingAsset.url || null)
@@ -68,6 +134,8 @@ function AssetSlotCard({ slotKey, label, aspect, currentAsset, pendingAsset, onS
   const displayIsWeb = hasPending
     ? (pendingAsset.dataUrl ? true : isWebImageExt(".jpg"))
     : (currentAsset ? isWebImageExt(currentAsset.ext) : false);
+
+  const canClick = !!(displaySrc && displayIsWeb && onImageClick);
 
   return (
     <div className="flex flex-col gap-1">
@@ -85,16 +153,24 @@ function AssetSlotCard({ slotKey, label, aspect, currentAsset, pendingAsset, onS
       </div>
       <div
         className={cn(
-          "relative rounded-md border bg-[#0d1117] overflow-hidden flex items-center justify-center cursor-default",
+          "relative rounded-md border bg-[#0d1117] overflow-hidden flex items-center justify-center",
           hasPending ? "border-primary/50 ring-1 ring-primary/30" : "border-border",
+          canClick ? "cursor-zoom-in hover:opacity-90 transition-opacity" : "cursor-default",
           aspect === "video"    && "aspect-video w-full",
-          aspect === "wide"     && "aspect-[3/1] w-full",
+          aspect === "wide"     && "aspect-[4/1] w-full",
           aspect === "square"   && "aspect-square w-[68px]",
           aspect === "portrait" && "aspect-[3/4] w-[60px]",
         )}
+        onClick={canClick ? onImageClick : undefined}
       >
         {displaySrc && displayIsWeb ? (
-          <img src={displaySrc} alt="" className="w-full h-full object-cover" draggable={false} />
+          <img
+            src={displaySrc}
+            alt=""
+            className="w-full h-full"
+            style={{ objectFit, objectPosition }}
+            draggable={false}
+          />
         ) : displaySrc ? (
           <span className="text-[7px] text-muted-foreground text-center px-1 leading-tight">
             {(currentAsset?.ext || "").toUpperCase()}<br />cached
@@ -250,7 +326,7 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }) {
       )}
 
       <p className="text-[8px] text-muted-foreground/50 leading-snug">
-        Results from XboxUnity. Select an image to stage it for upload.
+        XboxUnity provides <span className="text-muted-foreground/70">cover art only</span> — results are the same regardless of which asset slot you are filling. Use <span className="text-muted-foreground/70">File</span> to upload a custom image for other slots.
       </p>
     </div>
   );
@@ -258,16 +334,25 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }) {
 
 // ── Asset editor section ──────────────────────────────────────────────────────
 
-function AssetEditorSection({ game, titleVisuals, onRefresh }) {
+// Per-slot display overrides: { objectFit, objectPosition }
+const SLOT_DISPLAY = {
+  banner:  { objectFit: "contain", objectPosition: "center" },
+  cover:   { objectFit: "cover",   objectPosition: "right center" },
+};
+
+function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefresh }) {
   const [pending, setPending]       = useState({});
   const [searchSlot, setSearchSlot] = useState(null);
   const [saving, setSaving]         = useState(false);
   const [saveMsg, setSaveMsg]       = useState("");
   const [saveMsgKind, setSaveMsgKind] = useState("ok"); // "ok" | "error"
+  const [lightbox, setLightbox]     = useState(null); // { images: string[], idx: number }
 
   const hasPending = Object.keys(pending).length > 0;
 
   function currentAsset(slotKey) {
+    // RXEA-decoded assets from the console take priority over CDN/manifest assets.
+    if (rxeaSlots && rxeaSlots[slotKey]) return rxeaSlots[slotKey];
     if (!titleVisuals) return null;
     if (slotKey.startsWith("screenshot")) {
       const idx = parseInt(slotKey.replace("screenshot", ""), 10) - 1;
@@ -339,9 +424,16 @@ function AssetEditorSection({ game, titleVisuals, onRefresh }) {
     }
   }
 
-  // Current screenshot count (from existing visuals or pending).
+  // Current screenshot count (from RXEA decode, existing visuals, or pending).
+  const rxeaSsCount = rxeaSlots
+    ? Object.keys(rxeaSlots)
+        .filter((k) => k.startsWith("screenshot"))
+        .map((k) => parseInt(k.replace("screenshot", ""), 10))
+        .reduce((a, b) => Math.max(a, b), 0)
+    : 0;
   const ssCount = Math.max(
     titleVisuals?.screenshots?.length || 0,
+    rxeaSsCount,
     ...Object.keys(pending).filter((k) => k.startsWith("screenshot")).map((k) => parseInt(k.replace("screenshot", ""), 10)),
     0,
   );
@@ -349,7 +441,28 @@ function AssetEditorSection({ game, titleVisuals, onRefresh }) {
     key: `screenshot${i + 1}`, label: `Screenshot ${i + 1}`,
   }));
 
+  function slotSrc(key) {
+    const p = pending[key];
+    if (p) return p.dataUrl || p.previewUrl || p.url || null;
+    return currentAsset(key)?.src || null;
+  }
+
+  // Build ordered screenshot image list for lightbox navigation.
+  const screenshotSrcs = screenshotSlots.map((s) => slotSrc(s.key)).filter(Boolean);
+
+  function openLightbox(images, idx) {
+    setLightbox({ images, idx });
+  }
+
   return (
+    <>
+    {lightbox && (
+      <ImageLightbox
+        images={lightbox.images}
+        startIndex={lightbox.idx}
+        onClose={() => setLightbox(null)}
+      />
+    )}
     <div className="space-y-3">
       {/* Header row */}
       <div className="flex items-center justify-between gap-2">
@@ -357,6 +470,11 @@ function AssetEditorSection({ game, titleVisuals, onRefresh }) {
           Aurora Assets
         </p>
         <div className="flex items-center gap-1.5 shrink-0">
+          {rxeaLoading && (
+            <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />Decoding…
+            </span>
+          )}
           {hasPending && (
             <Button
               size="sm"
@@ -393,63 +511,75 @@ function AssetEditorSection({ game, titleVisuals, onRefresh }) {
           via FTP. Aurora processes them on next library scan.
         </p>
         <div className="grid gap-2.5" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          {MAIN_SLOTS.map(({ key, label, aspect }) => (
-            <AssetSlotCard
-              key={key}
-              slotKey={key}
-              label={label}
-              aspect={aspect}
-              currentAsset={currentAsset(key)}
-              pendingAsset={pending[key] || null}
-              onSearch={() => openSearch(key)}
-              onUpload={() => handleUploadFile(key)}
-              onClearPending={() => clearPending(key)}
-            />
-          ))}
+          {MAIN_SLOTS.map(({ key, label, aspect }) => {
+            const src = slotSrc(key);
+            const disp = SLOT_DISPLAY[key] || {};
+            return (
+              <AssetSlotCard
+                key={key}
+                slotKey={key}
+                label={label}
+                aspect={aspect}
+                currentAsset={currentAsset(key)}
+                pendingAsset={pending[key] || null}
+                onSearch={() => openSearch(key)}
+                onUpload={() => handleUploadFile(key)}
+                onClearPending={() => clearPending(key)}
+                onImageClick={src ? () => openLightbox([src], 0) : undefined}
+                objectFit={disp.objectFit}
+                objectPosition={disp.objectPosition}
+              />
+            );
+          })}
         </div>
       </div>
 
       {/* Screenshots */}
       {screenshotSlots.length > 0 && (
         <div className="rounded-md border border-border/60 bg-muted/10 p-2.5">
-          <p className="text-[9px] text-muted-foreground mb-2">Screenshots</p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {screenshotSlots.map(({ key, label }) => (
-              <div key={key} className="shrink-0" style={{ width: 120 }}>
-                <AssetSlotCard
-                  slotKey={key}
-                  label={label}
-                  aspect="video"
-                  currentAsset={currentAsset(key)}
-                  pendingAsset={pending[key] || null}
-                  onSearch={() => openSearch(key)}
-                  onUpload={() => handleUploadFile(key)}
-                  onClearPending={() => clearPending(key)}
-                />
-              </div>
-            ))}
+          <p className="text-[9px] text-muted-foreground mb-2">
+            Screenshots{screenshotSlots.length > 1 && <span className="text-muted-foreground/50"> · scroll →</span>}
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
+            {screenshotSlots.map(({ key, label }, ssIdx) => {
+              const src = slotSrc(key);
+              return (
+                <div key={key} className="shrink-0" style={{ width: 140 }}>
+                  <AssetSlotCard
+                    slotKey={key}
+                    label={label}
+                    aspect="video"
+                    currentAsset={currentAsset(key)}
+                    pendingAsset={pending[key] || null}
+                    onSearch={() => openSearch(key)}
+                    onUpload={() => handleUploadFile(key)}
+                    onClearPending={() => clearPending(key)}
+                    onImageClick={src ? () => openLightbox(screenshotSrcs, screenshotSrcs.indexOf(src)) : undefined}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Empty state */}
-      {titleVisuals !== undefined
+      {/* Empty state — only show when RXEA decode is done and nothing was found */}
+      {!rxeaLoading
+        && titleVisuals !== undefined
         && !titleVisuals?.background && !titleVisuals?.banner
         && !titleVisuals?.icon     && !titleVisuals?.cover
         && !titleVisuals?.importCover
         && !(titleVisuals?.screenshots?.length)
+        && !rxeaSlots?.background && !rxeaSlots?.banner
+        && !rxeaSlots?.icon && !rxeaSlots?.cover
+        && !rxeaSsCount
         && !hasPending && (
         <div className="rounded-md border border-border/40 bg-muted/10 px-3 py-3 text-center">
           <p className="text-[11px] text-muted-foreground">
-            No artwork cached yet. Run a library refresh to pull assets from the console,
-            or upload your own using Search / File above.
+            No artwork found on console or in cache. Run a library refresh, or upload
+            your own using Search / File above.
           </p>
         </div>
-      )}
-      {titleVisuals === undefined && (
-        <p className="text-[11px] text-muted-foreground">
-          Artwork loads after the library FTP sync…
-        </p>
       )}
 
       {/* Inline search panel */}
@@ -461,6 +591,76 @@ function AssetEditorSection({ game, titleVisuals, onRefresh }) {
           onClose={() => setSearchSlot(null)}
         />
       )}
+    </div>
+    </>
+  );
+}
+
+// ── Disc face (shown on hover flip) ─────────────────────────────────────────
+
+function DiscFace() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-[#07090d]">
+      <div
+        style={{
+          width: "78%",
+          aspectRatio: "1 / 1",
+          borderRadius: "50%",
+          position: "relative",
+          flexShrink: 0,
+          background:
+            "radial-gradient(circle at 32% 28%, #f4f4f4, #bdbdbd 36%, #808080 68%, #484848 100%)",
+          boxShadow: "0 6px 30px rgba(0,0,0,0.95), 0 2px 8px rgba(0,0,0,0.7)",
+        }}
+      >
+        {/* Iridescent shimmer ring */}
+        <div
+          style={{
+            position: "absolute", inset: "3.5%", borderRadius: "50%",
+            background:
+              "conic-gradient(from 195deg, rgba(255,80,80,.22), rgba(80,230,130,.22), rgba(80,120,255,.22), rgba(255,210,60,.22), rgba(255,80,200,.22), rgba(255,80,80,.22))",
+          }}
+        />
+        {/* Green label area */}
+        <div
+          style={{
+            position: "absolute", top: "50%", left: "50%",
+            transform: "translate(-50%,-50%)",
+            width: "66%", aspectRatio: "1 / 1", borderRadius: "50%",
+            background:
+              "radial-gradient(circle at 38% 34%, #247a44 0%, #0d4020 52%, #050d09 100%)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexDirection: "column", gap: "3px",
+          }}
+        >
+          {/* Xbox sphere outline */}
+          <svg width="22" height="22" viewBox="0 0 22 22" style={{ opacity: 0.65 }}>
+            <circle cx="11" cy="11" r="9.5" fill="none" stroke="rgba(255,255,255,.28)" strokeWidth="0.8"/>
+            <ellipse cx="11" cy="11" rx="6" ry="9.5" fill="none" stroke="rgba(255,255,255,.28)" strokeWidth="0.8"/>
+            <ellipse cx="11" cy="11" rx="9.5" ry="3.8" fill="none" stroke="rgba(255,255,255,.28)" strokeWidth="0.8"/>
+          </svg>
+          <span style={{ fontSize: "3.8px", color: "rgba(255,255,255,.42)", letterSpacing: "1.6px", fontFamily: "sans-serif", textTransform: "uppercase" }}>
+            Xbox 360
+          </span>
+        </div>
+        {/* Centre hub */}
+        <div
+          style={{
+            position: "absolute", top: "50%", left: "50%",
+            transform: "translate(-50%,-50%)",
+            width: "14%", aspectRatio: "1 / 1", borderRadius: "50%",
+            background: "#111", border: "0.5px solid #3a3a3a", zIndex: 2,
+          }}
+        />
+        {/* Gloss */}
+        <div
+          style={{
+            position: "absolute", inset: 0, borderRadius: "50%",
+            background: "linear-gradient(135deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,.05) 40%, transparent 100%)",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -475,14 +675,44 @@ function GameDetail({
   onBack,
   onRefresh,
   refreshBusy,
+  onRxeaCover,
 }) {
+  const [rxeaSlots, setRxeaSlots]     = useState(null);
+  const [rxeaLoading, setRxeaLoading] = useState(false);
+  const [coverFlipped, setCoverFlipped] = useState(false);
+
   useEffect(() => {
+    // Re-read manifest from disk (no FTP).
     window.godsendApi
       .refreshTitleVisualsFromCache({
         titleId:     game.titleId,
         gameDataDir: game.gameDataDir,
       })
       .catch(() => {});
+
+    // On-demand RXEA decode: FTP-fetch .asset files and decode them via the Go codec.
+    // This runs regardless of whether the library loaded from cache or live FTP,
+    // so decoded console art is always visible in game detail.
+    if (!game.gameDataDir) return;
+    setRxeaSlots(null);
+    setRxeaLoading(true);
+    window.godsendApi
+      .decodeAsset({ titleId: game.titleId, gameDataDir: game.gameDataDir })
+      .then((r) => {
+        if (r?.ok && Array.isArray(r.slots) && r.slots.length > 0) {
+          const map = {};
+          for (const s of r.slots) {
+            map[s.key] = { src: s.dataUrl, ext: ".png" };
+          }
+          setRxeaSlots(map);
+          const coverSlot = r.slots.find((s) => s.key === "cover");
+          if (coverSlot?.dataUrl) onRxeaCover?.(game.titleId, coverSlot.dataUrl);
+        } else {
+          setRxeaSlots({});
+        }
+      })
+      .catch(() => setRxeaSlots({}))
+      .finally(() => setRxeaLoading(false));
   }, [game.titleId, game.gameDataDir]);
 
   return (
@@ -508,33 +738,75 @@ function GameDetail({
         )}
       </header>
 
-      <ScrollArea className="flex-1 min-h-0 mt-3">
+      <div className="flex-1 min-h-0 mt-3 overflow-y-auto overflow-x-hidden" style={{ scrollbarWidth: "thin" }}>
         <div className="flex flex-col gap-4 pb-4 pr-1">
 
           {/* Cover + core info row */}
           <div className="flex gap-4">
-            <div
-              className={cn(
-                "relative shrink-0 rounded-lg overflow-hidden border border-border bg-[#0d1117]",
-                !isOnSource && "opacity-50 grayscale"
-              )}
-              style={{ width: 110, aspectRatio: "3/4" }}
-            >
-              {coverDataUrl === undefined ? (
-                <div className="absolute inset-0 bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
-              ) : coverDataUrl === null ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Gamepad2 className="h-7 w-7 text-border" />
+            {(() => {
+              const rxeaCoverSrc = rxeaSlots?.cover?.src || null;
+              const activeSrc   = rxeaCoverSrc || coverDataUrl;
+              const isRxea      = !!rxeaCoverSrc;
+              return (
+                /* perspective wrapper */
+                <div
+                  className={cn("shrink-0", !isOnSource && "opacity-50 grayscale")}
+                  style={{ width: 110, aspectRatio: "3/4", perspective: "700px", cursor: "default" }}
+                  onMouseEnter={() => setCoverFlipped(true)}
+                  onMouseLeave={() => setCoverFlipped(false)}
+                >
+                  {/* flip card */}
+                  <div
+                    style={{
+                      width: "100%", height: "100%",
+                      position: "relative",
+                      transformStyle: "preserve-3d",
+                      transition: "transform 0.55s cubic-bezier(0.4,0,0.2,1), filter 0.55s ease",
+                      transform: coverFlipped ? "rotateY(180deg) translateY(-10px)" : "rotateY(0deg)",
+                      filter: coverFlipped ? "drop-shadow(0 18px 32px rgba(0,0,0,0.9))" : "drop-shadow(0 4px 8px rgba(0,0,0,0.5))",
+                    }}
+                  >
+                    {/* Front face */}
+                    <div
+                      className="absolute inset-0 rounded-lg overflow-hidden border border-border bg-[#0d1117]"
+                      style={{ backfaceVisibility: "hidden" }}
+                    >
+                      {activeSrc === undefined ? (
+                        <div className="absolute inset-0 bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
+                      ) : !activeSrc ? (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Gamepad2 className="h-7 w-7 text-border" />
+                        </div>
+                      ) : isRxea ? (
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            backgroundImage: `url(${activeSrc})`,
+                            backgroundSize: "200% 100%",
+                            backgroundPosition: "right center",
+                            backgroundRepeat: "no-repeat",
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={activeSrc}
+                          alt={game.name}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          draggable={false}
+                        />
+                      )}
+                    </div>
+                    {/* Back face — disc */}
+                    <div
+                      className="absolute inset-0 rounded-lg overflow-hidden border border-border/50"
+                      style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                    >
+                      <DiscFace />
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <img
-                  src={coverDataUrl}
-                  alt={game.name}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  draggable={false}
-                />
-              )}
-            </div>
+              );
+            })()}
 
             <div className="flex flex-col gap-1.5 min-w-0 flex-1">
               <p className="text-[14px] font-bold text-foreground leading-tight">{game.name}</p>
@@ -553,7 +825,18 @@ function GameDetail({
                 {game.discsInSet > 1 && (
                   <MetaRow label="Disc" value={`${game.discNum} of ${game.discsInSet}`} />
                 )}
-                <MetaRow label="Drive" value={game.sourceDrive || "Unknown"} />
+                <MetaRow
+                  label="Game path"
+                  value={
+                    game.sourceDrive || game.directory
+                      ? `${game.sourceDrive || ""}:${game.directory || ""}`
+                      : undefined
+                  }
+                />
+                <MetaRow
+                  label="Asset path"
+                  value={`Aurora/User/Import/${game.titleId}/`}
+                />
                 {game.timesPlayed > 0 && (
                   <MetaRow label="Played" value={`${game.timesPlayed}×${game.lastPlayed ? ` · Last ${game.lastPlayed}` : ""}`} />
                 )}
@@ -590,6 +873,8 @@ function GameDetail({
           <AssetEditorSection
             game={game}
             titleVisuals={titleVisuals}
+            rxeaSlots={rxeaSlots}
+            rxeaLoading={rxeaLoading}
             onRefresh={onRefresh}
           />
 
@@ -598,68 +883,102 @@ function GameDetail({
             {game.contentId ? `  ·  ContentID: ${game.contentId}` : ""}
           </p>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
 
 // ── Game card ─────────────────────────────────────────────────────────────────
 
-function GameCard({ game, coverDataUrl, isOnSource, onClick }) {
+function GameCard({ game, coverDataUrl, rxeaCover, isOnSource, onClick }) {
+  const [flipped, setFlipped] = useState(false);
+
   return (
     <button
       className={cn(
         "flex flex-col gap-1 select-none text-left rounded-lg",
         "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        "transition-opacity hover:opacity-80 active:opacity-60",
         !isOnSource && "opacity-50"
       )}
       onClick={onClick}
+      onMouseEnter={() => setFlipped(true)}
+      onMouseLeave={() => setFlipped(false)}
+      style={{ perspective: "600px" }}
     >
+      {/* flip wrapper */}
       <div
-        className="relative w-full bg-[#0d1117] rounded-lg overflow-hidden border border-border"
-        style={{ aspectRatio: "3/4" }}
+        className="relative w-full"
+        style={{
+          aspectRatio: "3/4",
+          transformStyle: "preserve-3d",
+          transition: "transform 0.52s cubic-bezier(0.4,0,0.2,1), filter 0.52s ease",
+          transform: flipped ? "rotateY(180deg) translateY(-8px)" : "rotateY(0deg)",
+          filter: flipped
+            ? "drop-shadow(0 16px 28px rgba(0,0,0,0.85))"
+            : "drop-shadow(0 2px 6px rgba(0,0,0,0.4))",
+        }}
       >
-        {coverDataUrl === undefined ? (
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
-          </div>
-        ) : coverDataUrl === null ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Gamepad2 className="h-7 w-7 text-border" />
-          </div>
-        ) : (
-          <img
-            src={coverDataUrl}
-            alt={game.name}
-            className={cn(
-              "absolute inset-0 w-full h-full object-cover",
-              !isOnSource && "grayscale"
-            )}
-            draggable={false}
-          />
-        )}
-
-        <div className="absolute top-1 left-1 flex flex-col gap-0.5">
-          {game.isFavorite && (
-            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-black/60">
-              <Star className="h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />
-            </span>
+        {/* ── Front face ── */}
+        <div
+          className="absolute inset-0 rounded-lg overflow-hidden border border-border bg-[#0d1117]"
+          style={{ backfaceVisibility: "hidden" }}
+        >
+          {coverDataUrl === undefined && !rxeaCover ? (
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
+            </div>
+          ) : rxeaCover ? (
+            <div
+              className={cn("absolute inset-0", !isOnSource && "grayscale")}
+              style={{
+                backgroundImage: `url(${rxeaCover})`,
+                backgroundSize: "200% 100%",
+                backgroundPosition: "right center",
+                backgroundRepeat: "no-repeat",
+              }}
+            />
+          ) : coverDataUrl ? (
+            <img
+              src={coverDataUrl}
+              alt={game.name}
+              className={cn("absolute inset-0 w-full h-full object-cover", !isOnSource && "grayscale")}
+              draggable={false}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Gamepad2 className="h-7 w-7 text-border" />
+            </div>
           )}
-          {game.discsInSet > 1 && (
-            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-black/60">
-              <Disc3 className="h-2.5 w-2.5 text-blue-400" />
-            </span>
+
+          <div className="absolute top-1 left-1 flex flex-col gap-0.5">
+            {game.isFavorite && (
+              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-black/60">
+                <Star className="h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />
+              </span>
+            )}
+            {game.discsInSet > 1 && (
+              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-black/60">
+                <Disc3 className="h-2.5 w-2.5 text-blue-400" />
+              </span>
+            )}
+          </div>
+
+          {!isOnSource && (
+            <div className="absolute inset-x-0 bottom-0 bg-black/70 py-0.5 px-1">
+              <p className="text-[8px] text-white/60 text-center truncate">
+                {game.sourceDrive || "Not found"}
+              </p>
+            </div>
           )}
         </div>
 
-        {!isOnSource && (
-          <div className="absolute inset-x-0 bottom-0 bg-black/70 py-0.5 px-1">
-            <p className="text-[8px] text-white/60 text-center truncate">
-              {game.sourceDrive || "Not found"}
-            </p>
-          </div>
-        )}
+        {/* ── Back face — disc ── */}
+        <div
+          className="absolute inset-0 rounded-lg overflow-hidden border border-border/50"
+          style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+        >
+          <DiscFace />
+        </div>
       </div>
 
       <div className="px-0.5 min-w-0">
@@ -697,6 +1016,11 @@ export default function LibraryPage({
   refreshBusy = false,
 }) {
   const [selectedGame, setSelectedGame] = useState(null);
+  const [rxeaCovers, setRxeaCovers] = useState({});
+
+  function handleRxeaCover(titleId, src) {
+    setRxeaCovers((prev) => (prev[titleId] === src ? prev : { ...prev, [titleId]: src }));
+  }
 
   function isOnSource(game) {
     if (!librarySources || librarySources.length === 0) return true;
@@ -715,6 +1039,7 @@ export default function LibraryPage({
           onBack={() => setSelectedGame(null)}
           onRefresh={onRefresh}
           refreshBusy={refreshBusy}
+          onRxeaCover={handleRxeaCover}
         />
       </div>
     );
@@ -792,6 +1117,7 @@ export default function LibraryPage({
                 key={`${game.titleId}-${game.contentId}`}
                 game={game}
                 coverDataUrl={covers[game.titleId]}
+                rxeaCover={rxeaCovers[game.titleId] || null}
                 isOnSource={isOnSource(game)}
                 onClick={() => setSelectedGame(game)}
               />

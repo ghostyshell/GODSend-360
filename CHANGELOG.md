@@ -9,10 +9,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.7.5] — 2026-04-14
+
 ### Changed
-- **Version** — **2.7.4** (root + Electron `package.json`, lockfiles, backend banner).
+- **Version** — **2.7.5** (root + Electron `package.json`, lockfiles, backend banner); Aurora script **11.2.2**.
 
 ### Added
+- **Pure-Go RXEA codec** (`src/server/utils/rxea.go`) — bidirectional Aurora `.asset` file converter. Decode: RXEA bytes → `[]image.NRGBA` PNG images. Encode: `image.Image` → RXEA bytes. Implements the full RXEA container (25-slot entry table, 2048-byte aligned data section), Xbox 360 Xenos GPU texture un-tiling (8×8 DXT-block Morton-curve macro-tiles), 8-in-32 endian swap for DXT data, and DXT1/DXT3/DXT5/8888 pixel decompression. DXT5 compression uses bounding-box colour quantisation. Two new Go HTTP endpoints: `POST /rxea/decode` → JSON `{slots:[{slot,width,height,png}]}` and `POST /rxea/encode?slot=N` → raw RXEA bytes.
+- **`xbox:decode-asset` IPC** — FTP-downloads `BK/GC/GL/SS{TitleId}.asset` files, posts each to `/rxea/decode`, and returns slot→PNG data-URL map so the renderer can show exactly what textures Aurora is displaying on the console. Used by `syncAuroraTitleVisualAssets` as the second-highest priority source (after User/Import, before CDN fallback).
+- **`xbox:encode-asset` IPC** — takes a PNG + slot index, posts to `/rxea/encode`, and FTPs the resulting RXEA bytes to `Data/GameData/{dir}/{PREFIX}{TitleId}.asset` — replacing the asset in-place immediately without requiring an Aurora library rescan.
+- **`decodeAsset` / `encodeAsset` renderer APIs** — exposed via `preload.js` as `window.godsendApi.decodeAsset` and `window.godsendApi.encodeAsset`.
 - **Game Details: Aurora Asset Editor** — the read-only "Aurora files on Xbox" WIP section is replaced with a full per-slot asset editor. Each slot (Background, Banner, Icon, Cover, Screenshots) shows the currently cached image, a **Search** button that queries XboxUnity by title name and TitleID, and a **File** button that opens a native file picker. Selecting an asset stages it as a pending upload (shown with a blue dot). **Save to Console** uploads all staged images to `Aurora/User/Import/{TitleID}/` via FTP; Aurora processes them on the next library scan.
 - **XboxUnity asset search** — new IPC `xbox:search-assets` queries `xboxunity.net/api/Covers/` by TitleID then by name, sorts results by official/rating, and prepends an Xbox CDN high-res cover when a titleid is returned. Exposed as `window.godsendApi.searchAssets`.
 - **FTP asset upload to console** — new IPC `xbox:upload-asset-to-console` accepts an image as base64 or a URL (fetched server-side), uploads to `User/Import/{TitleID}/{assetType}.{ext}` via FTP using a `Readable` stream, then bumps the cache fingerprint so the next library load re-syncs. Exposed as `window.godsendApi.uploadAssetToConsole`.

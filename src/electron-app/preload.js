@@ -60,6 +60,9 @@ contextBridge.exposeInMainWorld("godsendApi", {
   browseQueueGame:   (payload) => ipcRenderer.invoke("browse:queue-game", payload),
   browseGetDiscInfo: (game)    => ipcRenderer.invoke("browse:get-disc-info", game),
 
+  decodeAsset: (payload) => ipcRenderer.invoke("xbox:decode-asset", payload),
+  encodeAsset: (payload) => ipcRenderer.invoke("xbox:encode-asset", payload),
+
   // Each subscription function returns a cleanup function for React useEffect.
   onFtpDebugLog: (callback) => {
     const handler = (_event, line) => callback(line);

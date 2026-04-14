@@ -438,7 +438,101 @@ async function syncAuroraTitleVisualAssets(
     }
   }
 
-  // ── 2. GameAssetInfo.bin — Xbox Live CDN image URLs ─────────────────────────
+  // ── 2. Data/GameData/{dir}/*.asset — RXEA decode via Go server ──────────────
+  //    Aurora's .asset files (BK/GC/GL/SS{TitleId}.asset) contain the textures
+  //    that are actually displayed on the console.  If a user has uploaded custom
+  //    art (Import folder → Aurora processed it) those files reflect the custom
+  //    images.  We decode them via the Go RXEA codec and cache as PNG.
+  const goPort = getConfiguredServerPort();
+
+  /** FTP download one .asset file and POST it to the Go RXEA decoder.
+   *  Returns a map of slot → PNG Buffer, or {} on any failure. */
+  async function decodeAssetFile(assetName) {
+    const assetBuf = await ftpTryDownloadFile(client, `${gameDataPath}/${assetName}`);
+    if (!assetBuf || assetBuf.length < 2048) return {};
+    const decoded = await new Promise((res) => {
+      const req = http.request(
+        { host: "127.0.0.1", port: goPort, path: "/rxea/decode", method: "POST",
+          headers: { "Content-Type": "application/octet-stream", "Content-Length": assetBuf.length } },
+        (httpRes) => {
+          const chunks = [];
+          httpRes.on("data", (c) => chunks.push(c));
+          httpRes.on("end", () => {
+            try { res(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
+            catch (e) {
+              addOutputLine(`[WARN] RXEA sync ${titleId}/${assetName}: JSON parse error: ${e.message}`);
+              res(null);
+            }
+          });
+        }
+      );
+      req.on("error", (e) => {
+        addOutputLine(`[WARN] RXEA sync ${titleId}/${assetName}: Go server error: ${e.message}`);
+        res(null);
+      });
+      req.end(assetBuf);
+    });
+    if (!decoded || !Array.isArray(decoded.slots)) {
+      const goErr = decoded?.error ? ` — ${decoded.error}` : "";
+      addOutputLine(`[WARN] RXEA sync ${titleId}/${assetName}: decoder returned no slots${goErr}.`);
+      if (Array.isArray(decoded?.diags) && decoded.diags.length > 0) {
+        for (const d of decoded.diags) {
+          addOutputLine(`[DIAG] slot${d.slot}: off=${d.offset} sz=${d.size} fmt=${d.gpu_fmt} w=${d.width} h=${d.height} tiled=${d.tiled} endian=${d.endian}${d.error ? ` err="${d.error}"` : ""}`);
+        }
+      }
+      return {};
+    }
+    const result = {};
+    for (const s of decoded.slots) {
+      const pngBuf = Buffer.isBuffer(s.png) ? s.png : Buffer.from(s.png, "base64");
+      if (pngBuf.length >= 100) result[s.slot] = pngBuf;
+    }
+    addOutputLine(`[INFO] RXEA sync ${titleId}/${assetName}: decoded ${Object.keys(result).length} slot(s).`);
+    return result;
+  }
+
+  async function cacheDecodedSlot(slotKey, pngBuf, localBase) {
+    if (m[slotKey]) return; // already filled by Import
+    const localName = `rxea-${localBase}.png`;
+    const lp = path.join(vdir, localName);
+    if (!force && fs.existsSync(lp)) { m[slotKey] = assetFor(localName); return; }
+    fs.writeFileSync(lp, pngBuf);
+    m[slotKey] = assetFor(localName);
+  }
+
+  // BK{TitleId}.asset → slot 4 = background
+  {
+    const decoded = await decodeAssetFile(`BK${titleId}.asset`);
+    if (decoded[4]) await cacheDecodedSlot("background", decoded[4], "bk-background");
+  }
+  // GC{TitleId}.asset → slot 2 = cover
+  {
+    const decoded = await decodeAssetFile(`GC${titleId}.asset`);
+    if (decoded[2]) await cacheDecodedSlot("importCover", decoded[2], "gc-cover");
+  }
+  // GL{TitleId}.asset → slot 0 = icon, slot 1 = banner
+  {
+    const decoded = await decodeAssetFile(`GL${titleId}.asset`);
+    if (decoded[0]) await cacheDecodedSlot("icon",   decoded[0], "gl-icon");
+    if (decoded[1]) await cacheDecodedSlot("banner", decoded[1], "gl-banner");
+  }
+  // SS{TitleId}.asset → slots 5–24 = screenshots (only if Import had none)
+  if (screenshotSort.length === 0) {
+    const decoded = await decodeAssetFile(`SS${titleId}.asset`);
+    for (let si = 5; si <= 24; si++) {
+      if (!decoded[si]) continue;
+      const localName = `rxea-screenshot${si - 4}.png`;
+      const lp = path.join(vdir, localName);
+      if (!force && fs.existsSync(lp)) {
+        screenshotSort.push({ sortKey: `${String(si - 4).padStart(3, "0")}-rxea`, rel: assetFor(localName).rel, ext: ".png", name: localName });
+        continue;
+      }
+      fs.writeFileSync(lp, decoded[si]);
+      screenshotSort.push({ sortKey: `${String(si - 4).padStart(3, "0")}-rxea`, rel: assetFor(localName).rel, ext: ".png", name: localName });
+    }
+  }
+
+  // ── 3. GameAssetInfo.bin — Xbox Live CDN image URLs (fallback) ───────────────
   //    Aurora stores an Atom XML feed per title; all URLs go to download.xbox.com.
   let assetInfo = { background: null, banner: null, icon: null, cover: null, screenshots: [] };
   try {
@@ -494,7 +588,7 @@ async function syncAuroraTitleVisualAssets(
     }
   }
 
-  // ── 3. GameCoverInfo.bin — XboxUnity cover (mediaCover fallback) ─────────────
+  // ── 4. GameCoverInfo.bin — XboxUnity cover (mediaCover fallback) ─────────────
   try {
     const chunks = [];
     await client.downloadTo(
@@ -2165,6 +2259,213 @@ function registerIpcHandlers() {
     } catch (err) {
       const msg = err.message || String(err);
       appendAppEvent("AURORA_ASSET", `upload error ${titleId}/${assetType}: ${msg}`);
+      return { ok: false, error: msg };
+    } finally {
+      client.close();
+    }
+  });
+
+  // ── Decode an existing .asset file from the console (RXEA → PNG) ────────────
+  // Payload: { titleId, gameDataDir }
+  // Returns: { ok, slots: [ { slot, width, height, key, dataUrl } ] }
+  //   key is the visual-manifest field: "background"|"banner"|"icon"|"cover"|"screenshot{N}"
+  ipcMain.handle("xbox:decode-asset", async (_event, payload) => {
+    const p = payload || {};
+    const titleId    = typeof p.titleId    === "string" ? p.titleId.trim().toUpperCase()  : "";
+    const gameDataDir = typeof p.gameDataDir === "string" ? p.gameDataDir.trim() : "";
+    if (!titleId || !gameDataDir) return { ok: false, error: "titleId and gameDataDir required." };
+
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const scriptsPath  = getConfiguredFtpScriptsPath();
+    const auroraRoot   = xboxAuroraRoot(scriptsPath);
+    const gameDataPath = `${auroraRoot}/Data/GameData/${gameDataDir}`;
+    const port         = getConfiguredServerPort();
+
+    // Asset files Aurora creates for this title (prefix+TitleId naming).
+    const assetFiles = [
+      { name: `BK${titleId}.asset`, slotKeys: { 4: "background" } },
+      { name: `GC${titleId}.asset`, slotKeys: { 2: "cover"      } },
+      { name: `GL${titleId}.asset`, slotKeys: { 0: "icon", 1: "banner" } },
+      { name: `SS${titleId}.asset`, slotKeys: null /* screenshots */ },
+    ];
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 25000;
+    const allSlots = [];
+
+    try {
+      addOutputLine(`[INFO] RXEA decode ${titleId}: connecting to ${xboxIp}…`);
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+
+      for (const { name, slotKeys } of assetFiles) {
+        const assetBuf = await ftpTryDownloadFile(client, `${gameDataPath}/${name}`);
+        if (!assetBuf || assetBuf.length < 2048) {
+          addOutputLine(`[INFO] RXEA decode ${titleId}: ${name} not found or too small, skipping.`);
+          continue;
+        }
+
+        addOutputLine(`[INFO] RXEA decode ${titleId}: decoding ${name} (${assetBuf.length} bytes)…`);
+
+        // POST raw RXEA bytes to Go server for decode.
+        const decoded = await new Promise((resolve) => {
+          const req = http.request(
+            { host: "127.0.0.1", port, path: "/rxea/decode", method: "POST",
+              headers: { "Content-Type": "application/octet-stream", "Content-Length": assetBuf.length } },
+            (res) => {
+              const chunks = [];
+              res.on("data", (c) => chunks.push(c));
+              res.on("end", () => {
+                try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
+                catch (e) {
+                  addOutputLine(`[WARN] RXEA decode ${titleId}: JSON parse error for ${name}: ${e.message}`);
+                  resolve(null);
+                }
+              });
+            }
+          );
+          req.on("error", (e) => {
+            addOutputLine(`[WARN] RXEA decode ${titleId}: Go server error for ${name}: ${e.message}`);
+            resolve(null);
+          });
+          req.end(assetBuf);
+        });
+
+        if (!decoded || !Array.isArray(decoded.slots)) {
+          const goErr = decoded?.error ? ` — ${decoded.error}` : "";
+          addOutputLine(`[WARN] RXEA decode ${titleId}: Go server returned no slots for ${name}${goErr}.`);
+          if (Array.isArray(decoded?.diags) && decoded.diags.length > 0) {
+            for (const d of decoded.diags) {
+              addOutputLine(`[DIAG] slot${d.slot}: off=${d.offset} sz=${d.size} fmt=${d.gpu_fmt} w=${d.width} h=${d.height} tiled=${d.tiled} endian=${d.endian}${d.error ? ` err="${d.error}"` : ""}`);
+            }
+          }
+          continue;
+        }
+
+        // Even when slots decoded successfully, log any per-slot errors from diags.
+        if (Array.isArray(decoded.diags)) {
+          for (const d of decoded.diags.filter(x => x.error)) {
+            addOutputLine(`[DIAG] slot${d.slot} error: fmt=${d.gpu_fmt} w=${d.width} h=${d.height} — ${d.error}`);
+          }
+        }
+
+        const decodedCount = decoded.slots.length;
+        addOutputLine(`[INFO] RXEA decode ${titleId}: ${name} → ${decodedCount} slot(s).`);
+
+        for (const s of decoded.slots) {
+          let key = null;
+          if (slotKeys && slotKeys[s.slot] !== undefined) {
+            key = slotKeys[s.slot];
+          } else if (s.slot >= 5 && s.slot <= 24) {
+            key = `screenshot${s.slot - 4}`;
+          }
+          if (!key) continue;
+
+          // s.png is base64 (Go json.Marshal encodes []byte as base64).
+          const pngBuf = Buffer.isBuffer(s.png) ? s.png : Buffer.from(s.png, "base64");
+          allSlots.push({
+            slot:    s.slot,
+            key,
+            width:   s.width,
+            height:  s.height,
+            dataUrl: `data:image/png;base64,${pngBuf.toString("base64")}`,
+          });
+        }
+      }
+
+      addOutputLine(`[INFO] RXEA decode ${titleId}: done — ${allSlots.length} total slot(s) decoded.`);
+      return { ok: true, slots: allSlots };
+    } catch (err) {
+      const msg = err.message || String(err);
+      addOutputLine(`[WARN] RXEA decode ${titleId}: ${msg}`);
+      return { ok: false, error: msg };
+    } finally {
+      client.close();
+    }
+  });
+
+  // ── Encode a PNG and upload it as an RXEA .asset directly to the console ────
+  // Payload: { titleId, gameDataDir, slot, imageBase64?, imageUrl?, ext? }
+  // slot: 0=icon, 1=banner, 2=cover, 4=background, 5-24=screenshots
+  // Uploads to Data/GameData/{dir}/{PREFIX}{TitleId}.asset
+  ipcMain.handle("xbox:encode-asset", async (_event, payload) => {
+    const p = payload || {};
+    const titleId     = typeof p.titleId     === "string" ? p.titleId.trim().toUpperCase() : "";
+    const gameDataDir = typeof p.gameDataDir === "string" ? p.gameDataDir.trim() : "";
+    const slotNum     = typeof p.slot        === "number" ? p.slot : parseInt(p.slot, 10);
+    if (!titleId || !gameDataDir || isNaN(slotNum) || slotNum < 0 || slotNum > 24) {
+      return { ok: false, error: "titleId, gameDataDir, and slot (0–24) required." };
+    }
+
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    // Resolve image bytes.
+    let imgBuf = null;
+    if (typeof p.imageBase64 === "string" && p.imageBase64.length > 0) {
+      imgBuf = Buffer.from(p.imageBase64, "base64");
+    } else if (typeof p.imageUrl === "string" && p.imageUrl.startsWith("http")) {
+      imgBuf = await fetchHttpImage(p.imageUrl);
+    }
+    if (!imgBuf || imgBuf.length < 100) return { ok: false, error: "No valid image data." };
+
+    // Convert to PNG if not already (the Go encoder expects PNG).
+    const isPng = imgBuf[0] === 0x89 && imgBuf[1] === 0x50;
+    let pngBuf = imgBuf;
+    if (!isPng) {
+      // We can only pass PNG to the Go encoder; if JPEG, flag an error for now.
+      // (JPEG→PNG conversion would require sharp/jimp which we avoid.)
+      return { ok: false, error: "Image must be PNG format for RXEA encoding." };
+    }
+
+    const port = getConfiguredServerPort();
+
+    // POST PNG to Go server → receive RXEA bytes.
+    const rxeaBuf = await new Promise((resolve) => {
+      const req = http.request(
+        { host: "127.0.0.1", port, path: `/rxea/encode?slot=${slotNum}`, method: "POST",
+          headers: { "Content-Type": "image/png", "Content-Length": pngBuf.length } },
+        (res) => {
+          const chunks = [];
+          res.on("data", (c) => chunks.push(c));
+          res.on("end", () => resolve(res.statusCode === 200 ? Buffer.concat(chunks) : null));
+        }
+      );
+      req.on("error", () => resolve(null));
+      req.end(pngBuf);
+    });
+
+    if (!rxeaBuf || rxeaBuf.length < 2048) {
+      return { ok: false, error: "RXEA encoding failed — Go server returned no data." };
+    }
+
+    // Determine the .asset filename prefix for this slot.
+    const prefixMap = { 0: "GL", 1: "GL", 2: "GC", 3: "GC", 4: "BK" };
+    const prefix = slotNum >= 5 ? "SS" : (prefixMap[slotNum] || "GC");
+    const assetName = `${prefix}${titleId}.asset`;
+
+    const scriptsPath  = getConfiguredFtpScriptsPath();
+    const auroraRoot   = xboxAuroraRoot(scriptsPath);
+    const remotePath   = `${auroraRoot}/Data/GameData/${gameDataDir}/${assetName}`;
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 30000;
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      const stream = Readable.from([rxeaBuf]);
+      await client.uploadFrom(stream, remotePath);
+      appendAppEvent("AURORA_ASSET", `encoded+uploaded slot${slotNum} → ${remotePath} (${rxeaBuf.length} B)`);
+      return { ok: true, remotePath, rxeaSize: rxeaBuf.length };
+    } catch (err) {
+      const msg = err.message || String(err);
+      appendAppEvent("AURORA_ASSET", `encode-upload error: ${msg}`);
       return { ok: false, error: msg };
     } finally {
       client.close();
