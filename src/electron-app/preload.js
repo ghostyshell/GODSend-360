@@ -77,6 +77,9 @@ contextBridge.exposeInMainWorld("godsendApi", {
   toolsFtpUploadRemove:  (id) => ipcRenderer.invoke("tools:ftp-upload-remove", id),
   toolsFtpDelete:        (remotePath) => ipcRenderer.invoke("tools:ftp-delete", remotePath),
   toolsFtpMkdir:         (remotePath) => ipcRenderer.invoke("tools:ftp-mkdir", remotePath),
+  toolsFtpRename:        (payload) => ipcRenderer.invoke("tools:ftp-rename", payload),
+  toolsFtpCopy:          (payload) => ipcRenderer.invoke("tools:ftp-copy", payload),
+  moveGameToDrive:       (payload) => ipcRenderer.invoke("xbox:move-game", payload),
 
   // Each subscription function returns a cleanup function for React useEffect.
   onFtpDebugLog: (callback) => {

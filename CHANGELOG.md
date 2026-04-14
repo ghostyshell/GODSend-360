@@ -10,6 +10,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **FTP Manager: Cut/Copy/Paste** — right-click context menu on files and folders with Cut, Copy, Paste, and Delete actions. Cut uses FTP `RNFR`/`RNTO` (rename/move); Copy downloads to a temp file and re-uploads. Multi-select supported via Ctrl+Click and Shift+Click with a selection toolbar showing count, Select All, Deselect, and bulk Delete.
+- **FTP Manager: Clipboard dropdown** — a Clipboard button in the toolbar shows a badge with the number of items in the clipboard and a dropdown listing the cut/copied items with their source directory. The button is highlighted when the clipboard is non-empty and greyed out when empty.
+- **Library: Move Game to Drive** — the game details page now includes a "Move to Drive" section that lists available Xbox drives (excluding the current one). Selecting a target drive and clicking Move queues an FTP transfer job visible in the FTP Manager's transfer panel, which moves the entire game directory to the chosen drive. Uses rename (fast) when supported, falling back to download-reupload-delete.
+- **FTP rename/copy IPC** — new `tools:ftp-rename` and `tools:ftp-copy` IPC handlers for FTP Manager clipboard operations; new `xbox:move-game` handler for game drive transfers.
 - **Library sorting & filtering** — the Xbox Library page now includes a search bar (filters by name, title ID, publisher, or developer), a sort dropdown (Name A-Z/Z-A, Rating, Last played, Most played, Drive, Favorites first), and a filter dropdown (All, Favorites, On-drive, Multi-disc). The header badge updates to show filtered/total count. A "no results" empty state with a clear-filters button is shown when search or filters exclude all games.
 - **Toolbox dropdown** — new wrench icon button in the HomePage header bar, between Browse and Restart, with three tools:
 

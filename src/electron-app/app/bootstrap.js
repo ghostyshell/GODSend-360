@@ -2984,6 +2984,159 @@ function registerIpcHandlers() {
       client.close();
     }
   });
+
+  // ── Toolbox: FTP Manager — rename / move a remote file or directory ───────
+  ipcMain.handle("tools:ftp-rename", async (_event, { from, to }) => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 30000;
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      await client.rename(from, to);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+    }
+  });
+
+  // ── Toolbox: FTP Manager — copy a remote file or directory (download+reupload) ─
+  // Xbox 360 FTP servers typically don't support server-side copy, so we
+  // download to a temp file and re-upload. For directories we recurse.
+  ipcMain.handle("tools:ftp-copy", async (_event, { src, dst, isDir }) => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const tmpDir = path.join(require("os").tmpdir(), "godsend-ftp-copy-" + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+    client.ftp.timeout = 60000;
+    try {
+      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+
+      if (isDir) {
+        const localDir = path.join(tmpDir, path.basename(src));
+        await client.downloadToDir(localDir, src);
+        await client.uploadFromDir(localDir, dst);
+      } else {
+        const localFile = path.join(tmpDir, path.basename(src));
+        await client.downloadTo(localFile, src);
+        await client.uploadFrom(localFile, dst);
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    } finally {
+      client.close();
+      // Clean up temp files
+      fs.rm(tmpDir, { recursive: true, force: true }, () => {});
+    }
+  });
+
+  // ── Move game to a different Xbox drive ───────────────────────────────────
+  // Queues an FTP job: rename each item from source to destination drive.
+  // Aurora game paths follow: /{Drive}/Content/... or /{Drive}/GOD/... etc.
+  ipcMain.handle("xbox:move-game", async (_event, { game, targetDrive }) => {
+    const xboxIp  = getConfiguredXboxIP();
+    const ftpUser = getConfiguredFtpUser();
+    const ftpPass = getConfiguredFtpPassword();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+    if (!game || !targetDrive) return { ok: false, error: "Missing game or target drive." };
+
+    const gameName = game.name || game.titleId || "Unknown";
+    const srcDrive = game.sourceDrive;
+    const gameDir  = game.directory;
+    if (!srcDrive || !gameDir) return { ok: false, error: "Game has no source drive or directory info." };
+    if (srcDrive + ":" === targetDrive || srcDrive === targetDrive) {
+      return { ok: false, error: "Source and destination drive are the same." };
+    }
+
+    // Build source and destination FTP paths.
+    // game.directory is typically like "Content\\0000000000000000\\DEADBEEF\\00000002"
+    // or "GOD\\GameName - TITLEID" etc. The sourceDrive is e.g. "Hdd1".
+    const dirNorm = gameDir.replace(/\\/g, "/");
+    const srcPath = "/" + srcDrive + "/" + dirNorm;
+    const dstDriveClean = targetDrive.replace(/:$/, "");
+    const dstPath = "/" + dstDriveClean + "/" + dirNorm;
+
+    // Create the job entry in the FTP upload queue for visibility.
+    const id = ++_ftpUploadId;
+    const job = {
+      id,
+      name: `Move: ${gameName} → ${dstDriveClean}`,
+      localPath: null,
+      remotePath: dstPath,
+      state: "Queued",
+      progress: 0,
+      error: null,
+    };
+    _ftpUploadJobs.set(id, job);
+
+    // Perform the move in the background
+    (async () => {
+      const moveClient = new ftp.Client();
+      moveClient.ftp.verbose = false;
+      moveClient.ftp.timeout = 60000;
+      try {
+        job.state = "Processing";
+        await moveClient.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+
+        // Ensure parent directories exist on destination
+        const dstParent = dstPath.split("/").slice(0, -1).join("/") || "/";
+        await moveClient.ensureDir(dstParent);
+        // Reset CWD after ensureDir
+        await moveClient.cd("/");
+
+        // Try RNFR/RNTO (rename = move) first — works across drives on some FTP servers
+        try {
+          await moveClient.rename(srcPath, dstPath);
+          job.state = "Ready";
+          job.progress = 100;
+          return;
+        } catch {
+          // Rename across drives not supported; fall back to download + reupload + delete
+        }
+
+        // Fallback: download to temp, upload to dest, delete source
+        const tmpDir = path.join(require("os").tmpdir(), "godsend-move-" + Date.now());
+        fs.mkdirSync(tmpDir, { recursive: true });
+
+        job.progress = 10;
+        const localDir = path.join(tmpDir, path.basename(srcPath));
+        await moveClient.downloadToDir(localDir, srcPath);
+
+        job.progress = 50;
+        await moveClient.uploadFromDir(localDir, dstPath);
+
+        job.progress = 90;
+        // Remove source directory
+        await moveClient.removeDir(srcPath);
+
+        job.state = "Ready";
+        job.progress = 100;
+
+        // Clean up temp
+        fs.rm(tmpDir, { recursive: true, force: true }, () => {});
+      } catch (err) {
+        job.state = "Error";
+        job.error = err.message || String(err);
+      } finally {
+        moveClient.close();
+      }
+    })();
+
+    return { ok: true, jobId: id, message: `Queued move of ${gameName} to ${dstDriveClean}` };
+  });
 }
 
 // ── Game library helpers ───────────────────────────────────────────────────────

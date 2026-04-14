@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Gamepad2, Loader2, WifiOff,
   Star, Disc3, RefreshCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
-  ArrowUpDown, Filter,
+  ArrowUpDown, Filter, HardDrive, ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -717,6 +717,14 @@ function GameDetail({
   const [rxeaLoading, setRxeaLoading] = useState(false);
   const [coverFlipped, setCoverFlipped] = useState(false);
 
+  // ── Move to Drive state ─────────────────────────────────────────────────
+  const [drives, setDrives]               = useState([]);
+  const [drivesLoading, setDrivesLoading] = useState(false);
+  const [moveTarget, setMoveTarget]       = useState(null);
+  const [moveStatus, setMoveStatus]       = useState(null); // null | "moving" | "done" | "error"
+  const [moveError, setMoveError]         = useState(null);
+  const [moveMessage, setMoveMessage]     = useState(null);
+
   useEffect(() => {
     // Re-read manifest from disk (no FTP).
     window.godsendApi
@@ -750,6 +758,39 @@ function GameDetail({
       .catch(() => setRxeaSlots({}))
       .finally(() => setRxeaLoading(false));
   }, [game.titleId, game.gameDataDir]);
+
+  // ── Load available Xbox drives ────────────────────────────────────────
+  useEffect(() => {
+    setDrivesLoading(true);
+    window.godsendApi.listXboxDrives()
+      .then((r) => {
+        if (r?.ok && Array.isArray(r.drives)) {
+          setDrives(r.drives);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setDrivesLoading(false));
+  }, []);
+
+  async function handleMoveGame() {
+    if (!moveTarget || moveStatus === "moving") return;
+    setMoveStatus("moving");
+    setMoveError(null);
+    setMoveMessage(null);
+    try {
+      const r = await window.godsendApi.moveGameToDrive({ game, targetDrive: moveTarget });
+      if (r?.ok) {
+        setMoveStatus("done");
+        setMoveMessage(r.message || "Move queued successfully.");
+      } else {
+        setMoveStatus("error");
+        setMoveError(r?.error || "Failed to queue move.");
+      }
+    } catch (err) {
+      setMoveStatus("error");
+      setMoveError(err.message || "Unknown error");
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -870,6 +911,94 @@ function GameDetail({
             rxeaLoading={rxeaLoading}
             onRefresh={onRefresh}
           />
+
+          {/* ── Move to Drive ── */}
+          {game.sourceDrive && game.directory && (
+            <div>
+              <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                Move to Drive
+              </p>
+              <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-[11px] text-muted-foreground">
+                    Currently on: <span className="text-foreground font-medium">{game.sourceDrive}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {drivesLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  ) : (
+                    drives
+                      .filter((d) => {
+                        const clean = d.replace(/:$/, "");
+                        return clean !== game.sourceDrive;
+                      })
+                      .map((d) => {
+                        const clean = d.replace(/:$/, "");
+                        const isSelected = moveTarget === d;
+                        return (
+                          <Button
+                            key={d}
+                            size="sm"
+                            variant={isSelected ? "default" : "outline"}
+                            className={cn(
+                              "h-7 text-[11px] px-2.5",
+                              isSelected && "ring-1 ring-primary"
+                            )}
+                            onClick={() => {
+                              setMoveTarget(isSelected ? null : d);
+                              setMoveStatus(null);
+                              setMoveError(null);
+                              setMoveMessage(null);
+                            }}
+                            disabled={moveStatus === "moving"}
+                          >
+                            <HardDrive className="h-3 w-3 mr-1" />
+                            {clean}
+                          </Button>
+                        );
+                      })
+                  )}
+                  {drives.filter((d) => d.replace(/:$/, "") !== game.sourceDrive).length === 0 && !drivesLoading && (
+                    <span className="text-[11px] text-muted-foreground">No other drives found.</span>
+                  )}
+                </div>
+                {moveTarget && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Button
+                      size="sm"
+                      onClick={handleMoveGame}
+                      disabled={moveStatus === "moving" || moveStatus === "done"}
+                      className="gap-1"
+                    >
+                      {moveStatus === "moving" ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : moveStatus === "done" ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <ArrowRightLeft className="h-3 w-3" />
+                      )}
+                      {moveStatus === "moving" ? "Moving..." :
+                       moveStatus === "done" ? "Queued" :
+                       `Move to ${moveTarget.replace(/:$/, "")}`}
+                    </Button>
+                    {moveStatus !== "moving" && moveStatus !== "done" && (
+                      <span className="text-[10px] text-muted-foreground">
+                        This will queue an FTP transfer job.
+                      </span>
+                    )}
+                  </div>
+                )}
+                {moveStatus === "done" && moveMessage && (
+                  <p className="text-[11px] text-green-400">{moveMessage}</p>
+                )}
+                {moveStatus === "error" && moveError && (
+                  <p className="text-[11px] text-red-400">{moveError}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           <p className="text-[9px] text-muted-foreground/40 font-mono">
             TitleID: {game.titleId}

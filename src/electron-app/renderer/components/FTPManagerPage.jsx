@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ArrowLeft, Folder, File, Upload, Trash2, Loader2, RefreshCw,
   FolderPlus, ChevronRight, HardDrive, X, Check, AlertTriangle,
+  Scissors, Copy, ClipboardPaste, Clipboard, ChevronDown,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
@@ -68,9 +69,34 @@ export default function FTPManagerPage({ onBack }) {
   const [mkdirName, setMkdirName] = useState("");
   const [showMkdir, setShowMkdir] = useState(false);
 
+  // ── Selection state ─────────────────────────────────────────────────────
+  const [selected, setSelected]   = useState(new Set()); // set of entry names
+
+  // ── Clipboard state ─────────────────────────────────────────────────────
+  // { mode: "cut"|"copy", sourceDir: string, items: [{name,type}] } | null
+  const [clipboard, setClipboard] = useState(null);
+  const [showClipboard, setShowClipboard] = useState(false);
+  const clipboardRef = useRef(null);
+  const [pasting, setPasting]     = useState(false);
+
+  // ── Context menu state ──────────────────────────────────────────────────
+  const [ctxMenu, setCtxMenu]     = useState(null); // { x, y, entry }
+  const ctxRef                    = useRef(null);
+
+  // Close dropdowns / context menu on outside click
+  useEffect(() => {
+    function onPointerDown(e) {
+      if (ctxMenu && ctxRef.current && !ctxRef.current.contains(e.target)) setCtxMenu(null);
+      if (showClipboard && clipboardRef.current && !clipboardRef.current.contains(e.target)) setShowClipboard(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [ctxMenu, showClipboard]);
+
   const fetchDir = useCallback(async (dir) => {
     setLoading(true);
     setError(null);
+    setSelected(new Set());
     const r = await window.godsendApi.toolsFtpList(dir).catch(err => ({ ok: false, error: err.message }));
     if (r.ok) {
       setEntries(r.entries.sort((a, b) => {
@@ -128,6 +154,15 @@ export default function FTPManagerPage({ onBack }) {
     if (r.ok) fetchDir(cwd);
   }
 
+  async function handleDeleteSelected() {
+    for (const name of selected) {
+      const target = cwd.replace(/\/+$/, "") + "/" + name;
+      await window.godsendApi.toolsFtpDelete(target);
+    }
+    setSelected(new Set());
+    fetchDir(cwd);
+  }
+
   async function handleMkdir() {
     if (!mkdirName.trim()) return;
     const target = cwd.replace(/\/+$/, "") + "/" + mkdirName.trim();
@@ -143,6 +178,111 @@ export default function FTPManagerPage({ onBack }) {
     await window.godsendApi.toolsFtpUploadRemove(id);
     setUploads(prev => prev.filter(j => j.id !== id));
   }
+
+  // ── Selection helpers ───────────────────────────────────────────────────
+  function toggleSelect(name, e) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (e && e.shiftKey && prev.size > 0) {
+        // Range select: from last selected to this one
+        const names = entries.map(en => en.name);
+        const lastSelected = [...prev].pop();
+        const from = names.indexOf(lastSelected);
+        const to = names.indexOf(name);
+        if (from !== -1 && to !== -1) {
+          const [lo, hi] = from < to ? [from, to] : [to, from];
+          for (let i = lo; i <= hi; i++) next.add(names[i]);
+        }
+      } else if (e && (e.ctrlKey || e.metaKey)) {
+        if (next.has(name)) next.delete(name); else next.add(name);
+      } else {
+        if (next.has(name) && next.size === 1) {
+          next.delete(name);
+        } else {
+          next.clear();
+          next.add(name);
+        }
+      }
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelected(new Set(entries.map(e => e.name)));
+  }
+
+  // ── Clipboard operations ────────────────────────────────────────────────
+  function getSelectedItems() {
+    return entries.filter(e => selected.has(e.name)).map(e => ({ name: e.name, type: e.type }));
+  }
+
+  function handleCut() {
+    const items = getSelectedItems();
+    if (items.length === 0) return;
+    setClipboard({ mode: "cut", sourceDir: cwd, items });
+    setCtxMenu(null);
+  }
+
+  function handleCopy() {
+    const items = getSelectedItems();
+    if (items.length === 0) return;
+    setClipboard({ mode: "copy", sourceDir: cwd, items });
+    setCtxMenu(null);
+  }
+
+  async function handlePaste() {
+    if (!clipboard || clipboard.items.length === 0) return;
+    setCtxMenu(null);
+    setPasting(true);
+    try {
+      const srcDir = clipboard.sourceDir.replace(/\/+$/, "");
+      const dstDir = cwd.replace(/\/+$/, "");
+
+      for (const item of clipboard.items) {
+        const src = srcDir + "/" + item.name;
+        const dst = dstDir + "/" + item.name;
+        if (clipboard.mode === "cut") {
+          await window.godsendApi.toolsFtpRename({ from: src, to: dst });
+        } else {
+          await window.godsendApi.toolsFtpCopy({ src, dst, isDir: item.type === "dir" });
+        }
+      }
+      // Clear clipboard after cut (move); keep after copy
+      if (clipboard.mode === "cut") setClipboard(null);
+      fetchDir(cwd);
+    } finally {
+      setPasting(false);
+    }
+  }
+
+  function clearClipboard() {
+    setClipboard(null);
+    setShowClipboard(false);
+  }
+
+  // ── Context menu helpers ────────────────────────────────────────────────
+  function handleContextMenu(e, entry) {
+    e.preventDefault();
+    e.stopPropagation();
+    // If right-clicking an unselected entry, select only that one
+    if (entry && !selected.has(entry.name)) {
+      setSelected(new Set([entry.name]));
+    }
+    setCtxMenu({ x: e.clientX, y: e.clientY, entry });
+  }
+
+  function handleBgContextMenu(e) {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, entry: null });
+  }
+
+  // Items that are being cut (shown dimmed)
+  const cutNames = clipboard?.mode === "cut" && clipboard.sourceDir === cwd
+    ? new Set(clipboard.items.map(i => i.name))
+    : new Set();
+
+  const canPaste = clipboard && clipboard.items.length > 0 &&
+    clipboard.sourceDir !== cwd; // don't paste into same directory
 
   const breadcrumbs = cwd.split("/").filter(Boolean);
   const activeUploads = uploads.filter(j => j.state === "Processing" || j.state === "Queued");
@@ -218,12 +358,125 @@ export default function FTPManagerPage({ onBack }) {
             New Folder
           </Button>
         )}
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border mx-0.5" />
+
+        {/* Cut / Copy / Paste buttons */}
+        <Button
+          size="sm"
+          onClick={handleCut}
+          disabled={selected.size === 0}
+          title="Cut selected (Ctrl+X)"
+        >
+          <Scissors className="h-3 w-3 mr-1" />
+          Cut
+        </Button>
+        <Button
+          size="sm"
+          onClick={handleCopy}
+          disabled={selected.size === 0}
+          title="Copy selected (Ctrl+C)"
+        >
+          <Copy className="h-3 w-3 mr-1" />
+          Copy
+        </Button>
+        <Button
+          size="sm"
+          onClick={handlePaste}
+          disabled={!canPaste || pasting}
+          title="Paste here (Ctrl+V)"
+        >
+          {pasting
+            ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            : <ClipboardPaste className="h-3 w-3 mr-1" />}
+          Paste
+        </Button>
+
+        {/* Clipboard dropdown */}
+        <div className="relative" ref={clipboardRef}>
+          <Button
+            size="sm"
+            variant={clipboard ? "secondary" : "ghost"}
+            className={cn(
+              "h-7 px-1.5 gap-1",
+              clipboard && "ring-1 ring-primary/50"
+            )}
+            title="Clipboard contents"
+            disabled={!clipboard}
+            onClick={() => setShowClipboard(!showClipboard)}
+          >
+            <Clipboard className="h-3 w-3" />
+            {clipboard && (
+              <span className="min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground leading-none">
+                {clipboard.items.length}
+              </span>
+            )}
+            <ChevronDown className="h-2.5 w-2.5" />
+          </Button>
+          {showClipboard && clipboard && (
+            <div className="absolute right-0 top-full mt-1 z-50 min-w-[240px] max-w-[320px] rounded-md border border-border bg-popover shadow-lg">
+              <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border">
+                <span className="text-[11px] font-semibold text-foreground">
+                  {clipboard.mode === "cut" ? "Cut" : "Copied"} — {clipboard.items.length} item{clipboard.items.length !== 1 ? "s" : ""}
+                </span>
+                <button
+                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={clearClipboard}
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="text-[10px] text-muted-foreground px-2.5 py-1 border-b border-border/50">
+                From: {clipboard.sourceDir}
+              </div>
+              <div className="max-h-[200px] overflow-auto py-1">
+                {clipboard.items.map((item) => (
+                  <div key={item.name} className="flex items-center gap-1.5 px-2.5 py-0.5">
+                    {item.type === "dir"
+                      ? <Folder className="h-3 w-3 text-yellow-400/70 shrink-0" />
+                      : <File className="h-3 w-3 text-muted-foreground shrink-0" />}
+                    <span className="text-[11px] text-foreground truncate">{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Select All / Deselect when items are selected */}
+        {selected.size > 0 && (
+          <>
+            <div className="w-px h-5 bg-border mx-0.5" />
+            <span className="text-[11px] text-muted-foreground">
+              {selected.size} selected
+            </span>
+            <Button size="sm" variant="ghost" className="h-7 text-[11px] px-1.5" onClick={selectAll}>
+              All
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-[11px] px-1.5" onClick={() => setSelected(new Set())}>
+              None
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-[11px] px-1.5 text-red-400 hover:text-red-300"
+              onClick={handleDeleteSelected}
+            >
+              <Trash2 className="h-3 w-3 mr-0.5" />
+              Delete
+            </Button>
+          </>
+        )}
       </div>
 
       {/* File browser + upload queue side by side */}
       <div className="flex-1 min-h-0 flex gap-2.5">
         {/* Directory listing */}
-        <div className="flex-1 min-w-0 overflow-auto border border-border rounded-lg">
+        <div
+          className="flex-1 min-w-0 overflow-auto border border-border rounded-lg"
+          onContextMenu={handleBgContextMenu}
+        >
           {error ? (
             <div className="flex items-center justify-center h-24 text-[13px] text-red-400">
               {error}
@@ -244,36 +497,47 @@ export default function FTPManagerPage({ onBack }) {
                   <span className="text-[12px] text-muted-foreground">..</span>
                 </button>
               )}
-              {entries.map(entry => (
-                <div
-                  key={entry.name}
-                  className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent/50 transition-colors border-b border-[#1e242e] last:border-0 group"
-                >
-                  {entry.type === "dir" ? (
-                    <button
-                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                      onClick={() => navigateTo(entry.name)}
-                    >
-                      <Folder className="h-3.5 w-3.5 text-yellow-400/70 shrink-0" />
-                      <span className="text-[12px] text-foreground truncate">{entry.name}</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-[12px] text-foreground truncate">{entry.name}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{formatSize(entry.size)}</span>
-                    </div>
-                  )}
-                  <Button
-                    size="icon"
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    title="Delete"
-                    onClick={() => handleDelete(entry)}
+              {entries.map(entry => {
+                const isSel = selected.has(entry.name);
+                const isCut = cutNames.has(entry.name);
+                return (
+                  <div
+                    key={entry.name}
+                    className={cn(
+                      "flex items-center gap-2 px-2 py-1.5 transition-colors border-b border-[#1e242e] last:border-0 group cursor-default",
+                      isSel ? "bg-primary/15" : "hover:bg-accent/50",
+                      isCut && "opacity-50",
+                    )}
+                    onClick={(e) => toggleSelect(entry.name, e)}
+                    onContextMenu={(e) => handleContextMenu(e, entry)}
                   >
-                    <Trash2 className="h-2.5 w-2.5" />
-                  </Button>
-                </div>
-              ))}
+                    {entry.type === "dir" ? (
+                      <button
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                        onClick={(e) => { e.stopPropagation(); navigateTo(entry.name); }}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                      >
+                        <Folder className="h-3.5 w-3.5 text-yellow-400/70 shrink-0" />
+                        <span className="text-[12px] text-foreground truncate">{entry.name}</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[12px] text-foreground truncate">{entry.name}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{formatSize(entry.size)}</span>
+                      </div>
+                    )}
+                    <Button
+                      size="icon"
+                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      title="Delete"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(entry); }}
+                    >
+                      <Trash2 className="h-2.5 w-2.5" />
+                    </Button>
+                  </div>
+                );
+              })}
               {entries.length === 0 && !loading && (
                 <div className="flex items-center justify-center h-24 text-[12px] text-muted-foreground">
                   Empty directory
@@ -296,6 +560,79 @@ export default function FTPManagerPage({ onBack }) {
           </div>
         )}
       </div>
+
+      {/* ── Context menu ────────────────────────────────────────────────── */}
+      {ctxMenu && (
+        <div
+          ref={ctxRef}
+          className="fixed z-[100] min-w-[160px] rounded-md border border-border bg-popover shadow-xl py-1"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+        >
+          {ctxMenu.entry && (
+            <>
+              <button
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-foreground hover:bg-accent/60 transition-colors text-left"
+                onClick={() => { handleCut(); setCtxMenu(null); }}
+              >
+                <Scissors className="h-3 w-3" /> Cut
+                <span className="ml-auto text-[10px] text-muted-foreground">Ctrl+X</span>
+              </button>
+              <button
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-foreground hover:bg-accent/60 transition-colors text-left"
+                onClick={() => { handleCopy(); setCtxMenu(null); }}
+              >
+                <Copy className="h-3 w-3" /> Copy
+                <span className="ml-auto text-[10px] text-muted-foreground">Ctrl+C</span>
+              </button>
+              <div className="my-1 border-t border-border/50" />
+            </>
+          )}
+          <button
+            className={cn(
+              "flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-left transition-colors",
+              canPaste ? "text-foreground hover:bg-accent/60" : "text-muted-foreground/50 cursor-not-allowed",
+            )}
+            disabled={!canPaste}
+            onClick={() => { handlePaste(); setCtxMenu(null); }}
+          >
+            <ClipboardPaste className="h-3 w-3" /> Paste
+            {clipboard && (
+              <span className="ml-1 text-[10px] text-muted-foreground">
+                ({clipboard.items.length} {clipboard.mode === "cut" ? "cut" : "copied"})
+              </span>
+            )}
+            <span className="ml-auto text-[10px] text-muted-foreground">Ctrl+V</span>
+          </button>
+          {ctxMenu.entry && (
+            <>
+              <div className="my-1 border-t border-border/50" />
+              <button
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-red-400 hover:bg-accent/60 transition-colors text-left"
+                onClick={() => {
+                  if (selected.size > 1) handleDeleteSelected();
+                  else handleDelete(ctxMenu.entry);
+                  setCtxMenu(null);
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+                Delete{selected.size > 1 ? ` (${selected.size})` : ""}
+              </button>
+            </>
+          )}
+          {selected.size > 0 && (
+            <>
+              <div className="my-1 border-t border-border/50" />
+              <button
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-foreground hover:bg-accent/60 transition-colors text-left"
+                onClick={() => { selectAll(); setCtxMenu(null); }}
+              >
+                Select All
+                <span className="ml-auto text-[10px] text-muted-foreground">Ctrl+A</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
