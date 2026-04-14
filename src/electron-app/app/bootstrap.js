@@ -172,7 +172,7 @@ async function buildAuroraGamesFromDbBuffers(contentBuf, settingsBuf, scanDriveM
     const contentId = Number(g.Id);
     if (hiddenIds.has(contentId)) continue;
 
-    const titleIdInt = Number(g.TitleId);
+    const titleIdInt = Number(g.TitleId) >>> 0;   // unsigned 32-bit (handles signed DB values like 0xC0DE9999)
     const titleId    = titleIdInt.toString(16).toUpperCase().padStart(8, "0");
     if (titleId === "00000000") continue;
 
@@ -696,9 +696,10 @@ function emitAuroraCoverEvents(titleId, gameDataDir, cacheRoot) {
       }
     }
   }
-  if (primarySrc) {
-    wc.send("xbox-cover", { titleId, src: primarySrc });
-  }
+  // Always emit an event so the renderer transitions from "loading" to either
+  // a valid cover or the "no cover" state.  Without this, cards whose covers
+  // were never found stay in the animated-pulse loading state forever.
+  wc.send("xbox-cover", { titleId, src: primarySrc });
 }
 
 /**
@@ -2084,6 +2085,7 @@ function registerIpcHandlers() {
     client.ftp.verbose = false;
     client.ftp.timeout = 20000;
 
+    let lastProcessed = -1;
     try {
       addOutputLine(
         `[INFO] Aurora covers + artwork: FTP sync starting for ${gameList.length} title(s)…`
@@ -2117,6 +2119,7 @@ function registerIpcHandlers() {
           emitAuroraCoverEvents(titleId, gameDataDir, cacheRoot);
           emitAuroraTitleVisualEvents(titleId, gameDataDir, cacheRoot);
         }
+        lastProcessed = gi;
         if (progressEvery > 0 && (gi + 1) % progressEvery === 0) {
           addOutputLine(
             `[INFO] Aurora covers + artwork: progress ${gi + 1}/${gameList.length} titles…`
@@ -2135,6 +2138,15 @@ function registerIpcHandlers() {
       const msg = err.message || String(err);
       addOutputLine(`[ERROR] Aurora covers + artwork: ${msg}`);
       appendAppEvent("AURORA_SYNC", `fatal: ${msg}`);
+
+      // Emit cached cover/visual events for any games the loop never reached
+      // so the renderer transitions them out of the "loading" state.
+      for (let gi = lastProcessed + 1; gi < gameList.length; gi += 1) {
+        const { titleId, gameDataDir } = gameList[gi];
+        emitAuroraCoverEvents(titleId, gameDataDir, cacheRoot);
+        emitAuroraTitleVisualEvents(titleId, gameDataDir, cacheRoot);
+      }
+
       return { ok: false, error: msg };
     } finally {
       client.close();
@@ -2161,81 +2173,186 @@ function registerIpcHandlers() {
     return { ok: true };
   });
 
-  // ── Aurora asset search (XboxUnity by TitleID or query string) ──────────────
+  // ── Xbox CDN Catalog query for type-specific assets ─────────────────────────
+  // Mirrors AuroraAssetEditor's XboxAssetDownloader: queries the Xbox Live
+  // catalog XML to obtain background, icon, banner, and screenshot URLs.
+  // Returns { background[], banner[], icon[], screenshot[], cover[] } — each
+  // an array of URL strings.
+  async function fetchXboxCdnAssets(titleIdHex, locale = "en-US") {
+    const result = { background: [], banner: [], icon: [], screenshot: [], cover: [] };
+    if (!titleIdHex || !/^[0-9A-F]{8}$/i.test(titleIdHex)) return result;
+
+    const catalogUrl =
+      `http://catalog-cdn.xboxlive.com/Catalog/Catalog.asmx/Query` +
+      `?methodName=FindGames` +
+      `&Names=Locale&Values=${locale}` +
+      `&Names=LegalLocale&Values=${locale}` +
+      `&Names=Store&Values=1` +
+      `&Names=PageSize&Values=100` +
+      `&Names=PageNum&Values=1` +
+      `&Names=DetailView&Values=5` +
+      `&Names=OfferFilterLevel&Values=1` +
+      `&Names=MediaIds&Values=66acd000-77fe-1000-9115-d802${titleIdHex.toUpperCase()}` +
+      `&Names=UserTypes&Values=2` +
+      `&Names=MediaTypes&Values=1&Names=MediaTypes&Values=21` +
+      `&Names=MediaTypes&Values=23&Names=MediaTypes&Values=37` +
+      `&Names=MediaTypes&Values=46`;
+
+    try {
+      const xmlBuf = await fetchHttpImage(catalogUrl);
+      if (!xmlBuf || xmlBuf.length === 0) return result;
+      const xml = xmlBuf.toString("utf8");
+
+      // Parse <live:image> blocks for typed assets (icon/background/banner).
+      for (const [, block] of xml.matchAll(/<live:image[^>]*>([\s\S]*?)<\/live:image>/gi)) {
+        const urlM  = block.match(/<live:fileUrl[^>]*>\s*(https?:\/\/[^\s<]+)\s*<\/live:fileUrl>/i);
+        const typeM = block.match(/<live:relationshipType[^>]*>\s*(\d+)\s*<\/live:relationshipType>/i);
+        if (!urlM) continue;
+        const url  = urlM[1].trim();
+        const type = typeM ? parseInt(typeM[1], 10) : -1;
+        if      (type === 15 || type === 23) result.icon.push(url);
+        else if (type === 25)                result.background.push(url);
+        else if (type === 27)                result.banner.push(url);
+      }
+
+      // Parse <live:slideShow> blocks for screenshots.
+      for (const [, block] of xml.matchAll(/<live:slideShow[^>]*>([\s\S]*?)<\/live:slideShow>/gi)) {
+        const urlM = block.match(/<live:fileUrl[^>]*>\s*(https?:\/\/[^\s<]+)\s*<\/live:fileUrl>/i);
+        if (urlM) result.screenshot.push(urlM[1].trim());
+      }
+
+      // Also try the simple CoverArt endpoint for cover.
+      const coverUrl = `http://catalog.xboxlive.com/Catalog/Product/CoverArt/${titleIdHex.toUpperCase()}/${locale}/1`;
+      const coverBuf = await fetchHttpImage(coverUrl);
+      if (coverBuf && coverBuf.length >= 100) {
+        const mime = (coverBuf[0] === 0xFF && coverBuf[1] === 0xD8) ? "image/jpeg" : "image/png";
+        result.cover.push(`data:${mime};base64,${coverBuf.toString("base64")}`);
+      }
+    } catch { /* ignore catalog errors */ }
+    return result;
+  }
+
+  // ── Aurora asset search (multi-source: XboxUnity covers + Xbox CDN catalog) ──
+  // Payload: { query, titleId, assetType? }
+  // assetType: "cover"|"background"|"icon"|"banner"|"screenshot" (defaults to "cover")
   ipcMain.handle("xbox:search-assets", async (_event, payload) => {
-    const { query, titleId } = payload || {};
+    const { query, titleId, assetType: rawAssetType } = payload || {};
+    const assetType = (typeof rawAssetType === "string" && rawAssetType.trim())
+      ? rawAssetType.trim().toLowerCase().replace(/\d+$/, "")   // "screenshot3" → "screenshot"
+      : "cover";
     const searchTerm = (titleId && /^[0-9A-F]{8}$/i.test(String(titleId).trim()))
       ? titleId.trim().toUpperCase()
       : (typeof query === "string" ? query.trim() : "");
     if (!searchTerm) return { ok: true, results: [] };
 
-    const url = `http://xboxunity.net/api/Covers/${encodeURIComponent(searchTerm)}`;
-    const jsonBuf = await fetchHttpImage(url);
-    if (!jsonBuf || jsonBuf.length === 0) {
-      // Also try a name-based search if the first attempt was a titleId lookup with no results.
-      if (titleId && typeof query === "string" && query.trim() && searchTerm !== query.trim()) {
-        const url2 = `http://xboxunity.net/api/Covers/${encodeURIComponent(query.trim())}`;
-        const jsonBuf2 = await fetchHttpImage(url2);
-        if (jsonBuf2 && jsonBuf2.length > 0) {
-          try {
-            const items2 = JSON.parse(jsonBuf2.toString("utf8"));
-            if (Array.isArray(items2) && items2.length > 0) {
-              const results2 = items2
-                .map((item) => ({
-                  titleId:   String(item.titleid || item.TitleID || "").toUpperCase(),
-                  front:     item.front     || null,
-                  thumbnail: item.thumbnail || null,
-                  url:       item.url       || null,
-                  official:  !!item.official,
-                  rating:    item.rating != null ? Number(item.rating) : null,
-                }))
-                .filter((r) => r.front || r.thumbnail || r.url)
-                .sort((a, b) => {
-                  if (b.official !== a.official) return a.official ? -1 : 1;
-                  return (b.rating || 0) - (a.rating || 0);
-                });
-              return { ok: true, results: results2 };
-            }
-          } catch { /* ignore */ }
+    // ── Helper: XboxUnity cover search ────────────────────────────────────────
+    async function searchXboxUnityCovers(term) {
+      const url = `http://xboxunity.net/api/Covers/${encodeURIComponent(term)}`;
+      const jsonBuf = await fetchHttpImage(url);
+      if (!jsonBuf || jsonBuf.length === 0) return [];
+      let items;
+      try { items = JSON.parse(jsonBuf.toString("utf8")); } catch { return []; }
+      if (!Array.isArray(items)) return [];
+      return items
+        .map((item) => ({
+          titleId:   String(item.titleid || item.TitleID || "").toUpperCase(),
+          front:     item.front     || null,
+          thumbnail: item.thumbnail || null,
+          url:       item.url       || null,
+          official:  !!item.official,
+          rating:    item.rating != null ? Number(item.rating) : null,
+        }))
+        .filter((r) => r.front || r.thumbnail || r.url)
+        .sort((a, b) => {
+          if (b.official !== a.official) return a.official ? -1 : 1;
+          return (b.rating || 0) - (a.rating || 0);
+        });
+    }
+
+    // ── Helper: resolve a titleId hex from XboxUnity results or the search term ─
+    async function resolveTitleIdHex(term) {
+      if (/^[0-9A-F]{8}$/i.test(term)) return term.toUpperCase();
+      // Try XboxUnity to discover the titleId from a game name.
+      const covers = await searchXboxUnityCovers(term);
+      const first  = covers.find((c) => c.titleId && /^[0-9A-F]{8}$/.test(c.titleId));
+      return first ? first.titleId : null;
+    }
+
+    // ── Cover search: XboxUnity + CDN cover (existing behaviour) ──────────────
+    if (assetType === "cover") {
+      let results = await searchXboxUnityCovers(searchTerm);
+      // Name-based fallback if titleId search yielded nothing.
+      if (results.length === 0 && titleId && typeof query === "string" && query.trim() && searchTerm !== query.trim()) {
+        results = await searchXboxUnityCovers(query.trim());
+      }
+      // Prepend Xbox CDN high-res cover if we have a titleId.
+      if (results.length > 0 && results[0].titleId && /^[0-9A-F]{8}$/.test(results[0].titleId)) {
+        const cdnUrl = `http://catalog.xboxlive.com/Catalog/Product/CoverArt/${results[0].titleId}/en-US/1`;
+        const cdnBuf = await fetchHttpImage(cdnUrl);
+        if (cdnBuf && cdnBuf.length >= 100) {
+          const mime = (cdnBuf[0] === 0xFF && cdnBuf[1] === 0xD8) ? "image/jpeg" : "image/png";
+          const cdnDataUrl = `data:${mime};base64,${cdnBuf.toString("base64")}`;
+          results.unshift({
+            titleId:   results[0].titleId,
+            front:     cdnDataUrl,
+            thumbnail: cdnDataUrl,
+            url:       cdnUrl,
+            official:  true,
+            rating:    null,
+            source:    "xbox-cdn",
+          });
         }
       }
+      return { ok: true, results };
+    }
+
+    // ── Non-cover search: query Xbox CDN Catalog for type-specific assets ─────
+    const tidHex = await resolveTitleIdHex(searchTerm);
+    if (!tidHex) {
+      // Could not resolve a titleId — no Xbox CDN results possible.
       return { ok: true, results: [] };
     }
 
-    let items;
-    try { items = JSON.parse(jsonBuf.toString("utf8")); } catch { return { ok: true, results: [] }; }
-    if (!Array.isArray(items)) return { ok: true, results: [] };
+    const cdnAssets = await fetchXboxCdnAssets(tidHex);
+    const typeKey   = assetType === "background" ? "background"
+                    : assetType === "banner"     ? "banner"
+                    : assetType === "icon"        ? "icon"
+                    : assetType === "screenshot"  ? "screenshot"
+                    : "cover";
 
-    const results = items
-      .map((item) => ({
-        titleId:   String(item.titleid || item.TitleID || "").toUpperCase(),
-        front:     item.front     || null,
-        thumbnail: item.thumbnail || null,
-        url:       item.url       || null,
-        official:  !!item.official,
-        rating:    item.rating != null ? Number(item.rating) : null,
-      }))
-      .filter((r) => r.front || r.thumbnail || r.url)
-      .sort((a, b) => {
-        if (b.official !== a.official) return a.official ? -1 : 1;
-        return (b.rating || 0) - (a.rating || 0);
-      });
+    const urls = cdnAssets[typeKey] || [];
+    if (urls.length === 0) return { ok: true, results: [] };
 
-    // If we searched by name and got a titleId back, also try the CDN for higher-res cover.
-    if (results.length > 0 && results[0].titleId && /^[0-9A-F]{8}$/.test(results[0].titleId)) {
-      const cdnUrl = `http://catalog.xboxlive.com/Catalog/Product/CoverArt/${results[0].titleId}/en-US/1`;
-      const cdnBuf = await fetchHttpImage(cdnUrl);
-      if (cdnBuf && cdnBuf.length >= 100) {
-        const mime = (cdnBuf[0] === 0xFF && cdnBuf[1] === 0xD8) ? "image/jpeg" : "image/png";
-        const cdnDataUrl = `data:${mime};base64,${cdnBuf.toString("base64")}`;
-        results.unshift({
-          titleId:   results[0].titleId,
-          front:     cdnDataUrl,
-          thumbnail: cdnDataUrl,
-          url:       cdnUrl,
+    // Fetch each URL and convert to base64 data URLs for preview.
+    const results = [];
+    for (const u of urls) {
+      if (u.startsWith("data:")) {
+        // Already a data URL (e.g. cover from the helper).
+        results.push({
+          titleId:   tidHex,
+          front:     u,
+          thumbnail: u,
+          url:       null,
           official:  true,
           rating:    null,
           source:    "xbox-cdn",
+          assetType: typeKey,
+        });
+        continue;
+      }
+      const buf = await fetchHttpImage(u);
+      if (buf && buf.length >= 100) {
+        const mime = (buf[0] === 0xFF && buf[1] === 0xD8) ? "image/jpeg" : "image/png";
+        const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+        results.push({
+          titleId:   tidHex,
+          front:     dataUrl,
+          thumbnail: dataUrl,
+          url:       u,
+          official:  true,
+          rating:    null,
+          source:    "xbox-cdn",
+          assetType: typeKey,
         });
       }
     }
@@ -2285,7 +2402,7 @@ function registerIpcHandlers() {
     }
     const allowedTypes = new Set([
       "background", "banner", "icon", "cover",
-      "screenshot1", "screenshot2", "screenshot3", "screenshot4", "screenshot5",
+      ...Array.from({ length: 10 }, (_, i) => `screenshot${i + 1}`),
     ]);
     if (!allowedTypes.has(assetType)) {
       return { ok: false, error: `Unknown assetType: ${assetType}` };

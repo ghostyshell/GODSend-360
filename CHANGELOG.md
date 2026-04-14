@@ -10,19 +10,20 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Library sorting & filtering** — the Xbox Library page now includes a search bar (filters by name, title ID, publisher, or developer), a sort dropdown (Name A-Z/Z-A, Rating, Last played, Most played, Drive, Favorites first), and a filter dropdown (All, Favorites, On-drive, Multi-disc). The header badge updates to show filtered/total count. A "no results" empty state with a clear-filters button is shown when search or filters exclude all games.
 - **Toolbox dropdown** — new wrench icon button in the HomePage header bar, between Browse and Restart, with three tools:
-  - **ISO to GOD** — select one or more Xbox 360 ISO files, choose an output folder, and batch-convert to Games-on-Demand format. Output folders are named `Title Name - TitleID`. ISOs are probed on selection to show title info.
-  - **ISO to XEX** — same UX as ISO2GOD but extracts the loose XEX folder (default.xex + supporting files) from each ISO. Output folders named `Title Name - TitleID`.
-  - **FTP Manager** — full file manager for the Xbox 360 console over FTP. Browse directories, upload files/folders, create directories, and delete entries. Uploads run in the background and appear in a live "Transfers" panel with progress tracking (does not interfere with the existing server queue).
-- **Go backend toolbox endpoints** — `POST /tools/probe-iso`, `POST /tools/iso2god`, `POST /tools/iso2xex` for local ISO conversion via the pure-Go converter and XEX extractor.
-- **Toolbox IPC surface** — 13 new Electron IPC channels (`tools:*`) and matching `preload.js` APIs for file pickers, ISO probing, conversion, and FTP file management.
 
 ### Fixed
+- **Library covers fail past ~16 games** — replaced the Three.js WebGL `<Canvas>` per game card in `XboxBoxCover` with pure CSS 3D transforms. Chromium limits concurrent WebGL contexts to ~16; with a large library the oldest contexts were forcibly evicted, causing covers that initially loaded to go blank/broken. CSS 3D has no such limit and is lighter on GPU memory.
+- **Homebrew / non-standard title IDs broken** — games with title IDs above `0x7FFFFFFF` (e.g. XeXMenu `C0DE9999`) were stored as negative signed integers in Aurora's SQLite DB. The JS conversion (`Number(titleId).toString(16)`) produced invalid hex like `-3F216667`, breaking FTP asset paths, RXEA file names, Import folder paths, and the upload validation regex (`/^[0-9A-F]{8}$/`). Fixed by using unsigned 32-bit conversion (`>>> 0`) so the title ID is always the correct 8-char hex.
+- **Asset search selects thumbnail instead of full image** — when selecting a cover from XboxUnity search results, the pending asset stored only the thumbnail URL for display and lightbox preview. Now the full-resolution image is fetched in the background via `fetchUrlImage` and replaces the thumbnail once loaded, so the lightbox shows the full image and uploads use full resolution.
+- **Covers stuck in loading state when no cover exists** — `emitAuroraCoverEvents` now always sends an `xbox-cover` event (with `src: null` when no cover file is cached) so the renderer transitions from the animated-pulse loading state to the "no cover" state instead of loading forever.
+- **FTP failure leaves remaining covers in loading state** — when the outer FTP connection error fires during the cover sync loop, events are now emitted for all remaining unprocessed games from the disk cache so they show their cached cover or "no cover" instead of pulsing indefinitely.
 - **Library covers flash to empty** — `loadAuroraLibrary()` and the 2-minute poll no longer wipe `covers` / `titleVisuals` state before async re-fetch; cover push events now update incrementally so the grid never shows blank cards. State is only cleared on an explicit force refresh.
 - **3D box cover clipped in grid and detail view** — moved the Three.js camera back from z=3.2 to z=3.8 so the full Xbox 360 case geometry (1.5 x 2.0) fits within the viewport with margin instead of being cropped on all edges.
 
 ### Changed
-- **Version** — **2.7.6** (root + Electron `package.json`, lockfiles, backend banner).
+- **Backend version** — bumped backend banner to **2.7.8**.
 
 ## [2.7.5] — 2026-04-14
 

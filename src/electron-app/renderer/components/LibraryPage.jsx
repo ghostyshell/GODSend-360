@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Gamepad2, Loader2, WifiOff,
   Star, Disc3, RefreshCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
+  ArrowUpDown, Filter,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "../lib/utils";
 import XboxBoxCover from "./XboxBoxCover";
@@ -119,7 +121,7 @@ const MAIN_SLOTS = [
   { key: "cover",      label: "Cover",      aspect: "portrait", importName: "cover"      },
 ];
 
-const SCREENSHOT_COUNT = 5;
+const SCREENSHOT_COUNT = 10;
 
 // ── Single asset slot card ────────────────────────────────────────────────────
 
@@ -230,8 +232,9 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }) {
     setResults([]);
     try {
       const r = await window.godsendApi.searchAssets({
-        query:   q || game.name,
-        titleId: titleId || game.titleId,
+        query:     q || game.name,
+        titleId:   titleId || game.titleId,
+        assetType: targetSlot,
       });
       setResults(r.results || []);
     } finally {
@@ -248,6 +251,12 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }) {
   const slotLabel = [...MAIN_SLOTS, ...Array.from({ length: SCREENSHOT_COUNT }, (_, i) => ({
     key: `screenshot${i + 1}`, label: `Screenshot ${i + 1}`,
   }))].find((s) => s.key === targetSlot)?.label || targetSlot;
+
+  const isCoverSearch = !targetSlot || targetSlot === "cover";
+  const isScreenshotSearch = targetSlot?.startsWith("screenshot");
+  const isWideSearch = isScreenshotSearch || targetSlot === "background";
+  const thumbAspect = isWideSearch ? "aspect-video" : targetSlot === "banner" ? "aspect-[4/1]" : targetSlot === "icon" ? "aspect-square" : "aspect-[3/4]";
+  const thumbWidth  = isWideSearch ? 120 : targetSlot === "icon" ? 68 : 68;
 
   return (
     <div className="rounded-md border border-border/80 bg-[#0d1117] p-2.5 space-y-2">
@@ -284,12 +293,17 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }) {
 
       {loading && (
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" /> Searching XboxUnity…
+          <Loader2 className="h-3 w-3 animate-spin" />
+          {isCoverSearch ? "Searching XboxUnity…" : "Searching Xbox CDN catalog…"}
         </div>
       )}
 
       {searched && !loading && results.length === 0 && (
-        <p className="text-[10px] text-muted-foreground">No results found. Try a different query.</p>
+        <p className="text-[10px] text-muted-foreground">
+          No {slotLabel.toLowerCase()} results found.{" "}
+          {!isCoverSearch && "The Xbox CDN may not have assets for this title. "}
+          Try a different query or use <span className="text-muted-foreground/70">File</span> to upload a local image.
+        </p>
       )}
 
       {results.length > 0 && (
@@ -300,11 +314,11 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }) {
               <button
                 key={`${r.titleId || "r"}-${idx}`}
                 className="flex flex-col rounded border border-border hover:border-primary/60 bg-[#0d1117] overflow-hidden transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                style={{ width: 68 }}
+                style={{ width: thumbWidth }}
                 onClick={() => onSelect(r)}
-                title={[r.official && "Official", r.rating != null && `★${r.rating}`].filter(Boolean).join(" · ")}
+                title={[r.official && "Official", r.rating != null && `★${r.rating}`, r.assetType].filter(Boolean).join(" · ")}
               >
-                <div className="w-full aspect-[3/4] overflow-hidden bg-muted/20">
+                <div className={`w-full ${thumbAspect} overflow-hidden bg-muted/20`}>
                   {thumb ? (
                     <img src={thumb} alt="" className="w-full h-full object-cover" draggable={false} />
                   ) : (
@@ -316,6 +330,7 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }) {
                 <div className="px-0.5 py-0.5 flex gap-0.5 flex-wrap">
                   {r.official && <span className="text-[6px] text-yellow-400">Official</span>}
                   {r.rating != null && <span className="text-[6px] text-muted-foreground">★{r.rating}</span>}
+                  {r.source === "xbox-cdn" && <span className="text-[6px] text-blue-400">Xbox CDN</span>}
                   {r.titleId && (
                     <p className="text-[6px] text-muted-foreground/60 font-mono truncate w-full">{r.titleId}</p>
                   )}
@@ -327,7 +342,10 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }) {
       )}
 
       <p className="text-[8px] text-muted-foreground/50 leading-snug">
-        XboxUnity provides <span className="text-muted-foreground/70">cover art only</span> — results are the same regardless of which asset slot you are filling. Use <span className="text-muted-foreground/70">File</span> to upload a custom image for other slots.
+        {isCoverSearch
+          ? <>Covers from <span className="text-muted-foreground/70">XboxUnity</span> and <span className="text-muted-foreground/70">Xbox CDN</span>. Use <span className="text-muted-foreground/70">File</span> to upload a custom image.</>
+          : <>Results from <span className="text-muted-foreground/70">Xbox CDN catalog</span> for <span className="text-muted-foreground/70">{slotLabel.toLowerCase()}</span> assets. Use <span className="text-muted-foreground/70">File</span> to upload a custom image.</>
+        }
       </p>
     </div>
   );
@@ -370,8 +388,25 @@ function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefr
   function handleSearchSelect(slotKey, result) {
     const url = result.front || result.thumbnail || result.url;
     if (!url) return;
-    const previewUrl = isDataUrl(url) ? url : (result.thumbnail || result.front || url);
-    setPending((prev) => ({ ...prev, [slotKey]: { url: isDataUrl(url) ? null : url, dataUrl: isDataUrl(url) ? url : null, previewUrl, ext: ".jpg" } }));
+    const previewUrl = result.thumbnail || result.front || url;
+
+    if (isDataUrl(url)) {
+      // Already a data URL (e.g. Xbox CDN results) — use directly at full resolution.
+      setPending((prev) => ({ ...prev, [slotKey]: { url: null, dataUrl: url, previewUrl: url, ext: ".jpg" } }));
+    } else {
+      // HTTP URL — show the thumbnail immediately, then fetch the full image in background.
+      setPending((prev) => ({ ...prev, [slotKey]: { url, dataUrl: null, previewUrl, ext: ".jpg" } }));
+      (async () => {
+        const fullUrl = result.front || result.url || url;
+        const r = await window.godsendApi.fetchUrlImage(fullUrl);
+        if (r && r.ok && r.dataUrl) {
+          setPending((prev) => {
+            if (!prev[slotKey]) return prev;
+            return { ...prev, [slotKey]: { ...prev[slotKey], dataUrl: r.dataUrl } };
+          });
+        }
+      })();
+    }
     setSearchSlot(null);
     setSaveMsg("");
   }
@@ -438,7 +473,7 @@ function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefr
     ...Object.keys(pending).filter((k) => k.startsWith("screenshot")).map((k) => parseInt(k.replace("screenshot", ""), 10)),
     0,
   );
-  const screenshotSlots = Array.from({ length: Math.max(ssCount, 1) }, (_, i) => ({
+  const screenshotSlots = Array.from({ length: Math.max(ssCount, SCREENSHOT_COUNT) }, (_, i) => ({
     key: `screenshot${i + 1}`, label: `Screenshot ${i + 1}`,
   }));
 
@@ -922,6 +957,88 @@ function CenteredOverlay({ children }) {
   );
 }
 
+// ── Sort/filter helpers ───────────────────────────────────────────────────────
+
+const SORT_OPTIONS = [
+  { value: "name-asc",        label: "Name A–Z" },
+  { value: "name-desc",       label: "Name Z–A" },
+  { value: "rating-desc",     label: "Rating (high–low)" },
+  { value: "rating-asc",      label: "Rating (low–high)" },
+  { value: "last-played",     label: "Last played" },
+  { value: "most-played",     label: "Most played" },
+  { value: "drive",           label: "Drive" },
+  { value: "favorites-first", label: "Favorites first" },
+];
+
+function sortAndFilterGames(games, query, sortKey, filterKey) {
+  let list = games;
+
+  // ── text filter ──
+  if (query) {
+    const q = query.toLowerCase();
+    list = list.filter(
+      (g) =>
+        g.name.toLowerCase().includes(q) ||
+        g.titleId.toLowerCase().includes(q) ||
+        (g.publisher && g.publisher.toLowerCase().includes(q)) ||
+        (g.developer && g.developer.toLowerCase().includes(q))
+    );
+  }
+
+  // ── category filter ──
+  if (filterKey === "favorites") {
+    list = list.filter((g) => g.isFavorite);
+  } else if (filterKey === "on-source") {
+    list = list.filter((g) => Boolean(g.sourceDrive));
+  } else if (filterKey === "multi-disc") {
+    list = list.filter((g) => g.discsInSet > 1);
+  }
+
+  // ── sort ──
+  const sorted = [...list];
+  switch (sortKey) {
+    case "name-asc":
+      sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+      break;
+    case "name-desc":
+      sorted.sort((a, b) => b.name.localeCompare(a.name, undefined, { sensitivity: "base" }));
+      break;
+    case "rating-desc":
+      sorted.sort((a, b) => (parseFloat(b.liveRating) || 0) - (parseFloat(a.liveRating) || 0));
+      break;
+    case "rating-asc":
+      sorted.sort((a, b) => (parseFloat(a.liveRating) || 0) - (parseFloat(b.liveRating) || 0));
+      break;
+    case "last-played":
+      sorted.sort((a, b) => {
+        const da = a.lastPlayed || "";
+        const db = b.lastPlayed || "";
+        if (!da && !db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        return db.localeCompare(da);
+      });
+      break;
+    case "most-played":
+      sorted.sort((a, b) => (b.timesPlayed || 0) - (a.timesPlayed || 0));
+      break;
+    case "drive":
+      sorted.sort((a, b) => (a.sourceDrive || "zzz").localeCompare(b.sourceDrive || "zzz"));
+      break;
+    case "favorites-first":
+      sorted.sort((a, b) => {
+        if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      });
+      break;
+    default:
+      break;
+  }
+  return sorted;
+}
+
+// ── Main library page ─────────────────────────────────────────────────────────
+
 export default function LibraryPage({
   status,
   games,
@@ -935,6 +1052,29 @@ export default function LibraryPage({
 }) {
   const [selectedGame, setSelectedGame] = useState(null);
   const [rxeaCovers, setRxeaCovers] = useState({});
+
+  // ── Sort / filter state ──
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortKey, setSortKey]         = useState("name-asc");
+  const [filterKey, setFilterKey]     = useState("all");
+  const [showSortMenu, setShowSortMenu]     = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const sortRef   = useRef(null);
+  const filterRef = useRef(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function onPointerDown(e) {
+      if (showSortMenu && sortRef.current && !sortRef.current.contains(e.target)) setShowSortMenu(false);
+      if (showFilterMenu && filterRef.current && !filterRef.current.contains(e.target)) setShowFilterMenu(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [showSortMenu, showFilterMenu]);
+
+  const filteredGames = status === "ready"
+    ? sortAndFilterGames(games, searchQuery, sortKey, filterKey)
+    : games;
 
   function handleRxeaCover(titleId, src) {
     setRxeaCovers((prev) => (prev[titleId] === src ? prev : { ...prev, [titleId]: src }));
@@ -963,46 +1103,150 @@ export default function LibraryPage({
 
   const onSourceCount  = games.filter(isOnSource).length;
   const offSourceCount = games.length - onSourceCount;
+  const favCount       = games.filter((g) => g.isFavorite).length;
+
+  // Build unique drive list for the filter badge.
+  const drives = [...new Set(games.map((g) => g.sourceDrive).filter(Boolean))].sort();
 
   return (
     <div className="flex flex-col h-screen p-3 gap-2.5">
 
-      <header className="flex items-center justify-between shrink-0 pb-3 border-b border-border">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Gamepad2 className="h-[18px] w-[18px] text-primary shrink-0" />
-          <span className="text-[15px] font-semibold text-foreground">Xbox Library</span>
-          {status === "ready" && (
-            <span className="text-[11px] text-muted-foreground truncate">
-              {games.length} game{games.length !== 1 ? "s" : ""}
-              {offSourceCount > 0 && (
-                <span className="text-muted-foreground/50">
-                  {" "}·{" "}{offSourceCount} off-drive
-                </span>
+      <header className="flex flex-col shrink-0 gap-2 pb-3 border-b border-border">
+        {/* Top row: title + actions */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Gamepad2 className="h-[18px] w-[18px] text-primary shrink-0" />
+            <span className="text-[15px] font-semibold text-foreground">Xbox Library</span>
+            {status === "ready" && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {filteredGames.length !== games.length
+                  ? `${filteredGames.length} / ${games.length}`
+                  : games.length}{" "}
+                game{(filteredGames.length !== games.length ? filteredGames.length : games.length) !== 1 ? "s" : ""}
+                {offSourceCount > 0 && (
+                  <span className="text-muted-foreground/50">
+                    {" "}&middot;{" "}{offSourceCount} off-drive
+                  </span>
+                )}
+                {connectedTo && <span className="text-muted-foreground/50"> &middot; {connectedTo}</span>}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              size="icon"
+              variant="ghost"
+              title="Refresh library cache from Xbox"
+              disabled={refreshBusy || status !== "ready" || typeof onRefresh !== "function"}
+              onClick={() => { setRxeaCovers({}); onRefresh?.(); }}
+            >
+              <RefreshCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
+            </Button>
+            <Button size="icon" title="Back to console" onClick={onToggle}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Search + sort/filter toolbar — only when library is ready */}
+        {status === "ready" && games.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            {/* Search */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                type="text"
+                placeholder="Search games..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-7 pl-7 pr-7 text-[12px]"
+                spellCheck={false}
+              />
+              {searchQuery && (
+                <button
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-accent"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="h-3 w-3 text-muted-foreground" />
+                </button>
               )}
-              {connectedTo && <span className="text-muted-foreground/50"> · {connectedTo}</span>}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            size="icon"
-            variant="ghost"
-            title="Refresh library cache from Xbox"
-            disabled={refreshBusy || status !== "ready" || typeof onRefresh !== "function"}
-            onClick={() => { setRxeaCovers({}); onRefresh?.(); }}
-          >
-            <RefreshCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
-          </Button>
-          <Button size="icon" title="Back to console" onClick={onToggle}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </div>
+            </div>
+
+            {/* Sort dropdown */}
+            <div className="relative" ref={sortRef}>
+              <Button
+                size="sm"
+                variant={sortKey !== "name-asc" ? "secondary" : "ghost"}
+                className="h-7 text-[11px] px-2 gap-1"
+                title="Sort by"
+                onClick={() => { setShowSortMenu(!showSortMenu); setShowFilterMenu(false); }}
+              >
+                <ArrowUpDown className="h-3 w-3" />
+                <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === sortKey)?.label || "Sort"}</span>
+              </Button>
+              {showSortMenu && (
+                <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md border border-border bg-popover shadow-lg py-1">
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 text-[11px] hover:bg-accent",
+                        sortKey === opt.value && "bg-accent/60 font-medium"
+                      )}
+                      onClick={() => { setSortKey(opt.value); setShowSortMenu(false); }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Filter dropdown */}
+            <div className="relative" ref={filterRef}>
+              <Button
+                size="sm"
+                variant={filterKey !== "all" ? "secondary" : "ghost"}
+                className="h-7 text-[11px] px-2 gap-1"
+                title="Filter"
+                onClick={() => { setShowFilterMenu(!showFilterMenu); setShowSortMenu(false); }}
+              >
+                <Filter className="h-3 w-3" />
+                <span className="hidden sm:inline">
+                  {filterKey === "all" ? "Filter" : filterKey === "favorites" ? "Favorites" : filterKey === "on-source" ? "On-drive" : "Multi-disc"}
+                </span>
+              </Button>
+              {showFilterMenu && (
+                <div className="absolute right-0 top-full mt-1 z-50 min-w-[150px] rounded-md border border-border bg-popover shadow-lg py-1">
+                  {[
+                    { value: "all",        label: "All games",   count: games.length },
+                    { value: "favorites",  label: "Favorites",   count: favCount },
+                    { value: "on-source",  label: "On-drive",    count: onSourceCount },
+                    { value: "multi-disc", label: "Multi-disc",  count: games.filter((g) => g.discsInSet > 1).length },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 text-[11px] hover:bg-accent flex justify-between items-center",
+                        filterKey === opt.value && "bg-accent/60 font-medium"
+                      )}
+                      onClick={() => { setFilterKey(opt.value); setShowFilterMenu(false); }}
+                    >
+                      <span>{opt.label}</span>
+                      <span className="text-muted-foreground text-[10px] ml-2">{opt.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {status === "connecting" && (
         <CenteredOverlay>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-[13px]">Loading Aurora library…</p>
+          <p className="text-[13px]">Loading Aurora library...</p>
         </CenteredOverlay>
       )}
 
@@ -1022,13 +1266,23 @@ export default function LibraryPage({
         </CenteredOverlay>
       )}
 
-      {status === "ready" && games.length > 0 && (
+      {status === "ready" && games.length > 0 && filteredGames.length === 0 && (
+        <CenteredOverlay>
+          <Search className="h-8 w-8 text-muted-foreground" />
+          <p className="text-[13px]">No games match your search or filter.</p>
+          <Button size="sm" onClick={() => { setSearchQuery(""); setFilterKey("all"); }}>
+            Clear filters
+          </Button>
+        </CenteredOverlay>
+      )}
+
+      {status === "ready" && filteredGames.length > 0 && (
         <ScrollArea className="flex-1 min-h-0">
           <div
             className="grid gap-3 pb-4 pr-1"
             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))" }}
           >
-            {games.map((game) => {
+            {filteredGames.map((game) => {
               const tv = titleVisuals[game.titleId];
               const visualCover = tv?.cover?.src || null;
               const isBooklet = tv?.coverIsBooklet === true;
