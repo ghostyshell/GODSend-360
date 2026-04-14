@@ -207,23 +207,68 @@ async function buildAuroraGamesFromDbBuffers(contentBuf, settingsBuf, scanDriveM
   return games;
 }
 
-/** @returns {Promise<Map<number, string>>} */
-async function probeScanPathDrives(client, scanRows) {
-  const knownDrives = ["Hdd1", "Usb0", "Usb1", "Usb2"];
+/**
+ * Aurora's FTP server returns the root listing for any absolute path that
+ * does not exist (instead of failing), so `cd /Hdd1/foo` always "succeeds"
+ * even when `/Hdd1/foo` is not real. The only reliable way to verify a path
+ * is to walk it segment-by-segment with relative `cd` and check `pwd` after.
+ *
+ * @returns {Promise<Map<number, string>>}
+ */
+async function probeScanPathDrives(client, scanRows, contentRows) {
+  const knownDrives = ["Hdd1", "Usb0", "Usb1", "Usb2", "HddX"];
   const scanDriveMap = new Map();
+
+  const sampleDirByScanId = new Map();
+  for (const c of contentRows || []) {
+    const sid = Number(c.ScanPathId) || 0;
+    if (!sid || sampleDirByScanId.has(sid)) continue;
+    const dir = String(c.Directory || "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+    if (dir) sampleDirByScanId.set(sid, dir);
+  }
+
   const scanPathById = new Map(
-    scanRows.map((s) => [Number(s.Id), String(s.Path || "").replace(/\\/g, "/")])
+    scanRows.map((s) => [
+      Number(s.Id),
+      String(s.Path || "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, ""),
+    ])
   );
+
+  async function walkRel(segments) {
+    for (const seg of segments) {
+      if (!seg) continue;
+      await client.cd(seg);
+    }
+  }
+
   for (const [scanId, scanPath] of scanPathById) {
+    const probePath = sampleDirByScanId.get(scanId) || scanPath;
+    const segments = probePath.split("/").filter(Boolean);
+    if (segments.length === 0) continue;
+
     for (const drive of knownDrives) {
       try {
-        await client.cd(`/${drive}${scanPath}`);
-        scanDriveMap.set(scanId, drive);
-        break;
+        await client.cd("/");
+        await client.cd(drive);
+        await walkRel(segments);
+        const pwd = (await client.pwd()).replace(/\\/g, "/");
+        const expected = `/${drive}/${segments.join("/")}`;
+        if (pwd.replace(/\/+$/, "").toLowerCase() === expected.toLowerCase()) {
+          scanDriveMap.set(scanId, drive);
+          break;
+        }
       } catch { /* try next drive */ }
     }
   }
   return scanDriveMap;
+}
+
+async function readContentScanRowsFromBuffer(contentBuf) {
+  const SQL = await getSqlJs();
+  const cdb = new SQL.Database(new Uint8Array(contentBuf));
+  const rows = sqlRows(cdb.exec("SELECT ScanPathId, Directory FROM ContentItems"));
+  cdb.close();
+  return rows;
 }
 
 async function readScanRowsFromSettingsBuffer(settingsBuf) {
@@ -323,6 +368,7 @@ function emitAuroraTitleVisualEvents(titleId, gameDataDir, cacheRoot) {
   wc.send("xbox-title-visuals", {
     titleId,
     visuals: {
+      coverIsBooklet: Boolean(m.importCover && m.importCover.rel),
       cover:        toAsset(m.importCover || m.mediaCover),
       background:   toAsset(m.background),
       banner:       toAsset(m.banner),
@@ -1890,6 +1936,7 @@ function registerIpcHandlers() {
         contentSz >= 0 &&
         settingsSz >= 0 &&
         meta.scanDriveMap &&
+        meta.driveProbeVersion === 2 &&
         fs.existsSync(contentDbPath(cacheRoot)) &&
         fs.existsSync(settingsDbPath(cacheRoot));
 
@@ -1933,6 +1980,7 @@ function registerIpcHandlers() {
       fs.writeFileSync(settingsDbPath(cacheRoot), settingsBuf);
 
       const scanRows = await readScanRowsFromSettingsBuffer(settingsBuf);
+      const contentScanRows = await readContentScanRowsFromBuffer(contentBuf);
       addOutputLine(
         `[INFO] Aurora library: probing ${scanRows.length} scan path(s) for drive letters…`
       );
@@ -1940,7 +1988,7 @@ function registerIpcHandlers() {
       client.ftp.timeout = 8000;
       let scanDriveMap;
       try {
-        scanDriveMap = await probeScanPathDrives(client, scanRows);
+        scanDriveMap = await probeScanPathDrives(client, scanRows, contentScanRows);
       } finally {
         client.ftp.timeout = prevFtpTimeout;
       }
@@ -1952,6 +2000,7 @@ function registerIpcHandlers() {
         contentDbSize:    contentSz,
         settingsDbSize:   settingsSz,
         scanDriveMap:     Object.fromEntries(scanDriveMap),
+        driveProbeVersion: 2,
         updatedAt:        Date.now(),
       });
 
@@ -2042,6 +2091,7 @@ function registerIpcHandlers() {
           addOutputLine(`[WARN] Aurora sync ${titleId}: ${em}`);
           appendAppEvent("AURORA_SYNC", `${titleId}: ${em}`);
         } finally {
+          emitAuroraCoverEvents(titleId, gameDataDir, cacheRoot);
           emitAuroraTitleVisualEvents(titleId, gameDataDir, cacheRoot);
         }
         if (progressEvery > 0 && (gi + 1) % progressEvery === 0) {

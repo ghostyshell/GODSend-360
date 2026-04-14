@@ -437,7 +437,7 @@ function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefr
     ...Object.keys(pending).filter((k) => k.startsWith("screenshot")).map((k) => parseInt(k.replace("screenshot", ""), 10)),
     0,
   );
-  const screenshotSlots = Array.from({ length: Math.max(ssCount, 0) }, (_, i) => ({
+  const screenshotSlots = Array.from({ length: Math.max(ssCount, 1) }, (_, i) => ({
     key: `screenshot${i + 1}`, label: `Screenshot ${i + 1}`,
   }));
 
@@ -751,7 +751,12 @@ function GameDetail({
                 /* perspective wrapper */
                 <div
                   className={cn("shrink-0", !isOnSource && "opacity-50 grayscale")}
-                  style={{ width: 110, aspectRatio: "3/4", perspective: "700px", cursor: "default" }}
+                  style={{
+                    width: 110,
+                    aspectRatio: "3/4",
+                    perspective: "700px",
+                    cursor: "default",
+                  }}
                   onMouseEnter={() => setCoverFlipped(true)}
                   onMouseLeave={() => setCoverFlipped(false)}
                 >
@@ -761,15 +766,17 @@ function GameDetail({
                       width: "100%", height: "100%",
                       position: "relative",
                       transformStyle: "preserve-3d",
-                      transition: "transform 0.55s cubic-bezier(0.4,0,0.2,1), filter 0.55s ease",
+                      transition: "transform 0.55s cubic-bezier(0.4,0,0.2,1)",
                       transform: coverFlipped ? "rotateY(180deg) translateY(-10px)" : "rotateY(0deg)",
-                      filter: coverFlipped ? "drop-shadow(0 18px 32px rgba(0,0,0,0.9))" : "drop-shadow(0 4px 8px rgba(0,0,0,0.5))",
                     }}
                   >
                     {/* Front face */}
                     <div
                       className="absolute inset-0 rounded-lg overflow-hidden border border-border bg-[#0d1117]"
-                      style={{ backfaceVisibility: "hidden" }}
+                      style={{
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                      }}
                     >
                       {activeSrc === undefined ? (
                         <div className="absolute inset-0 bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
@@ -782,7 +789,7 @@ function GameDetail({
                           className="absolute inset-0"
                           style={{
                             backgroundImage: `url(${activeSrc})`,
-                            backgroundSize: "200% 100%",
+                            backgroundSize: "211% auto",
                             backgroundPosition: "right center",
                             backgroundRepeat: "no-repeat",
                           }}
@@ -796,12 +803,45 @@ function GameDetail({
                         />
                       )}
                     </div>
-                    {/* Back face — disc */}
+                    {/* Spine (perpendicular to front, visible at ~90° during flip) */}
+                    {isRxea && (
+                      <div
+                        className="absolute top-0 overflow-hidden"
+                        style={{
+                          right: -6,
+                          width: 12,
+                          height: "100%",
+                          transform: "rotateY(90deg)",
+                          backgroundImage: `url(${activeSrc})`,
+                          backgroundSize: "2200% auto",
+                          backgroundPosition: "50% 50%",
+                          backgroundRepeat: "no-repeat",
+                          backgroundColor: "#0d1117",
+                        }}
+                      />
+                    )}
+                    {/* Back face */}
                     <div
-                      className="absolute inset-0 rounded-lg overflow-hidden border border-border/50"
-                      style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                      className="absolute inset-0 rounded-lg overflow-hidden border border-border/50 bg-[#0d1117]"
+                      style={{
+                        backfaceVisibility: "hidden",
+                        WebkitBackfaceVisibility: "hidden",
+                        transform: "rotateY(180deg)",
+                      }}
                     >
-                      <DiscFace />
+                      {isRxea ? (
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            backgroundImage: `url(${activeSrc})`,
+                            backgroundSize: "211% auto",
+                            backgroundPosition: "left center",
+                            backgroundRepeat: "no-repeat",
+                          }}
+                        />
+                      ) : (
+                        <DiscFace />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -828,9 +868,9 @@ function GameDetail({
                 <MetaRow
                   label="Game path"
                   value={
-                    game.sourceDrive || game.directory
-                      ? `${game.sourceDrive || ""}:${game.directory || ""}`
-                      : undefined
+                    game.sourceDrive
+                      ? `${game.sourceDrive}:${game.directory || ""}`
+                      : game.directory || undefined
                   }
                 />
                 <MetaRow
@@ -911,17 +951,17 @@ function GameCard({ game, coverDataUrl, rxeaCover, isOnSource, onClick }) {
         style={{
           aspectRatio: "3/4",
           transformStyle: "preserve-3d",
-          transition: "transform 0.52s cubic-bezier(0.4,0,0.2,1), filter 0.52s ease",
+          transition: "transform 0.52s cubic-bezier(0.4,0,0.2,1)",
           transform: flipped ? "rotateY(180deg) translateY(-8px)" : "rotateY(0deg)",
-          filter: flipped
-            ? "drop-shadow(0 16px 28px rgba(0,0,0,0.85))"
-            : "drop-shadow(0 2px 6px rgba(0,0,0,0.4))",
         }}
       >
         {/* ── Front face ── */}
         <div
           className="absolute inset-0 rounded-lg overflow-hidden border border-border bg-[#0d1117]"
-          style={{ backfaceVisibility: "hidden" }}
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+          }}
         >
           {coverDataUrl === undefined && !rxeaCover ? (
             <div className="absolute inset-0 overflow-hidden">
@@ -932,7 +972,7 @@ function GameCard({ game, coverDataUrl, rxeaCover, isOnSource, onClick }) {
               className={cn("absolute inset-0", !isOnSource && "grayscale")}
               style={{
                 backgroundImage: `url(${rxeaCover})`,
-                backgroundSize: "200% 100%",
+                backgroundSize: "211% auto",
                 backgroundPosition: "right center",
                 backgroundRepeat: "no-repeat",
               }}
@@ -972,12 +1012,46 @@ function GameCard({ game, coverDataUrl, rxeaCover, isOnSource, onClick }) {
           )}
         </div>
 
-        {/* ── Back face — disc ── */}
+        {/* ── Spine (perpendicular to front, visible at ~90° during flip) ── */}
+        {rxeaCover && (
+          <div
+            className="absolute top-0 overflow-hidden"
+            style={{
+              right: -5,
+              width: 10,
+              height: "100%",
+              transform: "rotateY(90deg)",
+              backgroundImage: `url(${rxeaCover})`,
+              backgroundSize: "2200% auto",
+              backgroundPosition: "50% 50%",
+              backgroundRepeat: "no-repeat",
+              backgroundColor: "#0d1117",
+            }}
+          />
+        )}
+
+        {/* ── Back face ── */}
         <div
-          className="absolute inset-0 rounded-lg overflow-hidden border border-border/50"
-          style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+          className="absolute inset-0 rounded-lg overflow-hidden border border-border/50 bg-[#0d1117]"
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+          }}
         >
-          <DiscFace />
+          {rxeaCover ? (
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `url(${rxeaCover})`,
+                backgroundSize: "211% auto",
+                backgroundPosition: "left center",
+                backgroundRepeat: "no-repeat",
+              }}
+            />
+          ) : (
+            <DiscFace />
+          )}
         </div>
       </div>
 
@@ -1023,9 +1097,7 @@ export default function LibraryPage({
   }
 
   function isOnSource(game) {
-    if (!librarySources || librarySources.length === 0) return true;
-    if (!game.sourceDrive) return false;
-    return librarySources.includes(game.sourceDrive);
+    return Boolean(game.sourceDrive);
   }
 
   if (selectedGame) {
@@ -1073,7 +1145,7 @@ export default function LibraryPage({
             variant="ghost"
             title="Refresh library cache from Xbox"
             disabled={refreshBusy || status !== "ready" || typeof onRefresh !== "function"}
-            onClick={() => onRefresh?.()}
+            onClick={() => { setRxeaCovers({}); onRefresh?.(); }}
           >
             <RefreshCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
           </Button>
@@ -1112,16 +1184,26 @@ export default function LibraryPage({
             className="grid gap-3 pb-4 pr-1"
             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))" }}
           >
-            {games.map((game) => (
-              <GameCard
-                key={`${game.titleId}-${game.contentId}`}
-                game={game}
-                coverDataUrl={covers[game.titleId]}
-                rxeaCover={rxeaCovers[game.titleId] || null}
-                isOnSource={isOnSource(game)}
-                onClick={() => setSelectedGame(game)}
-              />
-            ))}
+            {games.map((game) => {
+              const tv = titleVisuals[game.titleId];
+              const visualCover = tv?.cover?.src || null;
+              const isBooklet = tv?.coverIsBooklet === true;
+              return (
+                <GameCard
+                  key={`${game.titleId}-${game.contentId}`}
+                  game={game}
+                  coverDataUrl={
+                    isBooklet ? covers[game.titleId] : (visualCover || covers[game.titleId])
+                  }
+                  rxeaCover={
+                    rxeaCovers[game.titleId] ||
+                    (isBooklet ? visualCover : null)
+                  }
+                  isOnSource={isOnSource(game)}
+                  onClick={() => setSelectedGame(game)}
+                />
+              );
+            })}
           </div>
         </ScrollArea>
       )}
