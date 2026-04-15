@@ -1,14 +1,13 @@
 import path from "path";
 import fs from "fs";
 import http from "http";
-import { Writable } from "stream";
-import { Client } from "basic-ftp";
 
 import { imageExtFromMagic, fetchHttpImage } from "../infrastructure/httpHelper";
 import { gameCacheDir } from "../infrastructure/auroraLibraryCache";
 import { getConfiguredServerPort } from "./settingsService";
 import { addOutputLine } from "./backendClient";
 import { getWebContentsForPush } from "../app/window";
+import { backendPost } from "../infrastructure/backendHttp";
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
@@ -166,31 +165,27 @@ export function emitAuroraCoverEvents(titleId: string, gameDataDir: string, cach
   wc.send("xbox-cover", { titleId, gameDataDir, src: primarySrc });
 }
 
-// ── FTP download helper ────────────────────────────────────────────────────────
+// ── FTP batch helper (Go backend) ─────────────────────────────────────────────
 
-export async function ftpTryDownloadFile(client: Client, remotePath: string): Promise<Buffer | null> {
-  try {
-    const chunks: Buffer[] = [];
-    await client.downloadTo(
-      new Writable({ write(c, _, cb) { chunks.push(c); cb(); } }),
-      remotePath
-    );
-    const buf = Buffer.concat(chunks);
-    return buf.length > 0 ? buf : null;
-  } catch {
-    return null;
-  }
+async function batchFtp(xboxIp: string, ops: any[]): Promise<any[]> {
+  const res = await backendPost("/ftp/batch", { ip: xboxIp, ops }, 120000);
+  return res.results || [];
 }
 
-// ── RXEA decode via Go server ──────────────────────────────────────────────────
+function bufFromBatchResult(results: any[], idx: number): Buffer | null {
+  if (idx < 0) return null;
+  const r = results[idx];
+  if (r && r.ok && r.data) return Buffer.from(r.data, "base64");
+  return null;
+}
 
-async function decodeAssetFile(
-  client: Client,
-  gameDataPath: string,
+// ── RXEA decode via Go server (takes already-downloaded buffer) ───────────────
+
+async function decodeRxeaBuffer(
+  assetBuf: Buffer,
   titleId: string,
   assetName: string
 ): Promise<Record<number, Buffer>> {
-  const assetBuf = await ftpTryDownloadFile(client, `${gameDataPath}/${assetName}`);
   if (!assetBuf || assetBuf.length < 2048) return {};
 
   const goPort = getConfiguredServerPort();
@@ -251,13 +246,9 @@ async function decodeAssetFile(
 
 // ── FTP fingerprint helpers ─────────────────────────────────────────────────────
 
-async function ftpFileSize(client: Client, remotePath: string): Promise<number> {
-  try { return await client.size(remotePath); } catch { return -1; }
-}
-
 function importListingFingerprint(entries: any[]): string {
   return entries
-    .filter((e: any) => e && e.name && e.type !== 2)
+    .filter((e: any) => e && e.name && e.type !== "dir")
     .map((e: any) => `${e.name}:${e.size || 0}`)
     .sort()
     .join(",");
@@ -265,8 +256,13 @@ function importListingFingerprint(entries: any[]): string {
 
 // ── Main sync functions ────────────────────────────────────────────────────────
 
+/**
+ * Sync Aurora title visual assets (RXEA assets, Import folder, CDN images)
+ * for a single game.  Uses the Go backend batch endpoint (one FTP connection
+ * for fingerprinting, one for bulk downloads).
+ */
 export async function syncAuroraTitleVisualAssets(
-  client: Client,
+  xboxIp: string,
   auroraRoot: string,
   titleId: string,
   gameDataDir: string,
@@ -279,43 +275,141 @@ export async function syncAuroraTitleVisualAssets(
   const gameDataPath = `${auroraRoot}/Data/GameData/${gameDataDir}`;
   fs.mkdirSync(vdir, { recursive: true });
 
-  // ── Collect remote source fingerprints (cheap FTP SIZE + LIST) ──────────────
+  // ── Phase 1: Fingerprint batch (sizes + import listing — 1 FTP connection) ──
   const fpAssetKeys = [
     `BK${titleId}.asset`, `GC${titleId}.asset`,
     `GL${titleId}.asset`, `SS${titleId}.asset`,
     "GameAssetInfo.bin", "GameCoverInfo.bin",
   ];
+  const fpOps: any[] = fpAssetKeys.map((name) => ({ op: "size", path: `${gameDataPath}/${name}` }));
+  fpOps.push({ op: "list", path: importBase });
+
+  const fpResults = await batchFtp(xboxIp, fpOps);
+
   const newFp: Record<string, any> = {};
-  for (const name of fpAssetKeys) {
-    newFp[name] = await ftpFileSize(client, `${gameDataPath}/${name}`);
+  for (let i = 0; i < fpAssetKeys.length; i++) {
+    newFp[fpAssetKeys[i]] = fpResults[i] && fpResults[i].ok ? Number(fpResults[i].data) : -1;
   }
+  const listResult = fpResults[fpAssetKeys.length];
   let importEntries: any[] = [];
-  try { importEntries = await client.list(importBase); } catch { /* no import folder */ }
+  if (listResult && listResult.ok && Array.isArray(listResult.data)) {
+    importEntries = listResult.data;
+  }
   newFp._importListing = importListingFingerprint(importEntries);
 
-  // ── Early exit if all source fingerprints match the cached manifest ─────────
+  // ── Phase 2: Early exit if all source fingerprints match the cached manifest ─
   const manifestPath = path.join(gdir, "visual-manifest.json");
   if (!force && fs.existsSync(manifestPath)) {
     try {
-      const prev = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      const prev     = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
       const cachedFp = prev?._sourceFingerprints;
       if (cachedFp && typeof cachedFp === "object") {
-        const allKeys = [...fpAssetKeys, "_importListing"];
+        const allKeys  = [...fpAssetKeys, "_importListing"];
         const allMatch = allKeys.every((k) => {
           const cached  = cachedFp[k];
           const current = newFp[k];
-          if (cached === undefined || cached === null) {
-            return current === -1 || current === "";
-          }
+          if (cached === undefined || cached === null) return current === -1 || current === "";
           return cached === current;
         });
-        if (allMatch) {
-          return;  // All FTP sources unchanged — existing manifest is still valid
-        }
+        if (allMatch) return;  // unchanged — existing manifest is still valid
       }
     } catch { /* corrupt manifest — proceed with full sync */ }
   }
 
+  // ── Phase 3: Build download batch for all needed files (1 FTP connection) ────
+  const dlOps: any[] = [];
+
+  // Index import files by stem
+  const importByStem = new Map<string, { name: string; extWithDot: string }>();
+  for (const e of importEntries) {
+    if (!e || !e.name || e.type === "dir") continue;
+    const dot  = e.name.lastIndexOf(".");
+    const stem = (dot >= 0 ? e.name.slice(0, dot) : e.name).toLowerCase();
+    const ext  = dot >= 0 ? e.name.slice(dot).toLowerCase() : "";
+    if (!importByStem.has(stem)) importByStem.set(stem, { name: e.name, extWithDot: ext });
+  }
+
+  // Queue import-file downloads
+  const importSlotStems: { slotKey: string; stems: string[] }[] = [
+    { slotKey: "background",  stems: ["background", "boxartback"] },
+    { slotKey: "banner",      stems: ["banner"] },
+    { slotKey: "icon",        stems: ["icon"] },
+    { slotKey: "importCover", stems: ["cover", "boxartfront"] },
+  ];
+  const importDownloads: { slotKey: string; localName: string; idx: number; entryName: string }[] = [];
+  for (const { slotKey, stems } of importSlotStems) {
+    for (const stem of stems) {
+      const entry = importByStem.get(stem);
+      if (!entry) continue;
+      const localName = `import-${safeVisualLocalName(entry.name)}`;
+      if (!force && fs.existsSync(path.join(vdir, localName))) {
+        importDownloads.push({ slotKey, localName, idx: -1, entryName: entry.name });
+      } else {
+        const idx = dlOps.length;
+        dlOps.push({ op: "download_base64", path: `${importBase}/${entry.name}` });
+        importDownloads.push({ slotKey, localName, idx, entryName: entry.name });
+      }
+      break; // first matching stem wins
+    }
+  }
+
+  // Queue import-screenshot downloads
+  const importScreenshots: { sortKey: string; localName: string; idx: number; entryName: string }[] = [];
+  for (let i = 1; i <= 10; i++) {
+    const stems = [`screenshot${i}`, `screenshot${String(i).padStart(2, "0")}`];
+    for (const stem of stems) {
+      const entry = importByStem.get(stem);
+      if (!entry) continue;
+      const localName = `import-${safeVisualLocalName(entry.name)}`;
+      const info = { sortKey: `${String(i).padStart(3, "0")}-import`, localName, idx: -1, entryName: entry.name };
+      if (!force && fs.existsSync(path.join(vdir, localName))) {
+        importScreenshots.push(info);
+      } else {
+        info.idx = dlOps.length;
+        dlOps.push({ op: "download_base64", path: `${importBase}/${entry.name}` });
+        importScreenshots.push(info);
+      }
+      break;
+    }
+  }
+
+  // Queue RXEA asset downloads (only if remote size > 0)
+  const rxeaFiles = [
+    { name: `BK${titleId}.asset`, fpKey: `BK${titleId}.asset` },
+    { name: `GC${titleId}.asset`, fpKey: `GC${titleId}.asset` },
+    { name: `GL${titleId}.asset`, fpKey: `GL${titleId}.asset` },
+    { name: `SS${titleId}.asset`, fpKey: `SS${titleId}.asset` },
+  ];
+  const rxeaDownloads: { name: string; idx: number }[] = [];
+  for (const rf of rxeaFiles) {
+    if (newFp[rf.fpKey] > 0) {
+      const idx = dlOps.length;
+      dlOps.push({ op: "download_base64", path: `${gameDataPath}/${rf.name}` });
+      rxeaDownloads.push({ name: rf.name, idx });
+    } else {
+      rxeaDownloads.push({ name: rf.name, idx: -1 });
+    }
+  }
+
+  // Queue data-file downloads
+  let gameAssetInfoIdx = -1;
+  let gameCoverInfoIdx = -1;
+  if (newFp["GameAssetInfo.bin"] > 0) {
+    gameAssetInfoIdx = dlOps.length;
+    dlOps.push({ op: "download_base64", path: `${gameDataPath}/GameAssetInfo.bin` });
+  }
+  if (newFp["GameCoverInfo.bin"] > 0) {
+    gameCoverInfoIdx = dlOps.length;
+    dlOps.push({ op: "download_base64", path: `${gameDataPath}/GameCoverInfo.bin` });
+  }
+
+  // Execute download batch
+  let dlResults: any[] = [];
+  if (dlOps.length > 0) {
+    dlResults = await batchFtp(xboxIp, dlOps);
+  }
+
+  // ── Phase 4: Process downloaded data ─────────────────────────────────────────
   const m: Record<string, any> = {
     importCover: null, mediaCover: null,
     background:  null, banner:     null,
@@ -330,55 +424,39 @@ export async function syncAuroraTitleVisualAssets(
     };
   }
 
-  const importByStem = new Map<string, { name: string; extWithDot: string }>();
-  for (const e of importEntries) {
-    if (!e || !e.name || e.type === 2) continue;
-    const dot  = e.name.lastIndexOf(".");
-    const stem = (dot >= 0 ? e.name.slice(0, dot) : e.name).toLowerCase();
-    const ext  = dot >= 0 ? e.name.slice(dot).toLowerCase() : "";
-    if (!importByStem.has(stem)) importByStem.set(stem, { name: e.name, extWithDot: ext });
-  }
-
-  async function pullImportFile(slotKey: string, ...stems: string[]): Promise<void> {
-    for (const stem of stems) {
-      const entry = importByStem.get(stem.toLowerCase());
-      if (!entry) continue;
-      const localName = `import-${safeVisualLocalName(entry.name)}`;
-      const lp        = path.join(vdir, localName);
-      if (!force && fs.existsSync(lp)) { m[slotKey] = assetFor(localName); return; }
-      const buf = await ftpTryDownloadFile(client, `${importBase}/${entry.name}`);
-      if (!buf || buf.length < 16) continue;
-      fs.writeFileSync(lp, buf);
-      m[slotKey] = assetFor(localName);
-      return;
+  // Process import-file downloads
+  for (const dl of importDownloads) {
+    const lp = path.join(vdir, dl.localName);
+    if (dl.idx < 0) {
+      if (fs.existsSync(lp)) m[dl.slotKey] = assetFor(dl.localName);
+      continue;
     }
+    const buf = bufFromBatchResult(dlResults, dl.idx);
+    if (!buf || buf.length < 16) continue;
+    fs.writeFileSync(lp, buf);
+    m[dl.slotKey] = assetFor(dl.localName);
   }
 
-  await pullImportFile("background",  "background", "Background", "BoxArtBack",  "boxartback");
-  await pullImportFile("banner",      "banner",     "Banner");
-  await pullImportFile("icon",        "icon",       "Icon");
-  await pullImportFile("importCover", "cover",      "Cover",      "BoxArtFront", "boxartfront");
-
-  for (let i = 1; i <= 10; i++) {
-    const stems = [`screenshot${i}`, `screenshot${String(i).padStart(2, "0")}`];
-    for (const stem of stems) {
-      const entry = importByStem.get(stem);
-      if (!entry) continue;
-      const localName = `import-${safeVisualLocalName(entry.name)}`;
-      const lp        = path.join(vdir, localName);
-      const info = {
-        sortKey: `${String(i).padStart(3, "0")}-import`,
-        rel: assetFor(localName).rel, ext: assetFor(localName).ext, name: entry.name,
-      };
-      if (!force && fs.existsSync(lp)) { screenshotSort.push(info); break; }
-      const buf = await ftpTryDownloadFile(client, `${importBase}/${entry.name}`);
-      if (!buf || buf.length < 16) continue;
-      fs.writeFileSync(lp, buf);
-      screenshotSort.push(info);
-      break;
+  // Process import-screenshot downloads
+  for (const dl of importScreenshots) {
+    const lp   = path.join(vdir, dl.localName);
+    const info = {
+      sortKey: dl.sortKey,
+      rel:     assetFor(dl.localName).rel,
+      ext:     assetFor(dl.localName).ext,
+      name:    dl.entryName,
+    };
+    if (dl.idx < 0) {
+      if (fs.existsSync(lp)) screenshotSort.push(info);
+      continue;
     }
+    const buf = bufFromBatchResult(dlResults, dl.idx);
+    if (!buf || buf.length < 16) continue;
+    fs.writeFileSync(lp, buf);
+    screenshotSort.push(info);
   }
 
+  // RXEA decode helper
   async function cacheDecodedSlot(slotKey: string, pngBuf: Buffer, localBase: string): Promise<void> {
     if (m[slotKey]) return;
     const localName = `rxea-${localBase}.png`;
@@ -388,43 +466,58 @@ export async function syncAuroraTitleVisualAssets(
     m[slotKey] = assetFor(localName);
   }
 
+  // BK asset → background
   {
-    const decoded = await decodeAssetFile(client, gameDataPath, titleId, `BK${titleId}.asset`);
-    if (decoded[4]) await cacheDecodedSlot("background", decoded[4], "bk-background");
+    const buf = bufFromBatchResult(dlResults, rxeaDownloads[0].idx);
+    if (buf && buf.length >= 2048) {
+      const decoded = await decodeRxeaBuffer(buf, titleId, rxeaDownloads[0].name);
+      if (decoded[4]) await cacheDecodedSlot("background", decoded[4], "bk-background");
+    }
   }
+  // GC asset → cover
   {
-    const decoded = await decodeAssetFile(client, gameDataPath, titleId, `GC${titleId}.asset`);
-    if (decoded[2]) await cacheDecodedSlot("importCover", decoded[2], "gc-cover");
+    const buf = bufFromBatchResult(dlResults, rxeaDownloads[1].idx);
+    if (buf && buf.length >= 2048) {
+      const decoded = await decodeRxeaBuffer(buf, titleId, rxeaDownloads[1].name);
+      if (decoded[2]) await cacheDecodedSlot("importCover", decoded[2], "gc-cover");
+    }
   }
+  // GL asset → icon + banner
   {
-    const decoded = await decodeAssetFile(client, gameDataPath, titleId, `GL${titleId}.asset`);
-    if (decoded[0]) await cacheDecodedSlot("icon",   decoded[0], "gl-icon");
-    if (decoded[1]) await cacheDecodedSlot("banner", decoded[1], "gl-banner");
+    const buf = bufFromBatchResult(dlResults, rxeaDownloads[2].idx);
+    if (buf && buf.length >= 2048) {
+      const decoded = await decodeRxeaBuffer(buf, titleId, rxeaDownloads[2].name);
+      if (decoded[0]) await cacheDecodedSlot("icon",   decoded[0], "gl-icon");
+      if (decoded[1]) await cacheDecodedSlot("banner", decoded[1], "gl-banner");
+    }
   }
+  // SS asset → screenshots (only if no import screenshots)
   if (screenshotSort.length === 0) {
-    const decoded = await decodeAssetFile(client, gameDataPath, titleId, `SS${titleId}.asset`);
-    for (let si = 5; si <= 24; si++) {
-      if (!decoded[si]) continue;
-      const localName = `rxea-screenshot${si - 4}.png`;
-      const lp = path.join(vdir, localName);
-      if (!force && fs.existsSync(lp)) {
+    const buf = bufFromBatchResult(dlResults, rxeaDownloads[3].idx);
+    if (buf && buf.length >= 2048) {
+      const decoded = await decodeRxeaBuffer(buf, titleId, rxeaDownloads[3].name);
+      for (let si = 5; si <= 24; si++) {
+        if (!decoded[si]) continue;
+        const localName = `rxea-screenshot${si - 4}.png`;
+        const lp = path.join(vdir, localName);
+        if (!force && fs.existsSync(lp)) {
+          screenshotSort.push({ sortKey: `${String(si - 4).padStart(3, "0")}-rxea`, rel: assetFor(localName).rel, ext: ".png", name: localName });
+          continue;
+        }
+        fs.writeFileSync(lp, decoded[si]);
         screenshotSort.push({ sortKey: `${String(si - 4).padStart(3, "0")}-rxea`, rel: assetFor(localName).rel, ext: ".png", name: localName });
-        continue;
       }
-      fs.writeFileSync(lp, decoded[si]);
-      screenshotSort.push({ sortKey: `${String(si - 4).padStart(3, "0")}-rxea`, rel: assetFor(localName).rel, ext: ".png", name: localName });
     }
   }
 
+  // GameAssetInfo.bin → CDN image fetches
   let assetInfo = { background: null as string | null, banner: null as string | null, icon: null as string | null, cover: null as string | null, screenshots: [] as string[] };
-  try {
-    const chunks: Buffer[] = [];
-    await client.downloadTo(
-      new Writable({ write(c, _, cb) { chunks.push(c); cb(); } }),
-      `${gameDataPath}/GameAssetInfo.bin`
-    );
-    assetInfo = parseGameAssetInfoXml(Buffer.concat(chunks).toString("utf8"));
-  } catch { /* GameAssetInfo.bin absent */ }
+  {
+    const buf = bufFromBatchResult(dlResults, gameAssetInfoIdx);
+    if (buf && buf.length > 0) {
+      assetInfo = parseGameAssetInfoXml(buf.toString("utf8"));
+    }
+  }
 
   async function pullCdnImage(slotKey: string, url: string | null, localBase: string): Promise<void> {
     if (m[slotKey] || !url) return;
@@ -468,37 +561,38 @@ export async function syncAuroraTitleVisualAssets(
     }
   }
 
-  try {
-    const chunks: Buffer[] = [];
-    await client.downloadTo(
-      new Writable({ write(c, _, cb) { chunks.push(c); cb(); } }),
-      `${gameDataPath}/GameCoverInfo.bin`
-    );
-    let entries: any[] | null;
-    try { entries = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { entries = null; }
-    if (Array.isArray(entries) && entries.length > 0) {
-      const sorted = [...entries].sort((a, b) => {
-        if (!!a.official !== !!b.official) return a.official ? -1 : 1;
-        return (Number(b.rating) || 0) - (Number(a.rating) || 0);
-      });
-      for (const row of sorted) {
-        const url = (row.front || row.thumbnail || row.url || "").trim();
-        if (!url) continue;
-        const rawExt    = path.extname(url).toLowerCase();
-        const safeExt   = [".jpg", ".jpeg", ".png", ".gif"].includes(rawExt) ? rawExt : ".jpg";
-        const localName = `cdnasset-xboxunity-cover${safeExt}`;
-        const lp        = path.join(vdir, localName);
-        if (!force && fs.existsSync(lp)) { m.mediaCover = assetFor(localName); break; }
-        const buf = await fetchHttpImage(url);
-        if (!buf || buf.length < 100) continue;
-        const realExt   = imageExtFromMagic(buf);
-        const finalName = `cdnasset-xboxunity-cover${realExt}`;
-        fs.writeFileSync(path.join(vdir, finalName), buf);
-        m.mediaCover = assetFor(finalName);
-        break;
-      }
+  // GameCoverInfo.bin → mediaCover (XboxUnity best cover)
+  {
+    const buf = bufFromBatchResult(dlResults, gameCoverInfoIdx);
+    if (buf && buf.length > 0) {
+      try {
+        let entries: any[] | null;
+        try { entries = JSON.parse(buf.toString("utf8")); } catch { entries = null; }
+        if (Array.isArray(entries) && entries.length > 0) {
+          const sorted = [...entries].sort((a, b) => {
+            if (!!a.official !== !!b.official) return a.official ? -1 : 1;
+            return (Number(b.rating) || 0) - (Number(a.rating) || 0);
+          });
+          for (const row of sorted) {
+            const url = (row.front || row.thumbnail || row.url || "").trim();
+            if (!url) continue;
+            const rawExt    = path.extname(url).toLowerCase();
+            const safeExt   = [".jpg", ".jpeg", ".png", ".gif"].includes(rawExt) ? rawExt : ".jpg";
+            const localName = `cdnasset-xboxunity-cover${safeExt}`;
+            const lp        = path.join(vdir, localName);
+            if (!force && fs.existsSync(lp)) { m.mediaCover = assetFor(localName); break; }
+            const imgBuf = await fetchHttpImage(url);
+            if (!imgBuf || imgBuf.length < 100) continue;
+            const realExt   = imageExtFromMagic(imgBuf);
+            const finalName = `cdnasset-xboxunity-cover${realExt}`;
+            fs.writeFileSync(path.join(vdir, finalName), imgBuf);
+            m.mediaCover = assetFor(finalName);
+            break;
+          }
+        }
+      } catch { /* GameCoverInfo parse error */ }
     }
-  } catch { /* GameCoverInfo.bin absent */ }
+  }
 
   screenshotSort.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   m.screenshots = screenshotSort.map((s) => ({ rel: s.rel, ext: s.ext, name: s.name }));
@@ -507,8 +601,14 @@ export async function syncAuroraTitleVisualAssets(
   fs.writeFileSync(manifestPath, JSON.stringify(m, null, 2), "utf8");
 }
 
+/**
+ * Sync Aurora cover art for a single game.  Downloads GameCoverInfo.bin from
+ * the console, picks the best cover URL, fetches it via HTTP, and caches
+ * locally.  Falls back to Aurora Media directory flat covers if needed.
+ * Uses the Go backend batch endpoint for FTP operations.
+ */
 export async function syncAuroraGameCoverAssets(
-  client: Client,
+  xboxIp: string,
   auroraRoot: string,
   mediaDir: string,
   titleId: string,
@@ -520,8 +620,11 @@ export async function syncAuroraGameCoverAssets(
   fs.mkdirSync(gdir, { recursive: true });
 
   const remoteBin = `${auroraRoot}/Data/GameData/${gameDataDir}/GameCoverInfo.bin`;
+
+  // Phase 1: Check remote GameCoverInfo.bin size
+  const sizeResults = await batchFtp(xboxIp, [{ op: "size", path: remoteBin }]);
   let remoteSz = -1;
-  try { remoteSz = await client.size(remoteBin); } catch { /* bin missing */ }
+  if (sizeResults[0] && sizeResults[0].ok) remoteSz = Number(sizeResults[0].data);
 
   const binPath = path.join(gdir, "GameCoverInfo.bin");
   let needBin   = force;
@@ -531,12 +634,9 @@ export async function syncAuroraGameCoverAssets(
   }
 
   if (needBin && remoteSz >= 0) {
-    const chunks: Buffer[] = [];
-    await client.downloadTo(
-      new Writable({ write(c, _, cb) { chunks.push(c); cb(); } }),
-      remoteBin
-    );
-    fs.writeFileSync(binPath, Buffer.concat(chunks));
+    const dlResults = await batchFtp(xboxIp, [{ op: "download_base64", path: remoteBin }]);
+    const buf = bufFromBatchResult(dlResults, 0);
+    if (buf && buf.length > 0) fs.writeFileSync(binPath, buf);
   }
 
   let entries: any[] = [];
@@ -547,10 +647,13 @@ export async function syncAuroraGameCoverAssets(
     } catch { entries = []; }
   }
 
+  // Media fallback: try downloading cover from Aurora Media directory (all extensions in one batch)
   const tryMediaFallback = async (): Promise<boolean> => {
-    for (const x of ["jpg", "jpeg", "png", "dds"]) {
-      const mediaRemote = `${mediaDir}/${titleId}GC.${x}`;
-      const buf = await ftpTryDownloadFile(client, mediaRemote);
+    const exts      = ["jpg", "jpeg", "png", "dds"];
+    const mediaOps  = exts.map((x) => ({ op: "download_base64", path: `${mediaDir}/${titleId}GC.${x}` }));
+    const mediaRes  = await batchFtp(xboxIp, mediaOps);
+    for (let i = 0; i < mediaRes.length; i++) {
+      const buf = bufFromBatchResult(mediaRes, i);
       if (!buf || buf.length < 100) continue;
       const ext         = imageExtFromMagic(buf);
       const primaryName = `cover-primary${ext}`;
@@ -559,7 +662,7 @@ export async function syncAuroraGameCoverAssets(
         path.join(gdir, "cover-files.json"),
         JSON.stringify({
           primaryFile: primaryName,
-          bestUrl:     `aurora:MediaGC.${x}`,
+          bestUrl:     `aurora:MediaGC.${exts[i]}`,
           gameCoverInfoEntryCount: entries.length,
         }, null, 2),
         "utf8"

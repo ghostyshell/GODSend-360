@@ -822,6 +822,28 @@ function GameDetail({
   const [moveJobId, setMoveJobId]         = useState<number | null>(null);
   const [moveProgress, setMoveProgress]   = useState<number>(0);
 
+  // Pending move = a successful move whose new location Aurora hasn't picked
+  // up yet. Persisted so the notice survives navigation/reloads until Aurora
+  // rescans content on the console and our next library load reflects it.
+  const pendingMoveKey = `godsend.pendingMove.${game.titleId}.${game.mediaId ?? ""}`;
+  const [pendingMoveDrive, setPendingMoveDrive] = useState<string | null>(() => {
+    try { return localStorage.getItem(pendingMoveKey); } catch { return null; }
+  });
+
+  // Clear the pending notice once Aurora's reported drive matches the target.
+  useEffect(() => {
+    if (!pendingMoveDrive) return;
+    if (game.sourceDrive && game.sourceDrive.toLowerCase() === pendingMoveDrive.toLowerCase()) {
+      setPendingMoveDrive(null);
+      try { localStorage.removeItem(pendingMoveKey); } catch {}
+    }
+  }, [pendingMoveDrive, game.sourceDrive, pendingMoveKey]);
+
+  // Re-read pending state when switching games.
+  useEffect(() => {
+    try { setPendingMoveDrive(localStorage.getItem(pendingMoveKey)); } catch {}
+  }, [pendingMoveKey]);
+
   useEffect(() => {
     // Re-read manifest from disk (no FTP).
     window.godsendApi
@@ -853,6 +875,34 @@ function GameDetail({
       .catch(() => setRxeaSlots({}))
       .finally(() => setRxeaLoading(false));
   }, [game.titleId, game.gameDataDir]);
+
+  // ── Restore in-progress move job from backend on mount ──────────────────
+  useEffect(() => {
+    window.godsendApi.toolsFtpUploadStatus().then((r: any) => {
+      if (!r?.ok || !Array.isArray(r.jobs)) return;
+      // Find an active move job for this game (job name starts with "Move: <gameName>")
+      const movePrefix = `Move: ${game.name}`;
+      const activeJob = r.jobs.find(
+        (j: any) => j.name.startsWith(movePrefix) && (j.state === "Queued" || j.state === "Processing")
+      );
+      if (activeJob) {
+        setMoveJobId(activeJob.id);
+        setMoveStatus("moving");
+        setMoveProgress(activeJob.progress ?? 0);
+        setMoveMessage(`${activeJob.state}… ${activeJob.progress ?? 0}%`);
+      }
+      // Also check for recently completed moves
+      const doneJob = r.jobs.find(
+        (j: any) => j.name.startsWith(movePrefix) && j.state === "Ready"
+      );
+      if (!activeJob && doneJob) {
+        setMoveJobId(doneJob.id);
+        setMoveStatus("done");
+        setMoveProgress(100);
+        setMoveMessage("Move completed successfully.");
+      }
+    }).catch(() => {});
+  }, [game.name]);
 
   // ── Load available Xbox drives ────────────────────────────────────────
   useEffect(() => {
@@ -906,6 +956,10 @@ function GameDetail({
           setMoveStatus("done");
           setMoveMessage("Move completed successfully.");
           setMoveProgress(100);
+          if (moveTarget) {
+            setPendingMoveDrive(moveTarget);
+            try { localStorage.setItem(pendingMoveKey, moveTarget); } catch {}
+          }
           clearInterval(id);
         } else if (job.state === "Error") {
           setMoveStatus("error");
@@ -999,6 +1053,11 @@ function GameDetail({
                       : game.directory || undefined
                   }
                 />
+                {pendingMoveDrive && (
+                  <p className="text-[10px] text-amber-400 leading-snug -mt-0.5">
+                    Moved to {pendingMoveDrive}: — path will refresh after Aurora rescans content on the console.
+                  </p>
+                )}
                 <MetaRow
                   label="Asset path"
                   value={game.gameDataDir ? `Aurora/Data/GameData/${game.gameDataDir}/` : undefined}

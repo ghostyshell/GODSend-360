@@ -8,17 +8,15 @@
  * doAuroraLibrarySync — re-download Aurora's content.db and settings.db from
  *   the console and update the local library cache, called after FTP transfers
  *   and game moves to keep the Xbox Library view in sync.
+ *
+ * All FTP operations are proxied through the Go backend for centralised tracking.
  */
 
 import fs from "fs";
-import { Writable, Readable } from "stream";
-import * as ftp from "basic-ftp";
 import { app } from "electron";
 
 import {
   getConfiguredXboxIP,
-  getConfiguredFtpUser,
-  getConfiguredFtpPassword,
   getConfiguredFtpScriptsPath,
 } from "./settingsService";
 import { addOutputLine } from "./backendClient";
@@ -42,18 +40,23 @@ import {
   probeScanPathDrives,
 } from "./auroraLibraryService";
 import { fetchHttpImage, imageExtFromMagic } from "../infrastructure/httpHelper";
-import { ftpTryDownloadFile } from "./auroraVisualService";
+import { backendPost } from "../infrastructure/backendHttp";
+
+// ── FTP batch helper ──────────────────────────────────────────────────────────
+
+async function batchFtp(xboxIp: string, ops: any[]): Promise<any[]> {
+  const res = await backendPost("/ftp/batch", { ip: xboxIp, ops }, 120000);
+  return res.results || [];
+}
 
 /**
  * Download Aurora assets (cover, background, banner, icon) for a title from
  * Xbox Live CDN and XboxUnity, then upload them to the console's Aurora Import
- * folder via FTP.
+ * folder via the Go backend FTP batch endpoint.
  */
 export async function autoUploadAuroraAssets(titleId: string, xboxIp: string): Promise<void> {
   if (!titleId || !/^[0-9A-F]{8}$/i.test(titleId) || !xboxIp) return;
   const tidUpper    = titleId.toUpperCase();
-  const ftpUser     = getConfiguredFtpUser();
-  const ftpPass     = getConfiguredFtpPassword();
   const scriptsPath = getConfiguredFtpScriptsPath();
   const auroraRoot  = xboxAuroraRoot(scriptsPath);
   const importDir   = `${auroraRoot}/User/Import/${tidUpper}`;
@@ -138,24 +141,30 @@ export async function autoUploadAuroraAssets(titleId: string, xboxIp: string): P
     return;
   }
 
-  // ── Upload via FTP ────────────────────────────────────────────────────────
-  const client = new ftp.Client();
-  client.ftp.verbose = false;
-  (client.ftp as any).timeout = 30000;
+  // ── Upload via Go backend FTP batch (single connection) ───────────────────
   try {
-    await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
-    await client.ensureDir(importDir);
+    const ops: any[] = [{ op: "ensure_dir", path: importDir }];
     for (const { assetType, buf } of uploads) {
       const ext        = imageExtFromMagic(buf);
       const remotePath = `${importDir}/${assetType}${ext}`;
-      await client.uploadFrom(Readable.from([buf]), remotePath);
-      addOutputLine(`[INFO] Auto-assets: uploaded ${assetType}${ext} for ${tidUpper}`);
+      ops.push({ op: "upload_base64", path: remotePath, data: buf.toString("base64") });
+    }
+
+    const results = await batchFtp(xboxIp, ops);
+
+    // Log results (skip ensure_dir at index 0)
+    for (let i = 1; i < results.length; i++) {
+      const { assetType, buf } = uploads[i - 1];
+      const ext = imageExtFromMagic(buf);
+      if (results[i] && results[i].ok) {
+        addOutputLine(`[INFO] Auto-assets: uploaded ${assetType}${ext} for ${tidUpper}`);
+      } else {
+        addOutputLine(`[WARN] Auto-assets: failed ${assetType}${ext} for ${tidUpper}: ${results[i]?.error || "unknown"}`);
+      }
     }
     appendAppEvent("AURORA_ASSET", `auto-uploaded ${uploads.length} asset(s) for ${tidUpper}`);
   } catch (err: any) {
     addOutputLine(`[WARN] Auto-assets: FTP upload error for ${tidUpper}: ${err.message || err}`);
-  } finally {
-    client.close();
   }
 }
 
@@ -163,11 +172,10 @@ export async function autoUploadAuroraAssets(titleId: string, xboxIp: string): P
  * Re-download Aurora's content.db and settings.db from the console and update
  * the local library cache.  Called automatically after FTP transfers and game
  * moves to keep the Xbox Library view in sync.
+ * All FTP operations go through the Go backend for centralised tracking.
  */
 export async function doAuroraLibrarySync(): Promise<void> {
   const xboxIp      = getConfiguredXboxIP();
-  const ftpUser     = getConfiguredFtpUser();
-  const ftpPass     = getConfiguredFtpPassword();
   const scriptsPath = getConfiguredFtpScriptsPath();
   if (!xboxIp) return;
 
@@ -177,27 +185,33 @@ export async function doAuroraLibrarySync(): Promise<void> {
 
   addOutputLine(`[INFO] Auto-sync: refreshing Aurora library cache…`);
 
-  const client = new ftp.Client();
-  client.ftp.verbose = false;
-  (client.ftp as any).timeout = 30000;
   try {
-    await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+    // Check DB sizes via Go backend batch
+    let batchRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
+      { op: "size", path: `${dbDir}/content.db` },
+      { op: "size", path: `${dbDir}/settings.db` },
+    ]});
+    let results = batchRes.results || [];
+    let contentSz  = results[0] && results[0].ok ? Number(results[0].data) : -1;
+    let settingsSz = results[1] && results[1].ok ? Number(results[1].data) : -1;
 
     // Auto-discover Aurora root if databases not found at the configured path.
-    let contentSz  = -1;
-    let settingsSz = -1;
-    try { contentSz  = await client.size(`${dbDir}/content.db`);  } catch {}
-    try { settingsSz = await client.size(`${dbDir}/settings.db`); } catch {}
     if (contentSz < 0 || settingsSz < 0) {
-      const discovered = await discoverAuroraRoot(client);
+      const discovered = await discoverAuroraRoot(xboxIp);
       if (discovered) {
         setLastDiscoveredAuroraRoot(discovered);
         auroraRoot = discovered;
         dbDir      = `${auroraRoot}/Data/Databases`;
         cacheRoot  = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
         setActiveAuroraCacheRoot(cacheRoot);
-        try { contentSz  = await client.size(`${dbDir}/content.db`);  } catch {}
-        try { settingsSz = await client.size(`${dbDir}/settings.db`); } catch {}
+        // Re-check sizes at discovered path
+        batchRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
+          { op: "size", path: `${dbDir}/content.db` },
+          { op: "size", path: `${dbDir}/settings.db` },
+        ]});
+        results = batchRes.results || [];
+        contentSz  = results[0] && results[0].ok ? Number(results[0].data) : -1;
+        settingsSz = results[1] && results[1].ok ? Number(results[1].data) : -1;
       }
     }
     if (contentSz < 0 || settingsSz < 0) {
@@ -205,26 +219,22 @@ export async function doAuroraLibrarySync(): Promise<void> {
       return;
     }
 
+    // Download databases via Go backend batch (download to local cache paths)
     fs.mkdirSync(databasesDir(cacheRoot), { recursive: true });
-    const contentChunks: Buffer[] = [];
-    await client.downloadTo(
-      new Writable({ write(c: Buffer, _: BufferEncoding, cb: () => void) { contentChunks.push(c); cb(); } }),
-      `${dbDir}/content.db`
-    );
-    const settingsChunks: Buffer[] = [];
-    await client.downloadTo(
-      new Writable({ write(c: Buffer, _: BufferEncoding, cb: () => void) { settingsChunks.push(c); cb(); } }),
-      `${dbDir}/settings.db`
-    );
-    const contentBuf  = Buffer.concat(contentChunks);
-    const settingsBuf = Buffer.concat(settingsChunks);
+    const dlBatchRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
+      { op: "download", path: `${dbDir}/content.db`,  local_path: contentDbPath(cacheRoot) },
+      { op: "download", path: `${dbDir}/settings.db`, local_path: settingsDbPath(cacheRoot) },
+    ]});
+    const dlResults = dlBatchRes.results || [];
+    if (dlResults[0] && !dlResults[0].ok) throw new Error(`Download content.db failed: ${dlResults[0].error}`);
+    if (dlResults[1] && !dlResults[1].ok) throw new Error(`Download settings.db failed: ${dlResults[1].error}`);
 
-    fs.writeFileSync(contentDbPath(cacheRoot), contentBuf);
-    fs.writeFileSync(settingsDbPath(cacheRoot), settingsBuf);
+    const contentBuf  = fs.readFileSync(contentDbPath(cacheRoot));
+    const settingsBuf = fs.readFileSync(settingsDbPath(cacheRoot));
 
     const contentRows  = await readContentScanRowsFromBuffer(contentBuf);
     const scanRows     = await readScanRowsFromSettingsBuffer(settingsBuf);
-    const scanDriveMap = await probeScanPathDrives(client, scanRows, contentRows);
+    const scanDriveMap = await probeScanPathDrives(xboxIp, scanRows, contentRows);
 
     writeMeta(cacheRoot, {
       xboxIp,
@@ -240,7 +250,5 @@ export async function doAuroraLibrarySync(): Promise<void> {
     addOutputLine(`[INFO] Auto-sync: Aurora library cache updated.`);
   } catch (err: any) {
     addOutputLine(`[WARN] Auto-sync: library sync error: ${err.message || err}`);
-  } finally {
-    client.close();
   }
 }

@@ -1,4 +1,4 @@
-import { Client } from "basic-ftp";
+import { backendPost } from "../infrastructure/backendHttp";
 
 let _lastDiscoveredAuroraRoot: string | null = null;
 
@@ -25,10 +25,11 @@ export function xboxAuroraMediaDir(ftpScriptsPath: string): string {
 }
 
 /**
- * Auto-discover the Aurora install path by probing common FTP locations.
+ * Auto-discover the Aurora install path by probing common FTP locations
+ * via the Go backend batch endpoint (single FTP connection for all probes).
  * Returns the Aurora root path, or null if not found.
  */
-export async function discoverAuroraRoot(client: Client): Promise<string | null> {
+export async function discoverAuroraRoot(xboxIp: string): Promise<string | null> {
   const candidates = [
     ["Hdd1", "Aurora"],
     ["Usb0", "Apps", "Aurora"],
@@ -38,18 +39,33 @@ export async function discoverAuroraRoot(client: Client): Promise<string | null>
     ["Usb1", "Aurora"],
     ["HddX", "Aurora"],
   ];
+
+  // Build one big batch: for each candidate, cd / then cd each segment then
+  // cd Data/Databases then pwd.  A failed cd doesn't close the FTP connection,
+  // so later candidates still work after a cd / reset.
+  const ops: any[] = [];
+  const pwdIndices: number[] = [];
   for (const segs of candidates) {
-    try {
-      await client.cd("/");
-      for (const s of segs) await client.cd(s);
-      await client.cd("Data");
-      await client.cd("Databases");
-      const pwd      = (await client.pwd()).replace(/\\/g, "/").replace(/\/+$/, "");
-      const expected = "/" + segs.join("/") + "/Data/Databases";
+    ops.push({ op: "cd", path: "/" });
+    for (const s of segs) ops.push({ op: "cd", path: s });
+    ops.push({ op: "cd", path: "Data" });
+    ops.push({ op: "cd", path: "Databases" });
+    pwdIndices.push(ops.length);
+    ops.push({ op: "pwd" });
+  }
+
+  const res = await backendPost("/ftp/batch", { ip: xboxIp, ops });
+  const results = res.results || [];
+
+  for (let ci = 0; ci < candidates.length; ci++) {
+    const r = results[pwdIndices[ci]];
+    if (r && r.ok && r.data) {
+      const pwd      = String(r.data).replace(/\\/g, "/").replace(/\/+$/, "");
+      const expected = "/" + candidates[ci].join("/") + "/Data/Databases";
       if (pwd.toLowerCase() === expected.toLowerCase()) {
-        return "/" + segs.join("/");
+        return "/" + candidates[ci].join("/");
       }
-    } catch { /* try next candidate */ }
+    }
   }
   return null;
 }

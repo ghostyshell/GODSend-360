@@ -108,7 +108,14 @@ export default function App() {
   }, []);
 
   async function initApp() {
-    const ping = await window.godsendApi.pingXbox();
+    // Retry a few times — the Go backend may still be spinning up when
+    // the renderer mounts, so a single ping can race the server.
+    let ping: any = { ok: false };
+    for (let attempt = 0; attempt < 10; attempt++) {
+      ping = await window.godsendApi.pingXbox().catch(() => ({ ok: false }));
+      if (ping.ok) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
 
     if (!ping.ok) {
       setFtpStatus("disconnected");

@@ -3,17 +3,15 @@
  *   xbox:list-aurora-library
  *   xbox:fetch-aurora-covers
  *   xbox:refresh-title-visuals-cache
+ *
+ * All FTP operations are proxied through the Go backend for centralised tracking.
  */
 
 import { app, IpcMain } from "electron";
 import fs from "fs";
-import * as ftp from "basic-ftp";
-import { Writable } from "stream";
 
 import {
   getConfiguredXboxIP,
-  getConfiguredFtpUser,
-  getConfiguredFtpPassword,
   getConfiguredFtpScriptsPath,
 } from "../services/settingsService";
 import { addOutputLine } from "../services/backendClient";
@@ -45,6 +43,7 @@ import {
   emitAuroraCoverEvents,
   emitAuroraTitleVisualEvents,
 } from "../services/auroraVisualService";
+import { backendPost } from "../infrastructure/backendHttp";
 
 export function register(ipcMain: IpcMain): void {
 
@@ -52,8 +51,6 @@ export function register(ipcMain: IpcMain): void {
   ipcMain.handle("xbox:list-aurora-library", async (_event, opts) => {
     const force       = opts && opts.force === true;
     const xboxIp      = getConfiguredXboxIP();
-    const ftpUser     = getConfiguredFtpUser();
-    const ftpPass     = getConfiguredFtpPassword();
     const scriptsPath = getConfiguredFtpScriptsPath();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured. Set it in Settings." };
 
@@ -62,24 +59,23 @@ export function register(ipcMain: IpcMain): void {
     let cacheRoot  = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
     setActiveAuroraCacheRoot(cacheRoot);
 
-    const client = new ftp.Client();
-    client.ftp.verbose = false;
-    (client.ftp as any).timeout = 30000;
-
     try {
       addOutputLine(`[INFO] Aurora library: ${force ? "refresh (forced)" : "loading"} — FTP ${xboxIp}…`);
-      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
 
-      let contentSz  = -1;
-      let settingsSz = -1;
-      try { contentSz  = await client.size(`${dbDir}/content.db`);  } catch { /* missing */ }
-      try { settingsSz = await client.size(`${dbDir}/settings.db`); } catch { /* missing */ }
+      // Check DB sizes via Go backend batch (1 FTP connection)
+      let batchRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
+        { op: "size", path: `${dbDir}/content.db` },
+        { op: "size", path: `${dbDir}/settings.db` },
+      ]});
+      let results = batchRes.results || [];
+      let contentSz  = results[0] && results[0].ok ? Number(results[0].data) : -1;
+      let settingsSz = results[1] && results[1].ok ? Number(results[1].data) : -1;
 
       if (contentSz < 0 || settingsSz < 0) {
         addOutputLine(
           `[INFO] Aurora library: ${auroraRoot}/Data/Databases not found — auto-discovering Aurora install…`
         );
-        const discovered = await discoverAuroraRoot(client);
+        const discovered = await discoverAuroraRoot(xboxIp);
         if (discovered) {
           setLastDiscoveredAuroraRoot(discovered);
           auroraRoot = discovered;
@@ -87,8 +83,14 @@ export function register(ipcMain: IpcMain): void {
           cacheRoot  = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
           setActiveAuroraCacheRoot(cacheRoot);
           addOutputLine(`[INFO] Aurora library: discovered Aurora at ${auroraRoot}`);
-          try { contentSz  = await client.size(`${dbDir}/content.db`);  } catch {}
-          try { settingsSz = await client.size(`${dbDir}/settings.db`); } catch {}
+          // Re-check sizes at new path
+          batchRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
+            { op: "size", path: `${dbDir}/content.db` },
+            { op: "size", path: `${dbDir}/settings.db` },
+          ]});
+          results = batchRes.results || [];
+          contentSz  = results[0] && results[0].ok ? Number(results[0].data) : -1;
+          settingsSz = results[1] && results[1].ok ? Number(results[1].data) : -1;
         } else {
           addOutputLine(`[ERROR] Aurora library: could not find an Aurora install on the console.`);
         }
@@ -123,37 +125,26 @@ export function register(ipcMain: IpcMain): void {
         return { ok: true, games, connectedTo: xboxIp, auroraRoot, libraryUnchanged: true, fromCache: true };
       }
 
+      // Download databases via Go backend batch (download to local cache paths)
       addOutputLine("[INFO] Aurora library: downloading content.db and settings.db…");
       fs.mkdirSync(databasesDir(cacheRoot), { recursive: true });
 
-      const contentChunks: Buffer[] = [];
-      await client.downloadTo(
-        new Writable({ write(c: Buffer, _: BufferEncoding, cb: () => void) { contentChunks.push(c); cb(); } }),
-        `${dbDir}/content.db`
-      );
-      const settingsChunks: Buffer[] = [];
-      await client.downloadTo(
-        new Writable({ write(c: Buffer, _: BufferEncoding, cb: () => void) { settingsChunks.push(c); cb(); } }),
-        `${dbDir}/settings.db`
-      );
+      const dlBatchRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
+        { op: "download", path: `${dbDir}/content.db`,  local_path: contentDbPath(cacheRoot) },
+        { op: "download", path: `${dbDir}/settings.db`, local_path: settingsDbPath(cacheRoot) },
+      ]});
+      const dlResults = dlBatchRes.results || [];
+      if (dlResults[0] && !dlResults[0].ok) throw new Error(`Download content.db failed: ${dlResults[0].error}`);
+      if (dlResults[1] && !dlResults[1].ok) throw new Error(`Download settings.db failed: ${dlResults[1].error}`);
 
-      const contentBuf  = Buffer.concat(contentChunks);
-      const settingsBuf = Buffer.concat(settingsChunks);
-      fs.writeFileSync(contentDbPath(cacheRoot), contentBuf);
-      fs.writeFileSync(settingsDbPath(cacheRoot), settingsBuf);
+      const contentBuf  = fs.readFileSync(contentDbPath(cacheRoot));
+      const settingsBuf = fs.readFileSync(settingsDbPath(cacheRoot));
 
       const scanRows     = await readScanRowsFromSettingsBuffer(settingsBuf);
       const contentRows  = await readContentScanRowsFromBuffer(contentBuf);
       addOutputLine(`[INFO] Aurora library: probing ${scanRows.length} scan path(s) for drive letters…`);
 
-      const prevFtpTimeout = (client.ftp as any).timeout;
-      (client.ftp as any).timeout   = 8000;
-      let scanDriveMap: Map<number, string>;
-      try {
-        scanDriveMap = await probeScanPathDrives(client, scanRows, contentRows);
-      } finally {
-        (client.ftp as any).timeout = prevFtpTimeout;
-      }
+      const scanDriveMap = await probeScanPathDrives(xboxIp, scanRows, contentRows);
 
       writeMeta(cacheRoot, {
         xboxIp,
@@ -174,8 +165,6 @@ export function register(ipcMain: IpcMain): void {
       addOutputLine(`[ERROR] Aurora library: ${msg}`);
       appendAppEvent("AURORA_LIB", `error: ${msg}`);
       return { ok: false, error: msg };
-    } finally {
-      client.close();
     }
   });
 
@@ -187,8 +176,6 @@ export function register(ipcMain: IpcMain): void {
     const fromDiskOnly = opts && opts.fromDiskOnly  === true;
 
     const xboxIp      = getConfiguredXboxIP();
-    const ftpUser     = getConfiguredFtpUser();
-    const ftpPass     = getConfiguredFtpPassword();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
 
     const scriptsPath = getConfiguredFtpScriptsPath();
@@ -208,26 +195,18 @@ export function register(ipcMain: IpcMain): void {
       return { ok: true };
     }
 
-    const client = new ftp.Client();
-    client.ftp.verbose = false;
-    (client.ftp as any).timeout = 20000;
-
     let lastProcessed = -1;
     try {
       addOutputLine(
         `[INFO] Aurora covers + artwork: FTP sync starting for ${gameList.length} title(s)…`
-      );
-      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
-      addOutputLine(
-        `[INFO] Aurora covers + artwork: syncing ${gameList.length} title(s) via CDN…`
       );
 
       const progressEvery = 25;
       for (let gi = 0; gi < gameList.length; gi += 1) {
         const { titleId, gameDataDir } = gameList[gi];
         try {
-          await syncAuroraGameCoverAssets(client, auroraRoot, mediaDir, titleId, gameDataDir, cacheRoot, force);
-          await syncAuroraTitleVisualAssets(client, auroraRoot, titleId, gameDataDir, cacheRoot, force);
+          await syncAuroraGameCoverAssets(xboxIp, auroraRoot, mediaDir, titleId, gameDataDir, cacheRoot, force);
+          await syncAuroraTitleVisualAssets(xboxIp, auroraRoot, titleId, gameDataDir, cacheRoot, force);
         } catch (err: any) {
           const em = err?.message || String(err);
           addOutputLine(`[WARN] Aurora sync ${titleId}: ${em}`);
@@ -259,8 +238,6 @@ export function register(ipcMain: IpcMain): void {
       }
 
       return { ok: false, error: msg };
-    } finally {
-      client.close();
     }
   });
 

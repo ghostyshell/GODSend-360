@@ -7,19 +7,17 @@
  *   xbox:decode-asset
  *   xbox:encode-asset
  *   xbox:inspect-aurora-game
+ *
+ * All FTP operations are proxied through the Go backend for centralised tracking.
  */
 
 import { app, BrowserWindow, dialog, IpcMain } from "electron";
 import http from "http";
 import path from "path";
 import fs from "fs";
-import * as ftp from "basic-ftp";
-import { Readable, Writable } from "stream";
 
 import {
   getConfiguredXboxIP,
-  getConfiguredFtpUser,
-  getConfiguredFtpPassword,
   getConfiguredFtpScriptsPath,
   getConfiguredServerPort,
 } from "../services/settingsService";
@@ -33,7 +31,6 @@ import {
 import { xboxAuroraRoot, xboxAuroraMediaDir } from "../services/auroraPathHelper";
 import { fetchHttpImage } from "../infrastructure/httpHelper";
 import {
-  ftpTryDownloadFile,
   classifyAuroraFileKind,
   summarizeGameCoverInfoJson,
 } from "../services/auroraVisualService";
@@ -43,6 +40,19 @@ import {
   resolveTitleIdHex,
 } from "../services/coverArtService";
 import { getMainWindow } from "../app/window";
+import { backendPost } from "../infrastructure/backendHttp";
+
+// ── FTP batch helper ──────────────────────────────────────────────────────────
+
+async function batchFtp(xboxIp: string, ops: any[]): Promise<any[]> {
+  const res = await backendPost("/ftp/batch", { ip: xboxIp, ops }, 120000);
+  return res.results || [];
+}
+
+function bufFromBatchResult(results: any[], idx: number): Buffer | null {
+  if (idx < 0 || !results[idx] || !results[idx].ok || !results[idx].data) return null;
+  return Buffer.from(results[idx].data, "base64");
+}
 
 export function register(ipcMain: IpcMain): void {
 
@@ -170,9 +180,7 @@ export function register(ipcMain: IpcMain): void {
       return { ok: false, error: `Unknown assetType: ${assetType}` };
     }
 
-    const xboxIp  = getConfiguredXboxIP();
-    const ftpUser = getConfiguredFtpUser();
-    const ftpPass = getConfiguredFtpPassword();
+    const xboxIp = getConfiguredXboxIP();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
 
     let imgBuf: Buffer | null = null;
@@ -207,15 +215,16 @@ export function register(ipcMain: IpcMain): void {
     const assetName  = `${slotInfo.prefix}${titleId}.asset`;
     const scriptsPath = getConfiguredFtpScriptsPath();
     const auroraRoot  = xboxAuroraRoot(scriptsPath);
-    const remotePath  = `${auroraRoot}/Data/GameData/${gameDataDir}/${assetName}`;
+    const remoteDir   = `${auroraRoot}/Data/GameData/${gameDataDir}`;
+    const remotePath  = `${remoteDir}/${assetName}`;
 
-    const client = new ftp.Client();
-    client.ftp.verbose = false;
-    (client.ftp as any).timeout = 30000;
     try {
-      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
-      const stream = Readable.from([rxeaBuf]);
-      await client.uploadFrom(stream, remotePath);
+      const results = await batchFtp(xboxIp, [
+        { op: "ensure_dir", path: remoteDir },
+        { op: "upload_base64", path: remotePath, data: rxeaBuf.toString("base64") },
+      ]);
+      if (results[1] && !results[1].ok) throw new Error(results[1].error || "Upload failed");
+
       appendAppEvent("AURORA_ASSET", `encoded+uploaded ${assetType} (slot ${slotInfo.slot}) → ${remotePath} (${rxeaBuf.length} B)`);
 
       // Invalidate local visual cache so the next refresh re-downloads the new asset.
@@ -230,7 +239,6 @@ export function register(ipcMain: IpcMain): void {
         const visualDir = path.join(gdir, "visual");
         if (fs.existsSync(visualDir)) {
           for (const name of fs.readdirSync(visualDir)) {
-            // Remove any cached file for this slot type (rxea-*, import-*, cdnasset-*).
             const lower = name.toLowerCase();
             if (
               (assetType === "cover"      && (lower.includes("cover") || lower.includes("gc-"))) ||
@@ -242,7 +250,6 @@ export function register(ipcMain: IpcMain): void {
               try { fs.unlinkSync(path.join(visualDir, name)); } catch { /* ignore */ }
             }
           }
-          // Remove the visual manifest so it gets rebuilt on next sync.
           const manifestPath = path.join(gdir, "visual-manifest.json");
           try { fs.unlinkSync(manifestPath); } catch { /* ignore */ }
         }
@@ -253,8 +260,6 @@ export function register(ipcMain: IpcMain): void {
       const msg = err.message || String(err);
       appendAppEvent("AURORA_ASSET", `upload error ${titleId}/${assetType}: ${msg}`);
       return { ok: false, error: msg };
-    } finally {
-      client.close();
     }
   });
 
@@ -265,9 +270,7 @@ export function register(ipcMain: IpcMain): void {
     const gameDataDir = typeof p.gameDataDir === "string" ? p.gameDataDir.trim() : "";
     if (!titleId || !gameDataDir) return { ok: false, error: "titleId and gameDataDir required." };
 
-    const xboxIp  = getConfiguredXboxIP();
-    const ftpUser = getConfiguredFtpUser();
-    const ftpPass = getConfiguredFtpPassword();
+    const xboxIp = getConfiguredXboxIP();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
 
     const scriptsPath  = getConfiguredFtpScriptsPath();
@@ -282,17 +285,20 @@ export function register(ipcMain: IpcMain): void {
       { name: `SS${titleId}.asset`, slotKeys: null },
     ];
 
-    const client   = new ftp.Client();
-    client.ftp.verbose = false;
-    (client.ftp as any).timeout = 25000;
     const allSlots: any[] = [];
 
     try {
-      addOutputLine(`[INFO] RXEA decode ${titleId}: connecting to ${xboxIp}…`);
-      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      addOutputLine(`[INFO] RXEA decode ${titleId}: downloading asset files from ${xboxIp}…`);
 
-      for (const { name, slotKeys } of assetFiles) {
-        const assetBuf = await ftpTryDownloadFile(client, `${gameDataPath}/${name}`);
+      // Download all .asset files in one batch
+      const dlOps = assetFiles.map((af) => ({
+        op: "download_base64", path: `${gameDataPath}/${af.name}`,
+      }));
+      const dlResults = await batchFtp(xboxIp, dlOps);
+
+      for (let fi = 0; fi < assetFiles.length; fi++) {
+        const { name, slotKeys } = assetFiles[fi];
+        const assetBuf = bufFromBatchResult(dlResults, fi);
         if (!assetBuf || assetBuf.length < 2048) {
           addOutputLine(`[INFO] RXEA decode ${titleId}: ${name} not found or too small, skipping.`);
           continue;
@@ -371,8 +377,6 @@ export function register(ipcMain: IpcMain): void {
       const msg = err.message || String(err);
       addOutputLine(`[WARN] RXEA decode ${titleId}: ${msg}`);
       return { ok: false, error: msg };
-    } finally {
-      client.close();
     }
   });
 
@@ -386,9 +390,7 @@ export function register(ipcMain: IpcMain): void {
       return { ok: false, error: "titleId, gameDataDir, and slot (0–24) required." };
     }
 
-    const xboxIp  = getConfiguredXboxIP();
-    const ftpUser = getConfiguredFtpUser();
-    const ftpPass = getConfiguredFtpPassword();
+    const xboxIp = getConfiguredXboxIP();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
 
     let imgBuf: Buffer | null = null;
@@ -427,21 +429,19 @@ export function register(ipcMain: IpcMain): void {
     const auroraRoot  = xboxAuroraRoot(scriptsPath);
     const remotePath  = `${auroraRoot}/Data/GameData/${gameDataDir}/${assetName}`;
 
-    const client = new ftp.Client();
-    client.ftp.verbose = false;
-    (client.ftp as any).timeout = 30000;
     try {
-      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
-      const stream = Readable.from([rxeaBuf]);
-      await client.uploadFrom(stream, remotePath);
+      // Upload via Go backend batch
+      const results = await batchFtp(xboxIp, [
+        { op: "upload_base64", path: remotePath, data: rxeaBuf.toString("base64") },
+      ]);
+      if (results[0] && !results[0].ok) throw new Error(results[0].error || "Upload failed");
+
       appendAppEvent("AURORA_ASSET", `encoded+uploaded slot${slotNum} → ${remotePath} (${rxeaBuf.length} B)`);
       return { ok: true, remotePath, rxeaSize: rxeaBuf.length };
     } catch (err: any) {
       const msg = err.message || String(err);
       appendAppEvent("AURORA_ASSET", `encode-upload error: ${msg}`);
       return { ok: false, error: msg };
-    } finally {
-      client.close();
     }
   });
 
@@ -452,9 +452,7 @@ export function register(ipcMain: IpcMain): void {
     const gameDataDir = typeof p.gameDataDir === "string" ? p.gameDataDir.trim() : "";
     if (!titleId || !gameDataDir) return { ok: false, error: "titleId and gameDataDir are required." };
 
-    const xboxIp  = getConfiguredXboxIP();
-    const ftpUser = getConfiguredFtpUser();
-    const ftpPass = getConfiguredFtpPassword();
+    const xboxIp = getConfiguredXboxIP();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
 
     const scriptsPath  = getConfiguredFtpScriptsPath();
@@ -462,31 +460,30 @@ export function register(ipcMain: IpcMain): void {
     const mediaDir     = xboxAuroraMediaDir(scriptsPath);
     const gameDataPath = `${auroraRoot}/Data/GameData/${gameDataDir}`;
 
-    const client = new ftp.Client();
-    client.ftp.verbose = false;
-    (client.ftp as any).timeout = 25000;
-
     try {
-      await client.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
+      // List GameData dir, list Media dir (filtered), download GameCoverInfo.bin — all in one batch
+      const results = await batchFtp(xboxIp, [
+        { op: "list", path: gameDataPath },
+        { op: "list", path: mediaDir },
+        { op: "download_base64", path: `${gameDataPath}/GameCoverInfo.bin` },
+      ]);
 
       let gameDataFiles: any[] = [];
-      try {
-        const list = await client.list(gameDataPath);
-        gameDataFiles = list
+      if (results[0] && results[0].ok && Array.isArray(results[0].data)) {
+        gameDataFiles = (results[0].data as any[])
           .filter((e) => e && e.name && e.name !== "." && e.name !== "..")
           .map((e) => ({
             name:  e.name,
             size:  e.size != null ? Number(e.size) : null,
-            isDir: e.type === 2,
+            isDir: e.type === "dir",
             kind:  classifyAuroraFileKind(e.name),
           }))
           .sort((a, b) => a.name.localeCompare(b.name));
-      } catch { /* missing folder */ }
+      }
 
       let mediaFiles: any[] = [];
-      try {
-        const mlist = await client.list(mediaDir);
-        mediaFiles = mlist
+      if (results[1] && results[1].ok && Array.isArray(results[1].data)) {
+        mediaFiles = (results[1].data as any[])
           .filter((e) => e && e.name && e.name.startsWith(titleId))
           .map((e) => ({
             name:    e.name,
@@ -495,17 +492,13 @@ export function register(ipcMain: IpcMain): void {
             kind:    classifyAuroraFileKind(e.name),
           }))
           .sort((a, b) => a.name.localeCompare(b.name));
-      } catch { /* no Media */ }
+      }
 
       let gameCoverInfoText: string | null = null;
-      try {
-        const chunks: Buffer[] = [];
-        await client.downloadTo(
-          new Writable({ write(c: Buffer, _: BufferEncoding, cb: () => void) { chunks.push(c); cb(); } }),
-          `${gameDataPath}/GameCoverInfo.bin`
-        );
-        gameCoverInfoText = Buffer.concat(chunks).toString("utf8");
-      } catch { /* no GameCoverInfo */ }
+      const gciBuf = bufFromBatchResult(results, 2);
+      if (gciBuf && gciBuf.length > 0) {
+        gameCoverInfoText = gciBuf.toString("utf8");
+      }
 
       return {
         ok: true,
@@ -518,8 +511,6 @@ export function register(ipcMain: IpcMain): void {
       };
     } catch (err: any) {
       return { ok: false, error: err.message || String(err) };
-    } finally {
-      client.close();
     }
   });
 }

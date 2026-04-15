@@ -22,6 +22,7 @@ type Deps struct {
 	Local    *local.Service
 	Pipeline *pipeline.Service
 	FTP      *ftp.Service
+	FTPMgr   *ftp.Manager
 }
 
 // jsonError writes a JSON error response.

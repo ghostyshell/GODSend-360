@@ -69,8 +69,15 @@ const (
 	rxeaDataOff         = 2048 // image data starts here
 	rxeaNumSlots        = 25   // ASSET_MAX
 	rxeaEntryLen        = 64   // ASSET_PACK_ENTRY size in bytes
-	rxeaHdrLen          = 12   // ASSET_PACK_HEADER size
-	rxeaTableOff        = rxeaHdrLen + 8 // skip Flags + ScreenshotCount
+	// Aurora native header layout (28 bytes):
+	//   [0x00..0x03] magic 'RXEA'
+	//   [0x04..0x07] version
+	//   [0x08..0x0B] unused (we store total tiled size for our own reference)
+	//   [0x0C..0x0F] populated-slot bitmask (1<<slot)
+	//   [0x10..0x13] screenshot count (only nonzero for SS files)
+	//   [0x14..0x1B] zero padding
+	// Entries start at 0x1C.
+	rxeaTableOff = 28
 )
 
 // Xbox 360 GPU texture format codes (Xenia's TextureFormat enum).
@@ -112,8 +119,11 @@ func DecodeRXEA(data []byte) ([]*RXEAEntry, []RXEADiag, error) {
 	}
 	// Accept any version — Aurora has shipped files with both version 1 and 2.
 
+	slotMask := binary.BigEndian.Uint32(data[12:])
+
 	var out   []*RXEAEntry
 	var diags []RXEADiag
+	dataCursor := uint32(rxeaDataOff)
 	for i := 0; i < rxeaNumSlots; i++ {
 		base := rxeaTableOff + i*rxeaEntryLen
 		if base+rxeaEntryLen > len(data) {
@@ -121,25 +131,21 @@ func DecodeRXEA(data []byte) ([]*RXEAEntry, []RXEADiag, error) {
 		}
 		ent := data[base : base+rxeaEntryLen]
 
-		offset := binary.BigEndian.Uint32(ent[0:])
-		size   := binary.BigEndian.Uint32(ent[4:])
-		texHdr := ent[12:64] // 52-byte ASSET_PACK_TEXTURE_HEADER
-
-		if size == 0 {
+		// Aurora native layout has no per-entry offset/size. Populated slots
+		// are advertised by the bitmask in header[0x0C]; tiled size is computed
+		// from the GPU fetch constants (dw7 pitch × alignedBH × blockSize).
+		if slotMask != 0 && (slotMask>>uint(i))&1 == 0 {
 			continue
 		}
-
-		// Extract GPU header fields for diagnostics (same bit layout as decodeSlot).
-		var dw7, dw8, dw9 uint32
-		if len(texHdr) >= 40 {
-			dw7 = binary.BigEndian.Uint32(texHdr[28:])
-			dw8 = binary.BigEndian.Uint32(texHdr[32:])
-			dw9 = binary.BigEndian.Uint32(texHdr[36:])
+		dw7 := binary.BigEndian.Uint32(ent[28:])
+		dw8 := binary.BigEndian.Uint32(ent[32:])
+		dw9 := binary.BigEndian.Uint32(ent[36:])
+		if slotMask == 0 && dw8 == 0 && dw9 == 0 {
+			continue // empty slot (no bitmask, no GPU constants)
 		}
+
 		diag := RXEADiag{
 			Slot:   i,
-			Offset: offset,
-			Size:   size,
 			GpuFmt: int(dw8 & 0x3F),
 			Width:  int(dw9&0x1FFF) + 1,
 			Height: int((dw9>>13)&0x1FFF) + 1,
@@ -147,16 +153,26 @@ func DecodeRXEA(data []byte) ([]*RXEAEntry, []RXEADiag, error) {
 			Endian: int((dw8 >> 6) & 0x3),
 		}
 
-		start := uint32(rxeaDataOff) + offset
-		end   := start + size
+		size, err := tiledSizeFromFetch(dw7, dw8, dw9)
+		if err != nil {
+			diag.Error = err.Error()
+			diags = append(diags, diag)
+			continue
+		}
+		diag.Offset = dataCursor - uint32(rxeaDataOff)
+		diag.Size = size
+
+		start := dataCursor
+		end := start + size
 		if int(end) > len(data) {
-			diag.Error = fmt.Sprintf("data out of bounds (off=%d size=%d fileLen=%d)", offset, size, len(data))
+			diag.Error = fmt.Sprintf("data out of bounds (off=%d size=%d fileLen=%d)", diag.Offset, size, len(data))
 			diags = append(diags, diag)
 			continue
 		}
 		raw := data[start:end]
+		dataCursor = end
 
-		img, err := decodeSlot(texHdr, raw)
+		img, err := decodeSlotFetch(dw7, dw8, dw9, raw)
 		if err != nil {
 			diag.Error = err.Error()
 			diags = append(diags, diag)
@@ -176,29 +192,16 @@ func DecodeRXEA(data []byte) ([]*RXEAEntry, []RXEADiag, error) {
 // DecodeRXEASlot decodes a single, specific slot from data; returns nil if the
 // slot is empty or cannot be decoded.
 func DecodeRXEASlot(data []byte, slot AssetSlot) (*image.NRGBA, error) {
-	if len(data) < rxeaDataOff {
-		return nil, fmt.Errorf("rxea: file too short")
+	entries, _, err := DecodeRXEA(data)
+	if err != nil {
+		return nil, err
 	}
-	if binary.BigEndian.Uint32(data[0:]) != rxeaMagic {
-		return nil, fmt.Errorf("rxea: bad magic")
+	for _, e := range entries {
+		if e.Slot == slot {
+			return e.Img, nil
+		}
 	}
-	i   := int(slot)
-	base := rxeaTableOff + i*rxeaEntryLen
-	if base+rxeaEntryLen > len(data) {
-		return nil, fmt.Errorf("rxea: slot %d out of table bounds", i)
-	}
-	ent  := data[base : base+rxeaEntryLen]
-	size := binary.BigEndian.Uint32(ent[4:])
-	if size == 0 {
-		return nil, nil // empty slot
-	}
-	offset := binary.BigEndian.Uint32(ent[0:])
-	start  := uint32(rxeaDataOff) + offset
-	end    := start + size
-	if int(end) > len(data) {
-		return nil, fmt.Errorf("rxea: slot %d data out of bounds", i)
-	}
-	return decodeSlot(ent[12:64], data[start:end])
+	return nil, nil
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -247,27 +250,38 @@ func EncodeRXEA(slot AssetSlot, img image.Image) ([]byte, error) {
 
 	tiledSize := uint32(len(storedDXT))
 
-	// Assemble the RXEA file.
-	// Layout: 12-byte header | 1608-byte entry table | 428-byte padding → 2048 | image data
+	// Assemble the RXEA file in Aurora's native layout.
 	buf := make([]byte, rxeaDataOff+int(tiledSize))
 
-	// ASSET_PACK_HEADER
-	binary.BigEndian.PutUint32(buf[0:], rxeaMagic)
-	binary.BigEndian.PutUint32(buf[4:], rxeaVersion)
-	binary.BigEndian.PutUint32(buf[8:], tiledSize)
+	// Header (28 bytes)
+	binary.BigEndian.PutUint32(buf[0x00:], rxeaMagic)
+	binary.BigEndian.PutUint32(buf[0x04:], rxeaVersion)
+	binary.BigEndian.PutUint32(buf[0x08:], tiledSize)       // our own bookkeeping
+	binary.BigEndian.PutUint32(buf[0x0C:], uint32(1)<<uint(slot)) // populated-slot bitmask
+	// [0x10..0x1B] zero padding (screenshot count only set for SS files).
 
-	// ASSET_PACK_ENTRY_TABLE: Flags + ScreenshotCount (at offset 12)
-	// zeros are fine.
-
-	// Build GPU_FETCH_CONSTANT-based texture header.
-	texHdr := buildTextureHeader(widthPx, heightPx, gpuFmtDXT5, blockSz, alignedBW)
-
-	// Write the single entry (64 bytes) at slot index.
+	// Entry at slot index — matches Aurora's native per-entry layout.
 	eBase := rxeaTableOff + int(slot)*rxeaEntryLen
-	binary.BigEndian.PutUint32(buf[eBase+0:], 0)         // Offset  = 0
-	binary.BigEndian.PutUint32(buf[eBase+4:], tiledSize) // Size
-	binary.BigEndian.PutUint32(buf[eBase+8:], 0)         // ExtendedInfo
-	copy(buf[eBase+12:], texHdr[:])                       // TextureHeader (52 B)
+	// [0..3]   zero marker/hash
+	binary.BigEndian.PutUint32(buf[eBase+4:],  0x00000003)
+	binary.BigEndian.PutUint32(buf[eBase+8:],  0x00000001)
+	// [12..19] zero
+	binary.BigEndian.PutUint32(buf[eBase+20:], 0xFFFF0000)
+	binary.BigEndian.PutUint32(buf[eBase+24:], 0xFFFF0000)
+
+	// GPU fetch constants (dw7/dw8/dw9) written directly into the entry.
+	pitchField := uint32(alignedBW * blockSz / 128)
+	dw7 := uint32(2) | (pitchField << 22) // bit1=tiled, pitch at bits 22–30
+	dw8 := uint32(gpuFmtDXT5) | (uint32(1) << 6) // fmt + endian=8-in-16
+	dw9 := uint32(widthPx-1) | (uint32(heightPx-1) << 13)
+	binary.BigEndian.PutUint32(buf[eBase+28:], dw7)
+	binary.BigEndian.PutUint32(buf[eBase+32:], dw8)
+	binary.BigEndian.PutUint32(buf[eBase+36:], dw9)
+
+	binary.BigEndian.PutUint32(buf[eBase+40:], 0x00000D10)
+	// [44..47] zero
+	binary.BigEndian.PutUint32(buf[eBase+48:], 0x00000A00)
+	// [52..63] zero tail
 
 	// Image data at rxeaDataOff.
 	copy(buf[rxeaDataOff:], storedDXT)
@@ -297,31 +311,33 @@ func EncodeRXEAToPNG(entry *RXEAEntry) ([]byte, error) {
 // Internal — slot decoder
 // ──────────────────────────────────────────────────────────────────────────────
 
-// decodeSlot decodes one RXEA slot given its 52-byte texture header and raw
-// tiled DXT data.
-func decodeSlot(texHdr, raw []byte) (*image.NRGBA, error) {
-	if len(texHdr) < 52 {
-		return nil, fmt.Errorf("rxea: texture header too short")
+// tiledSizeFromFetch derives the on-disk tiled data size from the GPU fetch
+// constants (dw7 pitch × padded block height × block size).
+func tiledSizeFromFetch(dw7, dw8, dw9 uint32) (uint32, error) {
+	dataFmt := int(dw8 & 0x3F)
+	widthPx := int(dw9&0x1FFF) + 1
+	heightPx := int((dw9>>13)&0x1FFF) + 1
+	blockSz, err := dxtBlockSize(dataFmt)
+	if err != nil {
+		return 0, err
 	}
+	bw := (widthPx + 3) / 4
+	bh := (heightPx + 3) / 4
+	pitchField := int((dw7 >> 22) & 0x1FF)
+	var alignedBW int
+	if pitchField > 0 {
+		alignedBW = (pitchField * 128) / blockSz
+	}
+	if alignedBW < bw || alignedBW > 8192 {
+		alignedBW = alignUp(bw, 32)
+	}
+	alignedBH := alignUp(bh, 32)
+	return uint32(alignedBW * alignedBH * blockSz), nil
+}
 
-	// GPU_FETCH_CONSTANT DWORDs 7–12 of D3DBaseTexture (offsets 28–51 in texHdr).
-	// Correct bit layout confirmed by probing real Aurora .asset files:
-	//
-	//   dw7 (FETCH_CONSTANT word 0):
-	//     bit  1       : Tiled
-	//     bits 22–30   : Pitch (row_pitch_bytes / 128)
-	//
-	//   dw8 (FETCH_CONSTANT word 1):
-	//     bits  0–5    : DataFormat (DXT5=20, DXT1=18, DXT3=19, 8888=6)
-	//     bits  6–7    : Endian     (0=none, 1=8in16, 2=8in32, 3=16in32)
-	//
-	//   dw9 (FETCH_CONSTANT word 2 — 2D size):
-	//     bits  0–12   : Width  – 1
-	//     bits 13–25   : Height – 1
-	dw7  := binary.BigEndian.Uint32(texHdr[7*4:]) // GPUTEXTURE_FETCH_CONSTANT_0
-	dw8  := binary.BigEndian.Uint32(texHdr[8*4:]) // GPUTEXTURE_FETCH_CONSTANT_1
-	dw9  := binary.BigEndian.Uint32(texHdr[9*4:]) // GPUTEXTURE_FETCH_CONSTANT_2
-
+// decodeSlotFetch decodes one RXEA slot given its GPU fetch constants and raw
+// tiled DXT data.
+func decodeSlotFetch(dw7, dw8, dw9 uint32, raw []byte) (*image.NRGBA, error) {
 	tiled      := (dw7>>1)&1 == 1
 	pitchField := int((dw7 >> 22) & 0x1FF) // row_pitch_bytes / 128
 	dataFmt    := int(dw8 & 0x3F)

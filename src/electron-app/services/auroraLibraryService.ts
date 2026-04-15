@@ -1,8 +1,8 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
-import { Client } from "basic-ftp";
 import { getSqlJs, sqlRows, filetimeToDateStr } from "../infrastructure/sqlHelper";
+import { backendPost } from "../infrastructure/backendHttp";
 
 export interface AuroraGame {
   contentId: number;
@@ -143,7 +143,7 @@ export async function readScanRowsFromSettingsBuffer(settingsBuf: Buffer): Promi
 }
 
 export async function probeScanPathDrives(
-  client: Client,
+  xboxIp: string,
   scanRows: Record<string, any>[],
   contentRows: Record<string, any>[]
 ): Promise<Map<number, string>> {
@@ -165,12 +165,11 @@ export async function probeScanPathDrives(
     ])
   );
 
-  async function walkRel(segments: string[]): Promise<void> {
-    for (const seg of segments) {
-      if (!seg) continue;
-      await client.cd(seg);
-    }
-  }
+  // Build one big batch: for each scanPath × drive combo, cd / then cd drive
+  // then cd each segment then pwd.  Failed cd returns error without closing the
+  // connection, and cd / resets for the next candidate.
+  const ops: any[] = [];
+  const probeMap: { scanId: number; drive: string; pwdIdx: number; segments: string[] }[] = [];
 
   for (const [scanId, scanPath] of scanPathById) {
     const probePath = sampleDirByScanId.get(scanId) || scanPath;
@@ -178,17 +177,29 @@ export async function probeScanPathDrives(
     if (segments.length === 0) continue;
 
     for (const drive of knownDrives) {
-      try {
-        await client.cd("/");
-        await client.cd(drive);
-        await walkRel(segments);
-        const pwd      = (await client.pwd()).replace(/\\/g, "/");
-        const expected = `/${drive}/${segments.join("/")}`;
-        if (pwd.replace(/\/+$/, "").toLowerCase() === expected.toLowerCase()) {
-          scanDriveMap.set(scanId, drive);
-          break;
-        }
-      } catch { /* try next drive */ }
+      ops.push({ op: "cd", path: "/" });
+      ops.push({ op: "cd", path: drive });
+      for (const seg of segments) ops.push({ op: "cd", path: seg });
+      const pwdIdx = ops.length;
+      ops.push({ op: "pwd" });
+      probeMap.push({ scanId, drive, pwdIdx, segments });
+    }
+  }
+
+  if (ops.length === 0) return scanDriveMap;
+
+  const res = await backendPost("/ftp/batch", { ip: xboxIp, ops }, 60000);
+  const results = res.results || [];
+
+  for (const { scanId, drive, pwdIdx, segments } of probeMap) {
+    if (scanDriveMap.has(scanId)) continue; // already found for this scanId
+    const r = results[pwdIdx];
+    if (r && r.ok && r.data) {
+      const pwd      = String(r.data).replace(/\\/g, "/");
+      const expected = `/${drive}/${segments.join("/")}`;
+      if (pwd.replace(/\/+$/, "").toLowerCase() === expected.toLowerCase()) {
+        scanDriveMap.set(scanId, drive);
+      }
     }
   }
   return scanDriveMap;

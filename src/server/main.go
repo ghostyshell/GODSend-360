@@ -37,6 +37,7 @@ func main() {
 	// ── Infrastructure services ─────────────────────────────────────
 	dlSvc := &download.Service{App: a}
 	ftpSvc := &ftp.Service{App: a}
+	ftpMgr := ftp.NewManager(a, ftpSvc)
 	torrentSvc := &torrent.Service{
 		App:                a,
 		DarwinCandidatesFn: darwinAria2cExtraCandidates,
@@ -64,7 +65,7 @@ func main() {
 
 	// ── Banner ──────────────────────────────────────────────────────
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.8.3         ║")
+	fmt.Println("║    GODSend Backend Server v2.8.4         ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
@@ -132,6 +133,7 @@ func main() {
 		Local:    localSvc,
 		Pipeline: pipelineSvc,
 		FTP:      ftpSvc,
+		FTPMgr:   ftpMgr,
 	}
 	mux := deps.NewRouter()
 

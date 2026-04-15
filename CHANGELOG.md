@@ -9,6 +9,24 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.8.4] — 2026-04-16
+
+### Changed
+- **Version** — **2.8.4** (root + Electron `package.json`, backend banner, Aurora script `scriptVersion`).
+- **Centralised FTP via Go backend** — all Electron-side FTP operations (19 `basic-ftp` client instantiation points across 7 files) have been moved to the Go backend. The `basic-ftp` npm dependency is fully removed. All FTP now flows through the Go backend's `ftp.Manager`, enabling universal job tracking in one place. Operations affected: FTP Manager (list, upload, delete, mkdir, rename, copy), Xbox ping/test/drives/games/covers, Aurora library sync (DB downloads, drive probing), Aurora visual/cover asset sync, Aurora asset encode/decode/upload/inspect, Aurora script upload, game drive move, and auto-sync after game transfers.
+- **Batch FTP endpoint** — new `POST /ftp/batch` Go endpoint executes multiple FTP operations over a single connection. Used by Aurora discovery (7 candidate paths probed in one connection), drive probing, visual asset fingerprinting, bulk asset downloads, and auto-sync uploads. Supported ops: `list`, `size`, `download`, `download_base64`, `upload`, `upload_base64`, `ensure_dir`, `remove`, `remove_dir`, `cd`, `pwd`.
+- **Unified Job Queue page** — the Queue page now merges game pipeline jobs (from `/queue`) and FTP Manager jobs (from `/ftp/jobs`) into a single unified view. Each job shows its source (Store vs FTP), state, progress bar, and message. Both job types can be removed from the queue.
+
+### Added
+- **Go FTP Manager** (`infrastructure/ftp/manager.go`) — new `Manager` struct providing synchronous utility operations (List, Ping, Mkdir, Delete, Rename, Size, DownloadFile, UploadSingleFile, ListDrives, Test, Batch) and async tracked jobs (Upload, Copy, MoveGame, UploadScripts) with progress reporting via `ManagerJob`.
+- **FTP HTTP endpoints** — 17 new routes under `/ftp/*` (`/ftp/ping`, `/ftp/list`, `/ftp/mkdir`, `/ftp/delete`, `/ftp/rename`, `/ftp/size`, `/ftp/download-file`, `/ftp/upload-file`, `/ftp/test`, `/ftp/drives`, `/ftp/batch`, `/ftp/upload`, `/ftp/copy`, `/ftp/move-game`, `/ftp/upload-scripts`, `/ftp/jobs`, `/ftp/jobs/remove`).
+
+### Fixed
+- **Move to Drive state lost on navigation** — navigating away from a game's detail page in the Library and back now restores the move job's progress from the Go backend. The `GameDetail` component checks `/ftp/jobs` on mount for an active or recently-completed move job matching the game name.
+
+### Removed
+- **`basic-ftp` npm dependency** — fully removed; all FTP operations now go through the Go backend.
+
 ## [2.8.3] — 2026-04-15
 
 ### Changed
@@ -16,6 +34,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - **Move to Drive: no progress feedback or logs** — queuing a game drive move from the Library page previously showed "Queued" and then went silent with no log output and no way to track progress. The move IPC handler now logs each step (`[INFO] Move …`) to the app output panel (connect, rename attempt, download, upload, completion/error), and the Library page polls the FTP job status to show real-time progress percentage and final success/error state. FTP timeout increased from 60 s to 120 s for large game transfers.
+- **Move to Drive: double-slash in FTP path causes "550 No such directory"** — the `directory` field from Aurora's DB has a leading `/` (e.g. `/content/0000000000000000/…`), and the path builder prepended `/<drive>/`, producing `/<drive>//content/…`. The leading slash is now stripped before constructing the FTP path.
 
 ## [2.8.2] — 2026-04-15
 
