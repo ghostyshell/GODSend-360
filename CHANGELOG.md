@@ -9,6 +9,12 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.8.2] — 2026-04-15
+
+### Fixed
+- **Cover search selects full cover image** — selecting a cover from the XboxUnity search results now uses the full front+back cover image (`url`) instead of the front-only crop (`front`). Previously, the front-only image was chosen, displayed cropped in the editor, and then stretched to fill the full cover area when saved to the console.
+- **Multi-disc games show unique covers per disc** — the Xbox Library now keys cover art and title visuals by `gameDataDir` (e.g. `5454082B_00000001`) instead of `titleId` alone. Previously, multi-disc games sharing the same title ID would display whichever disc's cover was synced last for both entries. Each disc now correctly displays its own cover and visual assets.
+
 ### Changed
 - **Xbox Library: fingerprint-based asset caching** — Aurora visual asset sync (`syncAuroraTitleVisualAssets`) now collects lightweight FTP SIZE fingerprints for all source files (.asset, .bin, Import directory listing) and stores them in `visual-manifest.json`. On subsequent refreshes, remote sizes are compared to cached fingerprints; if all match for a game, the entire visual sync is skipped. This avoids redundant FTP downloads and RXEA decodes for unchanged games, dramatically speeding up library refreshes when only a few games have new or updated assets.
 
@@ -49,7 +55,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Saved cover art not visible on console after upload** — "Save to Console" previously uploaded flat images to `Aurora/User/Import/{titleId}/` which required Aurora to process them on next library scan. Now encodes images as RXEA `.asset` files and uploads directly to `Aurora/Data/GameData/{dir}/`, making artwork immediately visible on the console without a scan. The local visual cache is also invalidated so the next library refresh picks up the new image.
 
 ### Changed
-- **Version** — **2.8.1** (root + Electron `package.json`, lockfiles, backend banner, Aurora script `scriptVersion`).
+- **Version** — **2.8.2** (root + Electron `package.json`, lockfiles, backend banner, Aurora script `scriptVersion`).
 - **Go backend DDD refactor** — restructured the Go backend from 20 flat `package main` files into a proper DDD-style package layout with dependency injection. New package structure: `models/` (pure domain types), `app/` (central `App` struct holding all shared state, config, logging), `infrastructure/` (helpers, download, ftp, torrent), `services/` (cache/ia, cache/minerva, cache/rom, local, pipeline), `interfaces/http/` (Deps struct, handlers, router). All services receive `*app.App` via constructor injection; no global mutable state remains in `package main`. `main.go` (~180 lines) is wiring only. All HTTP endpoints, behaviour, and external contracts are unchanged.
 
 ## [2.7.5] — 2026-04-14

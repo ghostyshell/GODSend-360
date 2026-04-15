@@ -462,7 +462,12 @@ function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefr
   }
 
   function handleSearchSelect(slotKey: string, result: any) {
-    const url = result.front || result.thumbnail || result.url;
+    // For cover art, prefer the full image (front+back) over the front-only crop
+    // so Aurora receives the complete cover instead of a stretched front-only image.
+    const isCover = slotKey === "cover";
+    const url = isCover
+      ? (result.url || result.front || result.thumbnail)
+      : (result.front || result.thumbnail || result.url);
     if (!url) return;
     const previewUrl = result.thumbnail || result.front || url;
 
@@ -473,7 +478,9 @@ function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefr
       // HTTP URL — show the thumbnail immediately, then fetch the full image in background.
       setPending((prev) => ({ ...prev, [slotKey]: { url, dataUrl: null, previewUrl, ext: ".jpg" } }));
       (async () => {
-        const fullUrl = result.front || result.url || url;
+        const fullUrl = isCover
+          ? (result.url || result.front || url)
+          : (result.front || result.url || url);
         const r = await window.godsendApi.fetchUrlImage(fullUrl);
         if (r && r.ok && r.dataUrl) {
           setPending((prev) => {
@@ -788,7 +795,7 @@ interface GameDetailProps {
   onBack: () => void;
   onRefresh?: () => void;
   refreshBusy?: boolean;
-  onRxeaCover?: (titleId: string, src: string) => void;
+  onRxeaCover?: (gameDataDir: string | undefined, titleId: string, src: string) => void;
 }
 
 function GameDetail({
@@ -836,7 +843,7 @@ function GameDetail({
           }
           setRxeaSlots(map);
           const coverSlot = r.slots.find((s: any) => s.key === "cover");
-          if (coverSlot?.dataUrl) onRxeaCover?.(game.titleId, coverSlot.dataUrl);
+          if (coverSlot?.dataUrl) onRxeaCover?.(game.gameDataDir, game.titleId, coverSlot.dataUrl);
         } else {
           setRxeaSlots({});
         }
@@ -1312,8 +1319,9 @@ export default function LibraryPage({
     ? sortAndFilterGames(games, searchQuery, sortKey, filterKey)
     : games;
 
-  function handleRxeaCover(titleId: string, src: string) {
-    setRxeaCovers((prev) => (prev[titleId] === src ? prev : { ...prev, [titleId]: src }));
+  function handleRxeaCover(gameDataDir: string | undefined, titleId: string, src: string) {
+    const key = gameDataDir || titleId;
+    setRxeaCovers((prev) => (prev[key] === src ? prev : { ...prev, [key]: src }));
   }
 
   function isOnSource(game: Game) {
@@ -1325,8 +1333,8 @@ export default function LibraryPage({
       <div className="flex flex-col h-screen p-3 gap-2.5">
         <GameDetail
           game={selectedGame}
-          coverDataUrl={covers[selectedGame.titleId]}
-          titleVisuals={titleVisuals[selectedGame.titleId]}
+          coverDataUrl={covers[selectedGame.gameDataDir || selectedGame.titleId]}
+          titleVisuals={titleVisuals[selectedGame.gameDataDir || selectedGame.titleId]}
           isOnSource={isOnSource(selectedGame)}
           onBack={() => setSelectedGame(null)}
           onRefresh={onRefresh}
@@ -1519,7 +1527,8 @@ export default function LibraryPage({
             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))" }}
           >
             {filteredGames.map((game) => {
-              const tv = titleVisuals[game.titleId];
+              const coverKey = game.gameDataDir || game.titleId;
+              const tv = titleVisuals[coverKey];
               const visualCover = tv?.cover?.src || null;
               const isBooklet = tv?.coverIsBooklet === true;
               return (
@@ -1527,10 +1536,10 @@ export default function LibraryPage({
                   key={`${game.titleId}-${game.contentId}`}
                   game={game}
                   coverDataUrl={
-                    isBooklet ? covers[game.titleId] : (visualCover || covers[game.titleId])
+                    isBooklet ? covers[coverKey] : (visualCover || covers[coverKey])
                   }
                   rxeaCover={
-                    rxeaCovers[game.titleId] ||
+                    rxeaCovers[coverKey] ||
                     (isBooklet ? visualCover : null)
                   }
                   isOnSource={isOnSource(game)}

@@ -83,12 +83,14 @@ export default function App() {
     const cleanupOutput = window.godsendApi.onOutput((line: string) =>
       setOutputLines((prev) => [...prev, line])
     );
-    const cleanupCover = window.godsendApi.onXboxCover(({ titleId, src, dataUrl }: any) =>
-      setCovers((prev) => ({ ...prev, [titleId]: src || dataUrl }))
-    );
-    const cleanupVisuals = window.godsendApi.onXboxTitleVisuals(({ titleId, visuals }: any) =>
-      setTitleVisuals((prev) => ({ ...prev, [titleId]: visuals }))
-    );
+    const cleanupCover = window.godsendApi.onXboxCover(({ titleId, gameDataDir, src, dataUrl }: any) => {
+      const key = gameDataDir || titleId;
+      setCovers((prev) => ({ ...prev, [key]: src || dataUrl }));
+    });
+    const cleanupVisuals = window.godsendApi.onXboxTitleVisuals(({ titleId, gameDataDir, visuals }: any) => {
+      const key = gameDataDir || titleId;
+      setTitleVisuals((prev) => ({ ...prev, [key]: visuals }));
+    });
 
     initApp();
 

@@ -106,20 +106,21 @@ export function emitAuroraTitleVisualEvents(titleId: string, gameDataDir: string
   if (!wc) return;
   const manifestPath = path.join(gameCacheDir(cacheRoot, gameDataDir), "visual-manifest.json");
   if (!fs.existsSync(manifestPath)) {
-    wc.send("xbox-title-visuals", { titleId, visuals: emptyTitleVisualsPayload() });
+    wc.send("xbox-title-visuals", { titleId, gameDataDir, visuals: emptyTitleVisualsPayload() });
     return;
   }
   let m: any;
   try {
     m = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   } catch {
-    wc.send("xbox-title-visuals", { titleId, visuals: emptyTitleVisualsPayload() });
+    wc.send("xbox-title-visuals", { titleId, gameDataDir, visuals: emptyTitleVisualsPayload() });
     return;
   }
   const toAsset = (o: any) =>
     o && o.rel ? { src: auroraCdnUrl(o.rel), ext: o.ext || "" } : null;
   wc.send("xbox-title-visuals", {
     titleId,
+    gameDataDir,
     visuals: {
       coverIsBooklet: Boolean(m.importCover && m.importCover.rel),
       cover:          toAsset(m.importCover || m.mediaCover),
@@ -162,7 +163,7 @@ export function emitAuroraCoverEvents(titleId: string, gameDataDir: string, cach
       }
     }
   }
-  wc.send("xbox-cover", { titleId, src: primarySrc });
+  wc.send("xbox-cover", { titleId, gameDataDir, src: primarySrc });
 }
 
 // ── FTP download helper ────────────────────────────────────────────────────────
