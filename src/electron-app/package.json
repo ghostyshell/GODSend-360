@@ -1,22 +1,24 @@
 {
   "name": "godsend-electron",
-  "version": "2.7.6",
+  "version": "2.8.1",
   "description": "Minimal Electron UI for running and monitoring godsend.exe",
   "main": "main.js",
   "scripts": {
     "renderer:build": "vite build",
     "renderer:dev": "vite",
-    "start": "npm run renderer:build && electron .",
-    "build:win": "npm run renderer:build && node scripts/sync-assets-icon.js && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis",
-    "build:nsis": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis",
-    "build:wl": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis --linux AppImage",
-    "build:mac": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg",
-    "build:mac:arm": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64",
-    "build:mac:dmg:arm64": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64",
-    "build:mac:dmg:x64": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --x64",
-    "build:linux": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --x64 --arm64",
-    "build:linux:x64": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --x64",
-    "build:linux:arm64": "npm run renderer:build && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --arm64"
+    "tsc": "tsc",
+    "clean:compiled-js": "node scripts/clean-compiled-js.js",
+    "start": "npm run renderer:build && npm run tsc && electron .",
+    "build:win": "npm run renderer:build && npm run tsc && node scripts/sync-assets-icon.js && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis && npm run clean:compiled-js",
+    "build:nsis": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis && npm run clean:compiled-js",
+    "build:wl": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis --linux AppImage && npm run clean:compiled-js",
+    "build:mac": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg && npm run clean:compiled-js",
+    "build:mac:arm": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64 && npm run clean:compiled-js",
+    "build:mac:dmg:arm64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64 && npm run clean:compiled-js",
+    "build:mac:dmg:x64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --x64 && npm run clean:compiled-js",
+    "build:linux": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --x64 --arm64 && npm run clean:compiled-js",
+    "build:linux:x64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --x64 && npm run clean:compiled-js",
+    "build:linux:arm64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --arm64 && npm run clean:compiled-js"
   },
   "keywords": [
     "electron",
@@ -45,6 +47,7 @@
     "three": "^0.183.2"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "electron": "^37.2.0",
@@ -55,6 +58,7 @@
     "rcedit": "^5.0.2",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
     "vite": "^6.3.0"
   },
   "build": {
@@ -77,7 +81,9 @@
       "!renderer/**",
       "!vite.config.js",
       "!tailwind.config.js",
-      "!postcss.config.js"
+      "!postcss.config.js",
+      "!**/*.ts",
+      "!tsconfig.json"
     ],
     "extraResources": [
       {

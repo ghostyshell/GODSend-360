@@ -9,7 +9,27 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Xbox Library: fingerprint-based asset caching** — Aurora visual asset sync (`syncAuroraTitleVisualAssets`) now collects lightweight FTP SIZE fingerprints for all source files (.asset, .bin, Import directory listing) and stores them in `visual-manifest.json`. On subsequent refreshes, remote sizes are compared to cached fingerprints; if all match for a game, the entire visual sync is skipped. This avoids redundant FTP downloads and RXEA decodes for unchanged games, dramatically speeding up library refreshes when only a few games have new or updated assets.
+
 ### Added
+- **Store: drive selector fetches from FTP** — the destination drive `<select>` in the Browse / Store queue dialog now fetches the actual drives present on the connected Xbox via FTP on page load (same call as "Fetch drives from Xbox" in Settings) instead of showing a hardcoded static list. Only drives that exist on the console and match valid Xbox drive patterns (`Hdd1`, `Usb0`, `Usb1`, `Usb2`, …) are offered.
+
+### Changed
+- **Drive listing restricted to valid Xbox drives** — `xbox:list-drives` (used by Default Xbox drive in Settings, the Library "Move to Drive" panel, and the Browse queue dialog) now returns only directories actually present at the FTP root that match the Xbox drive naming convention (`Hdd\d*` / `Usb\d+`). The previous behaviour of always merging a hardcoded fallback list (`Hdd1:`, `Usb0:`, `Usb1:`, `Usb2:`) regardless of what the console reported has been removed.
+- **Store: Content install method renamed** — the "Content" button in the Browse queue dialog install-method selector is now labelled "Content (DLC/Multi-Disc)" to better describe its purpose.
+
+### Removed
+- **Xbox Library sources setting removed** — the "Xbox Library sources" section (drive checkboxes in Settings, associated IPC channels `config:get-aurora-library-sources` / `config:set-aurora-library-sources`, and the `auroraLibrarySources` config field) has been removed. All drives are now scanned automatically; game covers are shown in full colour based on whether a source drive was detected, with no manual filtering.
+
+### Changed
+- **Electron main process migrated to TypeScript** — all source files under `src/electron-app/` (entry points, app layer, services, infrastructure, IPC handlers, preload) converted from JavaScript to TypeScript. `tsconfig.json` compiles in-place (`commonjs`, no `outDir`); packaged builds exclude `.ts` source files. Type-checks clean with `strict: false`.
+- **Electron build cleanup for compiled JS** — packaging scripts now run `clean:compiled-js` after `electron-builder` finishes, removing in-place TypeScript output files (`main.js`, `preload.js`, and generated `.js` mirrors under `app/`, `services/`, `infrastructure/`, and `ipc/`) once they are no longer needed.
+- **RXEA encode accepts any image format** — the Go backend's `/rxea/encode` endpoint now accepts JPEG, PNG, and any Go-supported image format (previously PNG-only). Images are decoded generically before DXT5 encoding.
+
+### Added
+- **Auto Aurora assets on download** — after a game FTP transfer completes the backend emits a structured event; the Electron app automatically fetches cover, background, banner, and icon for the title from XboxUnity and Xbox Live CDN and uploads them to `Aurora/User/Import/{TitleId}/` on the console so Aurora displays artwork immediately without manual asset management.
+- **Auto Xbox Library sync** — the local Aurora library cache (content.db + settings.db) is automatically re-downloaded and updated after every successful game FTP transfer and after every game drive move, keeping the Library page in sync with the console without a manual refresh.
 - **FTP Manager: Cut/Copy/Paste** — right-click context menu on files and folders with Cut, Copy, Paste, and Delete actions. Cut uses FTP `RNFR`/`RNTO` (rename/move); Copy downloads to a temp file and re-uploads. Multi-select supported via Ctrl+Click and Shift+Click with a selection toolbar showing count, Select All, Deselect, and bulk Delete.
 - **FTP Manager: Clipboard dropdown** — a Clipboard button in the toolbar shows a badge with the number of items in the clipboard and a dropdown listing the cut/copied items with their source directory. The button is highlighted when the clipboard is non-empty and greyed out when empty.
 - **Library: Move Game to Drive** — the game details page now includes a "Move to Drive" section that lists available Xbox drives (excluding the current one). Selecting a target drive and clicking Move queues an FTP transfer job visible in the FTP Manager's transfer panel, which moves the entire game directory to the chosen drive. Uses rename (fast) when supported, falling back to download-reupload-delete.
@@ -25,9 +45,12 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **FTP failure leaves remaining covers in loading state** — when the outer FTP connection error fires during the cover sync loop, events are now emitted for all remaining unprocessed games from the disk cache so they show their cached cover or "no cover" instead of pulsing indefinitely.
 - **Library covers flash to empty** — `loadAuroraLibrary()` and the 2-minute poll no longer wipe `covers` / `titleVisuals` state before async re-fetch; cover push events now update incrementally so the grid never shows blank cards. State is only cleared on an explicit force refresh.
 - **3D box cover clipped in grid and detail view** — moved the Three.js camera back from z=3.2 to z=3.8 so the full Xbox 360 case geometry (1.5 x 2.0) fits within the viewport with margin instead of being cropped on all edges.
+- **Cover slot in asset editor shows only front crop** — the cover slot card used `object-fit: cover` with `right center` position, cropping the image to only show the front portion. Changed to `object-fit: contain` so the full image is visible in the thumbnail and lightbox.
+- **Saved cover art not visible on console after upload** — "Save to Console" previously uploaded flat images to `Aurora/User/Import/{titleId}/` which required Aurora to process them on next library scan. Now encodes images as RXEA `.asset` files and uploads directly to `Aurora/Data/GameData/{dir}/`, making artwork immediately visible on the console without a scan. The local visual cache is also invalidated so the next library refresh picks up the new image.
 
 ### Changed
-- **Backend version** — bumped backend banner to **2.7.8**.
+- **Version** — **2.8.1** (root + Electron `package.json`, lockfiles, backend banner, Aurora script `scriptVersion`).
+- **Go backend DDD refactor** — restructured the Go backend from 20 flat `package main` files into a proper DDD-style package layout with dependency injection. New package structure: `models/` (pure domain types), `app/` (central `App` struct holding all shared state, config, logging), `infrastructure/` (helpers, download, ftp, torrent), `services/` (cache/ia, cache/minerva, cache/rom, local, pipeline), `interfaces/http/` (Deps struct, handlers, router). All services receive `*app.App` via constructor injection; no global mutable state remains in `package main`. `main.go` (~180 lines) is wiring only. All HTTP endpoints, behaviour, and external contracts are unchanged.
 
 ## [2.7.5] — 2026-04-14
 

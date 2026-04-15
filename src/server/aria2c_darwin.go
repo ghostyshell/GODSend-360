@@ -10,6 +10,9 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"godsend/app"
+	"godsend/infrastructure/torrent"
 )
 
 func darwinAria2cExtraCandidates() []string {
@@ -21,21 +24,21 @@ func darwinAria2cExtraCandidates() []string {
 
 // ensureAria2cDarwinAtStartup prepends Homebrew bin dirs to PATH, then ensures a
 // working aria2c via Homebrew (installing Homebrew and aria2 non-interactively if needed).
-func ensureAria2cDarwinAtStartup() error {
+func ensureAria2cDarwinAtStartup(a *app.App, t *torrent.Service) error {
 	if strings.TrimSpace(os.Getenv("GODSEND_SKIP_ARIA2_BOOTSTRAP")) != "" {
 		return nil
 	}
 	darwinPrependBrewToPath()
-	if _, err := probeWorkingAria2c(); err == nil {
+	if _, err := t.ProbeWorkingAria2c(); err == nil {
 		return nil
 	}
 
 	brew := findBrewExecutable()
 	if brew == "" {
-		logf("[INFO] Homebrew not found; running non-interactive installer (needs network)…")
+		a.Logf("[INFO] Homebrew not found; running non-interactive installer (needs network)…")
 		err := installHomebrewNonInteractive()
 		if err != nil && darwinAllowGUIElevation() {
-			logf("[INFO] Non-interactive install failed (%v); showing macOS password dialog for sudo (Homebrew must not run as root)…", err)
+			a.Logf("[INFO] Non-interactive install failed (%v); showing macOS password dialog for sudo (Homebrew must not run as root)…", err)
 			err = installHomebrewWithSudoAskpass()
 		}
 		if err != nil {
@@ -48,15 +51,15 @@ func ensureAria2cDarwinAtStartup() error {
 		}
 	}
 
-	logf("[INFO] Installing aria2 via Homebrew (%s)…", brew)
+	a.Logf("[INFO] Installing aria2 via Homebrew (%s)…", brew)
 	if err := runBrewInstallAria2(brew); err != nil {
 		return fmt.Errorf("brew install aria2: %w", err)
 	}
 	darwinPrependBrewToPath()
-	if _, err := probeWorkingAria2c(); err != nil {
+	if _, err := t.ProbeWorkingAria2c(); err != nil {
 		return fmt.Errorf("aria2c still unavailable after brew install: %w", err)
 	}
-	logf("[INFO] aria2c is ready for Minerva torrent downloads")
+	a.Logf("[INFO] aria2c is ready for Minerva torrent downloads")
 	return nil
 }
 
@@ -120,9 +123,7 @@ func installHomebrewNonInteractive() error {
 }
 
 // installHomebrewWithSudoAskpass runs the official installer as the current user and sets
-// SUDO_ASKPASS to a script that uses osascript's password dialog. Homebrew refuses to run
-// the install script as root ("Don't run this as root!"), so we must not use
-// "do shell script … with administrator privileges" for the installer itself.
+// SUDO_ASKPASS to a script that uses osascript's password dialog.
 func installHomebrewWithSudoAskpass() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
 	defer cancel()

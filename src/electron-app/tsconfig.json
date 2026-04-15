@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": [
+    "main.ts",
+    "preload.ts",
+    "app/**/*.ts",
+    "services/**/*.ts",
+    "infrastructure/**/*.ts",
+    "ipc/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "renderer",
+    "renderer-dist",
+    "scripts",
+    "dist"
+  ]
+}

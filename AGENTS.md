@@ -22,57 +22,119 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 
 ### Go backend (`src/server/`)
 
-- **Entry point**
-  - `main.go`: process startup, HTTP handler registration (for now), environment/config wiring, banner printing.
-  - `embed_titles.go` + `data/iso2god_titles.jsonl`: embeds the iso2god-rs title list and registers it with `services` at init.
-- **`services/title_lookup.go`**: Title ID → display name for LIVE CON title, FTP GOD folder names, and INI (`services.LookupTitleName`: XboxUnity → XboxDB JSON API → embedded iso2god-rs title list).
-- **Pending FTP queue** — when an FTP transfer fails after retries (e.g. console launched a game), the backend persists the job to `GODSEND_HOME/pending_ftp/<id>.json` and retries indefinitely (30 s → 5 min backoff). Jobs survive restarts and are resumed at startup. New endpoints: `GET /data/status`, `GET /data/clear`, `GET /config`. New env vars: `GODSEND_DEFAULT_DRIVE`, `GODSEND_ARIA2_LISTEN_PORT`, `GODSEND_ARIA2_DHT_PORT`.
-- **Minerva source** — `main.go` contains a full Minerva Archive integration alongside the IA integration:
-  - `minervaPageURLs` / `minervaTagFilters`: browse-page URL and filename-tag filter per platform (xbox360, xbox, digital, xbla, dlc, xblig, games).
-  - `MinervaEntry` / `MinervaPlatformCache` types; cache files: `cache/minerva_<platform>.json`.
-  - `scrapeMinervaPage`, `buildMinervaCache`, `loadMinervaCacheFromDisk`, `findMinervaEntry` mirror the IA cache system.
-  - `downloadViaTorrent` — loads the platform's **collection** `.torrent` from `cache/` (zip-wrapped as `minerva_*.zip` to reduce AV noise; see `ensureMinervaTorrent` / `readMinervaCachedTorrentBytes`), matches `entry.FileName` in the metainfo, and pulls only that file by shelling out to **`aria2c`** (`--select-file`). Windows/Linux ship a bundled `aria2c`; **macOS** does not — `ensureAria2cDarwinAtStartup` (in `aria2c_darwin.go`) prepends Homebrew bin dirs to `PATH` and, if needed, runs the non-interactive Homebrew installer plus `brew install aria2` at backend startup (`GODSEND_SKIP_ARIA2_BOOTSTRAP=1` to opt out). If the installer cannot use `sudo` (e.g. backend spawned from Electron with no TTY), it retries with **`SUDO_ASKPASS`** (osascript password dialog) so `sudo -A` works; the install script still runs as the logged-in user because Homebrew rejects running it as root. `GODSEND_NO_GUI_ELEVATION=1` skips that retry (e.g. CI). All three `processMinerva*` paths use torrent download instead of `downloadWithProgress`.
-  - **Bundled torrent zips** — commit `cache/minerva_xbox360.zip`, `minerva_xbox.zip`, `minerva_digital_torrent.zip`, `minerva_games_torrent.zip` in the repo root `cache/` (refresh with `npm run fetch:minerva-torrents`). Electron `extraFiles` ships `cache/` next to the app; on startup the backend seeds `GODSEND_HOME/cache` from that bundle when needed (`godsendExeDir`). `npm run build:server` / `build-go-all` run `ensure-minerva-torrent-zips.js` (fetch if missing) and `sync-minerva-torrent-zips-to-dist.js` so `dist/cache/` works for bare `godsend.exe`.
-  - `processMinervaGame` (Redump ISO pipeline), `processMinervaGenericGame` (mixed archive), `processMinervaDigital` (XBLA/DLC/XBLIG).
-  - Download priority in `handleTrigger`: **local → Minerva → Internet Archive**.
-  - `handleBrowse` merges Minerva + IA lists (Minerva first, deduped).
-  - Pre-scrape script: `scripts/scrape-minerva-cache.js` (`npm run scrape:minerva`) — run before a release build to pre-populate `cache/` for installer packaging.
-- **`utils/`** (`package utils`)
-  - `iso2god.go`: pure-Go ISO→GOD conversion, archive extract/create, and disc metadata probe (`ProbeISODiscInfo`). Imported by `main`. LIVE CON seed: `utils/data/empty_live.bin` (same file as iso2god-rs), embedded at build time.
-- **Domain & services**
-  - `models/`: pure domain types and repository-like interfaces (e.g. `Game`, `Platform`, `JobStatus`, `GameRepository`, `QueueRepository`).
-  - `services/`: service interfaces and shared application helpers (e.g. `GameService`, `LookupTitleName` in `title_lookup.go`). Future concrete implementations should live here or under `infrastructure/` as appropriate.
-- **Infrastructure & interfaces**
-  - `infrastructure/`: environment/config resolution, filesystem paths, external process integration, FTP/IA clients.
-  - `interfaces/http/`: HTTP router construction and request handlers that adapt the domain/services to concrete HTTP endpoints.
+The backend uses a **DDD-style package layout** with an `App` struct for dependency injection. All shared state lives in `*app.App`; services hold an `App` pointer and expose methods instead of free functions.
 
-**Pattern**: treat `models` as pure domain, `services` as application layer, `infrastructure` for side effects, and `interfaces/http` as the delivery mechanism. Keep `main.go` thin: wiring only, no complicated logic.
+- **`main.go`** (~180 lines) — entry point only: constructs `*app.App`, all services, the HTTP `Deps` struct, wires the router, and starts the server. No business logic.
+- **`embed_titles.go`** + `data/iso2god_titles.jsonl` — embeds the iso2god-rs title list and registers it with `services` at init.
+- **`aria2c_darwin.go`** / **`aria2c_stub.go`** — build-tagged macOS aria2c bootstrap; accepts `*app.App` + `*torrent.Service` parameters.
+
+#### `models/` — pure domain types (no dependencies)
+  - `types.go`: all exported domain types (`IAGameEntry`, `PlatformCache`, `BuildState`, `MinervaEntry`, `MinervaPlatformCache`, `XboxConnection`, `GameStatus`, `PendingFTPJob`, `ROMSystemDef`, etc.).
+  - `compat.go`: disc compatibility table and `DiscCompat()` lookup.
+  - `game.go`: `Platform`, `JobStatus` enums; `Game`, `GameRepository`, `QueueRepository` interfaces.
+
+#### `app/` — central App struct and configuration
+  - `app.go`: `App` struct holding all shared state (config/paths, mutex-guarded caches, sync.Maps for job queue / connections / install types), `NewApp()` constructor, logging methods (`Logf`, `LogStatus`, `LogFTPComplete`), `LookupInstallType`, `FmtDuration`.
+  - `config.go`: constants, IA/Minerva collection maps, ROM system definitions, `SetupPaths`, `LoadIAAuthFromEnv`, `ApplyArchiveOrgHeaders`, `CleanupEmptyReadyDirs`.
+  - `listen.go`: `IsTCPAddrInUse`, `ListenOnAvailablePort` TCP helpers.
+
+#### `infrastructure/` — side-effect adapters (filesystem, network, external processes)
+  - `helpers/helpers.go`: utility functions (`GetOutboundIP`, `SanitizeFilename`, `CopyFileBuffered`, `DetectGodStructure`, `IsHexString`, `ParseXboxHeader`, `BucketAndZip`, `DecodeMinervaName`).
+  - `download/ia.go`: IA download `Service` with chunked/parallel range-request support.
+  - `download/edgeemu.go`: EdgeEmu download `Service` with chunked/parallel support.
+  - `download/progress.go`: `ProgressWriter` for download progress tracking.
+  - `ftp/client.go`: FTP `Service` — Xbox connection, upload, GOD/XEX/content transfer functions, pending-job persistence and retry, `MkdirAll` package-level helper.
+  - `torrent/torrent.go`: torrent/aria2c `Service` — `DownloadViaTorrent`, aria2c detection, `DarwinCandidatesFn` injection point for macOS.
+
+#### `services/` — application-layer logic
+  - `cache/ia.go`: IA cache `IAService` — build, load, save, find, persistence.
+  - `cache/minerva.go`: Minerva cache `MinervaService` — scrape, build, load, save, find.
+  - `cache/rom.go`: ROM/EdgeEmu cache `ROMService` — build, load, find.
+  - `local/scanner.go`: local Transfer-folder `Service` — ISO scanning, matching, `NormalizeClientGameName` (package-level function).
+  - `pipeline/pipeline.go`: pipeline `Service` struct (holds references to all other services), `ProcessLocalISO`, `ProcessGame`, `FinalizeGOD`.
+  - `pipeline/digital.go`: `ProcessContentInstallFromISO`, `ProcessGenericGame`, `ProcessDigital`, XEX/DLC transfer helpers.
+  - `pipeline/minerva.go`: `ProcessMinervaGame`, `ProcessMinervaGenericGame`, `ProcessMinervaDigital`.
+  - `pipeline/rom.go`: `ProcessROM`, `FindROMFiles`, `UpdateGameINI_ROM`.
+  - `pipeline/ini.go`: `UpdateGameINI_Parts`, `UpdateGameINI_Raw`, `UpdateGameINI_XEX`, `Iso2GodResolveDisplayTitle`, `GodFolderName`.
+  - `title_lookup.go`: `LookupTitleName` (XboxUnity → XboxDB → embedded iso2god-rs list).
+  - `game_service.go`: `GameService` interface.
+
+#### `interfaces/http/` — HTTP delivery layer
+  - `middleware.go`: `Deps` struct (holds `*app.App` + service references), `jsonError`, `jsonSuccess`, `RecoverMiddleware`.
+  - `handlers.go`: all main HTTP handlers as methods on `*Deps` (browse, cache, trigger, status, queue, register, debug, file serving, range parsing, etc.).
+  - `handlers_rxea.go`: `/rxea/decode` and `/rxea/encode` handlers.
+  - `handlers_tools.go`: `/tools/probe-iso`, `/tools/iso2god`, `/tools/iso2xex` handlers.
+  - `router.go`: `NewRouter()` — registers all routes on `*http.ServeMux`.
+
+#### `utils/` (`package utils`)
+  - `iso2god.go`: pure-Go ISO→GOD conversion, archive extract/create, disc metadata probe (`ProbeISODiscInfo`). LIVE CON seed: `utils/data/empty_live.bin`.
+  - `rxea.go`: pure-Go RXEA codec (Aurora `.asset` file encode/decode).
+
+#### Dependency flow (no import cycles)
+```
+models → (nothing)
+app → models
+infrastructure/* → app, models
+services/* → app, models, infrastructure/*
+interfaces/http → app, models, services/*, infrastructure/*
+main → everything (wiring only)
+```
+
+#### Key architectural notes
+- **Pending FTP queue** (`infrastructure/ftp/`) — when an FTP transfer fails after retries (e.g. console launched a game), the backend persists the job to `GODSEND_HOME/pending_ftp/<id>.json` and retries indefinitely (30 s → 5 min backoff). Jobs survive restarts and are resumed at startup. Endpoints: `GET /data/status`, `GET /data/clear`, `GET /config`. Env vars: `GODSEND_DEFAULT_DRIVE`, `GODSEND_ARIA2_LISTEN_PORT`, `GODSEND_ARIA2_DHT_PORT`.
+- **Minerva source** (`services/cache/minerva.go`, `infrastructure/torrent/`, `services/pipeline/minerva.go`) — Minerva Archive integration alongside IA. Download priority in `/trigger`: **local → Minerva → Internet Archive**. `/browse` merges Minerva + IA lists (Minerva first, deduped). Torrent download via `aria2c` (`--select-file`); macOS uses Homebrew bootstrap (`aria2c_darwin.go`).
+- **Bundled torrent zips** — `cache/minerva_*.zip` in the repo root. Electron `extraFiles` ships `cache/` next to the app; backend seeds `GODSEND_HOME/cache` from that bundle. Pre-scrape: `npm run scrape:minerva`.
+
+**Pattern**: treat `models` as pure domain, `app` as shared state container, `services` as application layer, `infrastructure` for side effects, and `interfaces/http` as the delivery mechanism. Keep `main.go` thin: wiring only, no complicated logic.
 
 ### Electron app (`src/electron-app/`)
 
+The Electron main-process source is written in **TypeScript** (compiled in-place via `tsconfig.json`; no `outDir`). All source files are `.ts`; the compiled `.js` files are the build artefacts used at runtime.
+
 - **Entrypoint & app shell**
-  - `main.js`: minimal bootstrap that calls `app/bootstrap.js`.
-  - `app/bootstrap.js`: creates the BrowserWindow and tray, registers all IPC handlers, and coordinates startup/shutdown of the backend child process via services.
+  - `main.ts`: minimal bootstrap that registers the `godsend-aurora://` protocol scheme and calls `app/bootstrap.ts`.
+  - `app/bootstrap.ts`: creates the BrowserWindow and tray, registers all IPC handlers, and coordinates startup/shutdown of the backend child process via services.
+  - `app/window.ts`: BrowserWindow creation, minimize-to-tray / close-to-tray behaviour, `getMainWindow` / `getWebContentsForPush` helpers.
 - **Services (application behaviour)**
-- `services/settingsService.js`: reads/writes JSON config under `app.getPath("userData")`, exposes getters/setters for transfer folder, IA settings, backend server port (`serverPort`), default Xbox drive (`defaultXboxDrive`), and aria2 ports (`aria2ListenPort`, `aria2DhtPort`); builds the child process environment (`GODSEND_*` variables).
-  - `services/backendClient.js`: owns the backend `spawn` lifecycle, output buffering and broadcast, restart semantics, and Internet Archive login flow.
+  - `services/settingsService.ts`: reads/writes JSON config under `app.getPath("userData")`, exposes getters/setters for transfer folder, IA settings, backend server port (`serverPort`), default Xbox drive (`defaultXboxDrive`), and aria2 ports (`aria2ListenPort`, `aria2DhtPort`); builds the child process environment (`GODSEND_*` variables).
+  - `services/backendClient.ts`: owns the backend `spawn` lifecycle, output buffering and broadcast, restart semantics, and Internet Archive login flow.
+  - `services/auroraLibraryService.ts`: parses Aurora's SQLite databases (content.db / settings.db) into `AuroraGame[]`, probes FTP drive letters, and builds the local game-name cache from JSON title lists.
+  - `services/auroraVisualService.ts`: syncs Aurora asset files (`.asset` RXEA, flat Media cover JPGs, `GameCoverInfo.bin`, `visual-manifest.json`) between the console and the local cache, emitting `xbox-cover` and `xbox-title-visuals` IPC events.
+  - `services/auroraPathHelper.ts`: derives and caches the Aurora install root from the configured FTP scripts path; `discoverAuroraRoot` probes common locations.
+  - `services/coverArtService.ts`: multi-source cover art fetching (XboxUnity, Xbox CDN, Microsoft Store autosuggest, Wikipedia); in-memory `browseCoverCache`.
+  - `services/autoSyncService.ts`: post-FTP automation — `autoUploadAuroraAssets` and `doAuroraLibrarySync`.
+- **IPC handlers (`ipc/`)**
+  - `configHandlers.ts`: startup, logs, transfer folder, server port, IA auth, ROM path, cache refresh, Xbox connection, default drive, aria2 ports, Aurora library sources.
+  - `xboxFtpHandlers.ts`: ping, verbose FTP test, port scanner, Aurora scripts upload, drive listing, game listing, cover fetch.
+  - `auroraLibraryHandlers.ts`: Aurora library sync (DB fingerprint caching), cover + visual asset sync, disk-cache visual refresh.
+  - `auroraAssetHandlers.ts`: asset search (XboxUnity + CDN), image fetch, file picker, console upload, RXEA decode/encode, Aurora game inspector.
+  - `browseHandlers.ts`: game list, queue game, disc info, browse cover art, download queue.
+  - `toolsHandlers.ts`: ISO probe/convert, FTP Manager (list, upload queue, delete, mkdir, rename, copy), game drive move.
 - **Infrastructure (platform concerns)**
-  - `infrastructure/fileSystem.js`: canonical install/runtime root detection, directory creation, cache/Temp/Transfer/Ready layout, helper binary copying, and icon path resolution.
-  - `infrastructure/electronTray.js`: tray icon creation, context menu wiring, simple open/quit callbacks.
+  - `infrastructure/fileSystem.ts`: canonical install/runtime root detection, directory creation, cache/Temp/Transfer/Ready layout, Aurora scripts path, icon resolution.
+  - `infrastructure/electronTray.ts`: tray icon creation, context menu wiring.
+  - `infrastructure/backendHttp.ts`: thin `backendGet` / `backendPost` helpers for the local Go server.
+  - `infrastructure/httpHelper.ts`: redirect-following HTTP image fetch, magic-byte MIME detection.
+  - `infrastructure/serverLog.ts`: session-structured log file appender for backend stdout/stderr and app events.
+  - `infrastructure/auroraLibraryCache.ts`: local Aurora DB cache layout, meta read/write, safe path helper.
+  - `infrastructure/sqlHelper.ts`: sql.js wrapper (`getSqlJs`, `sqlRows`, `filetimeToDateStr`).
 - **Renderer bridge**
-- `preload.js`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`), including persisted backend port config, queue operations (`getQueue`, `removeFromQueue`), data management (`getDataStatus`, `clearLocalData`), aria2 ports, default Xbox drive, and FTP drive listing. Xbox Library: `listAuroraLibrary` / `fetchAuroraCovers` (optional cache args), `refreshTitleVisualsFromCache` (disk-only `visual-manifest.json` → `xbox-title-visuals`), `inspectAuroraGame` (FTP inventory + `GameCoverInfo.bin` summary, read-only); cover + Import/Media artwork cached under `userData/aurora-library-cache/` and pushed to the renderer via `xbox-cover` and `xbox-title-visuals` (`godsend-aurora://` URLs).
+  - `preload.ts`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`).
   - React renderer (`renderer/`): `App.jsx` (routing, queue polling every 5 s), page components `HomePage`, `SettingsPage`, `LibraryPage`, `QueuePage`.
-- **Server file logging** (`infrastructure/serverLog.js`): appends backend stdout/stderr and session/context lines to `%APPDATA%\<app>\logs\godsend-server-YYYY-MM-DD.log`; wired from `services/backendClient.js` and `app/bootstrap.js` (IPC `logs:get-info`, `logs:open-folder`).
 - **Build scripts**
-  - `scripts/sync-assets-icon.js`: pre-build script to normalise tray/icon artwork (`npm run build:win`).
-  - `scripts/after-pack-win-icon.js`: `electron-builder` `afterPack` hook for embedding the icon into the Windows executable.
+  - `scripts/sync-assets-icon.js`: pre-build script to normalise tray/icon artwork.
+  - `scripts/after-pack-win-icon.js`: `electron-builder` `afterPack` hook for embedding the icon.
+- **TypeScript compilation**
+  - `tsconfig.json`: `"module": "commonjs"`, `"strict": false`, no `outDir` (in-place compilation).
+  - Build commands (`npm run build:win` etc.) run `tsc` before electron-builder; `npm run tsc` compiles only.
+  - Packaged `.asar` excludes `*.ts` and `tsconfig.json` via `build.files` in `package.json`.
 
 **Pattern**: keep Electron main process organised as:
 
 - `app/` – lifecycle, IPC registration, top-level composition.
 - `services/` – high-level behaviour, no direct knowledge of Electron window creation.
 - `infrastructure/` – filesystem and OS-specific helpers, no business logic.
-- `renderer.js + preload.js` – UI and IPC surface only.
+- `preload.ts` – IPC surface only; no business logic.
 
 ### Aurora scripts (`aurora-scripts/`)
 
