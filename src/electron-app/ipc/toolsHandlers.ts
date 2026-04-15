@@ -343,9 +343,10 @@ export function register(ipcMain: IpcMain): void {
     (async () => {
       const moveClient = new ftp.Client();
       moveClient.ftp.verbose = false;
-      (moveClient.ftp as any).timeout = 60000;
+      (moveClient.ftp as any).timeout = 120000;
       try {
         job.state = "Processing";
+        addOutputLine(`[INFO] Move ${gameName}: connecting to ${xboxIp}…`);
         await moveClient.access({ host: xboxIp, port: 21, user: ftpUser, password: ftpPass, secure: false });
 
         const dstParent = dstPath.split("/").slice(0, -1).join("/") || "/";
@@ -353,32 +354,38 @@ export function register(ipcMain: IpcMain): void {
         await moveClient.cd("/");
 
         try {
+          addOutputLine(`[INFO] Move ${gameName}: attempting FTP rename ${srcPath} → ${dstPath}…`);
           await moveClient.rename(srcPath, dstPath);
           job.state    = "Ready";
           job.progress = 100;
+          addOutputLine(`[INFO] Move ${gameName}: rename succeeded — done.`);
           doAuroraLibrarySync().catch((e: any) =>
             addOutputLine(`[WARN] Auto-sync after move failed: ${e.message || e}`)
           );
           return;
         } catch {
-          // Rename across drives not supported — fall back to download + reupload + delete.
+          addOutputLine(`[INFO] Move ${gameName}: rename not supported cross-drive, falling back to download + reupload.`);
         }
 
         const tmpDir   = path.join(os.tmpdir(), "godsend-move-" + Date.now());
         fs.mkdirSync(tmpDir, { recursive: true });
 
         job.progress = 10;
+        addOutputLine(`[INFO] Move ${gameName}: downloading from ${srcPath} to temp…`);
         const localDir = path.join(tmpDir, path.basename(srcPath));
         await moveClient.downloadToDir(localDir, srcPath);
 
         job.progress = 50;
+        addOutputLine(`[INFO] Move ${gameName}: uploading to ${dstPath}…`);
         await moveClient.uploadFromDir(localDir, dstPath);
 
         job.progress = 90;
+        addOutputLine(`[INFO] Move ${gameName}: removing source ${srcPath}…`);
         await moveClient.removeDir(srcPath);
 
         job.state    = "Ready";
         job.progress = 100;
+        addOutputLine(`[INFO] Move ${gameName}: complete.`);
 
         doAuroraLibrarySync().catch((e: any) =>
           addOutputLine(`[WARN] Auto-sync after move failed: ${e.message || e}`)
@@ -388,6 +395,7 @@ export function register(ipcMain: IpcMain): void {
       } catch (err: any) {
         job.state = "Error";
         job.error = err.message || String(err);
+        addOutputLine(`[ERROR] Move ${gameName}: ${job.error}`);
       } finally {
         moveClient.close();
       }

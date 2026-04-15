@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { Button } from "./ui/button";
+import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "./ui/collapsible";

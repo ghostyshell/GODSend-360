@@ -819,6 +819,8 @@ function GameDetail({
   const [moveStatus, setMoveStatus]       = useState<null | "moving" | "done" | "error">(null);
   const [moveError, setMoveError]         = useState<string | null>(null);
   const [moveMessage, setMoveMessage]     = useState<string | null>(null);
+  const [moveJobId, setMoveJobId]         = useState<number | null>(null);
+  const [moveProgress, setMoveProgress]   = useState<number>(0);
 
   useEffect(() => {
     // Re-read manifest from disk (no FTP).
@@ -870,11 +872,16 @@ function GameDetail({
     setMoveStatus("moving");
     setMoveError(null);
     setMoveMessage(null);
+    setMoveJobId(null);
+    setMoveProgress(0);
     try {
       const r = await window.godsendApi.moveGameToDrive({ game, targetDrive: moveTarget });
       if (r?.ok) {
-        setMoveStatus("done");
+        setMoveJobId(r.jobId ?? null);
         setMoveMessage(r.message || "Move queued successfully.");
+        // Don't set "done" yet — let the polling effect handle final state.
+        // If no jobId was returned, fall back to the old "done" behaviour.
+        if (!r.jobId) setMoveStatus("done");
       } else {
         setMoveStatus("error");
         setMoveError(r?.error || "Failed to queue move.");
@@ -884,6 +891,35 @@ function GameDetail({
       setMoveError(err.message || "Unknown error");
     }
   }
+
+  // Poll the FTP job status while a move is in progress
+  useEffect(() => {
+    if (moveJobId == null || moveStatus === "done" || moveStatus === "error") return;
+    const id = setInterval(async () => {
+      try {
+        const r = await window.godsendApi.toolsFtpUploadStatus();
+        if (!r?.ok) return;
+        const job = (r.jobs || []).find((j: any) => j.id === moveJobId);
+        if (!job) return;
+        setMoveProgress(job.progress ?? 0);
+        if (job.state === "Ready") {
+          setMoveStatus("done");
+          setMoveMessage("Move completed successfully.");
+          setMoveProgress(100);
+          clearInterval(id);
+        } else if (job.state === "Error") {
+          setMoveStatus("error");
+          setMoveError(job.error || "Move failed.");
+          clearInterval(id);
+        } else {
+          // Still in progress — update the message with the state
+          const pct = job.progress ?? 0;
+          setMoveMessage(`${job.state}… ${pct}%`);
+        }
+      } catch { /* ignore poll errors */ }
+    }, 1500);
+    return () => clearInterval(id);
+  }, [moveJobId, moveStatus]);
 
   return (
     <div className="flex flex-col h-full">
@@ -1075,9 +1111,10 @@ function GameDetail({
                       ) : (
                         <ArrowRightLeft className="h-3 w-3" />
                       )}
-                      {moveStatus === "moving" ? "Moving..." :
-                       moveStatus === "done" ? "Queued" :
-                       `Move to ${moveTarget.replace(/:$/, "")}`}
+                      {moveStatus === "moving"
+                        ? (moveProgress > 0 ? `Moving… ${moveProgress}%` : "Moving…")
+                        : moveStatus === "done" ? "Done"
+                        : `Move to ${moveTarget.replace(/:$/, "")}`}
                     </Button>
                     {moveStatus !== "moving" && moveStatus !== "done" && (
                       <span className="text-[10px] text-muted-foreground">

@@ -9,11 +9,20 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.8.3] — 2026-04-15
+
+### Changed
+- **Version** — **2.8.3** (root + Electron `package.json`, lockfile roots, backend banner, Aurora script `scriptVersion`).
+
+### Fixed
+- **Move to Drive: no progress feedback or logs** — queuing a game drive move from the Library page previously showed "Queued" and then went silent with no log output and no way to track progress. The move IPC handler now logs each step (`[INFO] Move …`) to the app output panel (connect, rename attempt, download, upload, completion/error), and the Library page polls the FTP job status to show real-time progress percentage and final success/error state. FTP timeout increased from 60 s to 120 s for large game transfers.
+
 ## [2.8.2] — 2026-04-15
 
 ### Fixed
 - **Cover search selects full cover image** — selecting a cover from the XboxUnity search results now uses the full front+back cover image (`url`) instead of the front-only crop (`front`). Previously, the front-only image was chosen, displayed cropped in the editor, and then stretched to fill the full cover area when saved to the console.
 - **Multi-disc games show unique covers per disc** — the Xbox Library now keys cover art and title visuals by `gameDataDir` (e.g. `5454082B_00000001`) instead of `titleId` alone. Previously, multi-disc games sharing the same title ID would display whichever disc's cover was synced last for both entries. Each disc now correctly displays its own cover and visual assets.
+- **Settings page blank screen** — added missing `Checkbox` import in `SettingsPage.tsx`; the component used `<Checkbox>` at render time without importing it, causing an unhandled error that blanked the entire page.
 
 ### Changed
 - **Xbox Library: fingerprint-based asset caching** — Aurora visual asset sync (`syncAuroraTitleVisualAssets`) now collects lightweight FTP SIZE fingerprints for all source files (.asset, .bin, Import directory listing) and stores them in `visual-manifest.json`. On subsequent refreshes, remote sizes are compared to cached fingerprints; if all match for a game, the entire visual sync is skipped. This avoids redundant FTP downloads and RXEA decodes for unchanged games, dramatically speeding up library refreshes when only a few games have new or updated assets.
