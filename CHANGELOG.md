@@ -9,6 +9,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.9.2] — 2026-04-16
+
+### Changed
+- **Version** — **2.9.2** (root + Electron `package.json`, backend banner, Aurora script `scriptVersion`).
+
+### Fixed
+- **Settings: FTP scripts upload "ip, scripts_dir, and remote_path required"** — the `server_port` field was sent as a JSON number but the Go backend expected a string, causing the entire JSON decode to fail. The value is now coerced to a string before posting.
+- **Library: stretched covers for games with Import-folder or CDN cover art** — `coverIsBooklet` was set to `true` for any cached `importCover`, but only RXEA-decoded covers (`rxea-gc-*.png`) are actual booklet composites (back+spine+front). Import-folder and CDN covers are flat front images that were incorrectly rendered with booklet UV cropping, producing a distorted/zoomed cover in the grid. The flag now checks the filename pattern so flat covers render via `background-size: cover` and only true RXEA booklets use the 3-face crop.
+- **Library: RXEA covers lost after library refresh** — opening a game's detail view decoded RXEA assets from the console but the decoded PNG files were only held in renderer memory and never persisted to the local visual cache. On library refresh the in-memory state was cleared and the disk-only reload found no cached RXEA data, falling back to the online cover. The `xbox:decode-asset` handler now writes decoded PNGs to the visual cache directory and updates `visual-manifest.json`, so subsequent quick (disk-only) refreshes serve the RXEA cover without another FTP round-trip.
+
 ## [2.9.1] — 2026-04-16
 
 ### Changed

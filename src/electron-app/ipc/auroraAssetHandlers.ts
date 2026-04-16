@@ -25,15 +25,17 @@ import { addOutputLine } from "../services/backendClient";
 import { appendAppEvent } from "../infrastructure/serverLog";
 import {
   getAuroraLibraryCacheRoot,
+  gameCacheDir,
   readMeta,
   writeMeta,
 } from "../infrastructure/auroraLibraryCache";
 import { xboxAuroraRoot, xboxAuroraMediaDir } from "../services/auroraPathHelper";
-import { fetchHttpImage } from "../infrastructure/httpHelper";
 import {
+  emitAuroraTitleVisualEvents,
   classifyAuroraFileKind,
   summarizeGameCoverInfoJson,
 } from "../services/auroraVisualService";
+import { fetchHttpImage } from "../infrastructure/httpHelper";
 import {
   searchXboxUnityCovers,
   fetchXboxCdnAssets,
@@ -372,6 +374,78 @@ export function register(ipcMain: IpcMain): void {
       }
 
       addOutputLine(`[INFO] RXEA decode ${titleId}: done — ${allSlots.length} total slot(s) decoded.`);
+
+      // ── Persist decoded PNGs to the visual cache so disk-only refreshes
+      //    (including the quick library reload) can serve them without
+      //    another FTP round-trip.
+      if (allSlots.length > 0) {
+        try {
+          const cacheRoot = getAuroraLibraryCacheRoot(app, xboxIp, xboxAuroraRoot(scriptsPath));
+          const gdir = gameCacheDir(cacheRoot, gameDataDir);
+          const vdir = path.join(gdir, "visual");
+          fs.mkdirSync(vdir, { recursive: true });
+
+          const manifestPath = path.join(gdir, "visual-manifest.json");
+          let manifest: any = {};
+          try { manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")); } catch { /* none */ }
+
+          // Slot key → local filename base (mirrors auroraVisualService cacheDecodedSlot naming)
+          const slotLocalBase: Record<string, string> = {
+            background: "rxea-bk-background",
+            cover:      "rxea-gc-cover",
+            icon:       "rxea-gl-icon",
+            banner:     "rxea-gl-banner",
+          };
+
+          let updated = false;
+          for (const s of allSlots) {
+            const localBase = slotLocalBase[s.key] || (s.key.startsWith("screenshot") ? `rxea-${s.key}` : null);
+            if (!localBase) continue;
+            const localName = `${localBase}.png`;
+            const localPath = path.join(vdir, localName);
+            const pngBuf = Buffer.from(s.dataUrl.replace(/^data:image\/png;base64,/, ""), "base64");
+            fs.writeFileSync(localPath, pngBuf);
+
+            const assetEntry = {
+              rel: `games/${gameDataDir}/visual/${localName}`,
+              ext: ".png",
+            };
+
+            // Map slot keys to manifest keys (cover → importCover to match sync convention)
+            if (s.key === "cover") {
+              manifest.importCover = assetEntry;
+              updated = true;
+            } else if (s.key === "background" && !manifest.background) {
+              manifest.background = assetEntry;
+              updated = true;
+            } else if (s.key === "banner" && !manifest.banner) {
+              manifest.banner = assetEntry;
+              updated = true;
+            } else if (s.key === "icon" && !manifest.icon) {
+              manifest.icon = assetEntry;
+              updated = true;
+            } else if (s.key.startsWith("screenshot")) {
+              if (!Array.isArray(manifest.screenshots)) manifest.screenshots = [];
+              const existing = manifest.screenshots.find((sc: any) => sc.rel === assetEntry.rel);
+              if (!existing) {
+                manifest.screenshots.push({ ...assetEntry, name: localName });
+                updated = true;
+              }
+            }
+          }
+
+          if (updated) {
+            fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+            // Push updated visuals to renderer so the grid reflects the change immediately.
+            emitAuroraTitleVisualEvents(titleId, gameDataDir, cacheRoot);
+            addOutputLine(`[INFO] RXEA decode ${titleId}: persisted ${allSlots.length} slot(s) to visual cache.`);
+          }
+        } catch (cacheErr: any) {
+          // Cache persistence is best-effort — don't fail the decode result.
+          addOutputLine(`[WARN] RXEA decode ${titleId}: cache persist error: ${cacheErr.message || cacheErr}`);
+        }
+      }
+
       return { ok: true, slots: allSlots };
     } catch (err: any) {
       const msg = err.message || String(err);

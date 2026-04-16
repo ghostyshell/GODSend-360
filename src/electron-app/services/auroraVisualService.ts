@@ -124,7 +124,12 @@ export function emitAuroraTitleVisualEvents(titleId: string, gameDataDir: string
     titleId,
     gameDataDir,
     visuals: {
-      coverIsBooklet: Boolean(m.importCover && m.importCover.rel),
+      // Only RXEA-decoded covers (rxea-gc-*) are true booklet composites
+      // (back+spine+front).  Import-folder and CDN covers are flat front
+      // images that must NOT be rendered with booklet UV cropping.
+      coverIsBooklet: Boolean(
+        m.importCover && m.importCover.rel && /\/rxea-gc-/.test(m.importCover.rel)
+      ),
       cover: toAsset(m.importCover || m.mediaCover),
       background: toAsset(m.background),
       banner: toAsset(m.banner),

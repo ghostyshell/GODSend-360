@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import HomePage from "./components/HomePage";
 import SettingsPage from "./components/SettingsPage";
 import LibraryPage from "./components/LibraryPage";
@@ -8,10 +8,11 @@ import BrowsePage from "./components/BrowsePage";
 import ISO2GODPage from "./components/ISO2GODPage";
 import ISO2XEXPage from "./components/ISO2XEXPage";
 import FTPManagerPage from "./components/FTPManagerPage";
-import { Button } from "./components/ui/button";
+import MainNav from "./components/MainNav";
 
-// Overlay titles for the header bar
-const OVERLAY_TITLES: Record<string, string> = {
+type PageId = "loading" | "home" | "library" | "settings" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager";
+
+const PAGE_TITLES: Record<string, string> = {
   settings:   "Settings",
   queue:      "Job Queue",
   browse:     "Browse & Download",
@@ -21,10 +22,7 @@ const OVERLAY_TITLES: Record<string, string> = {
 };
 
 export default function App() {
-  // "loading" during the initial ping; then "home" | "library"
-  const [page, setPage] = useState("loading");
-  // Overlay panel rendered on top of the current base page (null = none)
-  const [overlay, setOverlay] = useState<string | null>(null);
+  const [page, setPage] = useState<PageId>("loading");
 
   // ── Console output ────────────────────────────────────────────────────────
   const [outputLines, setOutputLines] = useState<string[]>([]);
@@ -238,8 +236,24 @@ export default function App() {
     }
   }
 
-  const closeOverlay = useCallback(() => setOverlay(null), []);
-  const openOverlay  = useCallback((id: string) => setOverlay(id), []);
+  const navigateTo = useCallback((id: PageId) => setPage(id), []);
+
+  // ── Shared nav props ───────────────────────────────────────────────────────
+  const navProps = {
+    ftpStatus,
+    currentPage: page as any,
+    libraryAvailable: ftpStatus === "connected",
+    libraryLoading,
+    queueJobs,
+    onReconnect: pingFtp,
+    onLibraryToggle: handleLibraryToggle,
+    onNavigateQueue:      () => navigateTo("queue"),
+    onNavigateBrowse:     () => navigateTo("browse"),
+    onNavigateSettings:   () => navigateTo("settings"),
+    onNavigateIso2God:    () => navigateTo("iso2god"),
+    onNavigateIso2Xex:    () => navigateTo("iso2xex"),
+    onNavigateFtpManager: () => navigateTo("ftpmanager"),
+  };
 
   // ── Routing ───────────────────────────────────────────────────────────────
   if (page === "loading") {
@@ -250,97 +264,79 @@ export default function App() {
     );
   }
 
-  // Determine which overlay content to render (if any)
-  let overlayContent: React.ReactNode = null;
-  if (overlay === "settings") {
-    overlayContent = (
-      <SettingsPage onAppendLine={appendLine} />
-    );
-  } else if (overlay === "queue") {
-    overlayContent = <QueuePage />;
-  } else if (overlay === "browse") {
-    overlayContent = <BrowsePage />;
-  } else if (overlay === "iso2god") {
-    overlayContent = <ISO2GODPage />;
-  } else if (overlay === "iso2xex") {
-    overlayContent = <ISO2XEXPage />;
-  } else if (overlay === "ftpmanager") {
-    overlayContent = <FTPManagerPage />;
-  }
-
-  // Overlay shell — renders on top of whichever base page is active
-  const overlayShell = overlay && overlayContent ? (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* Overlay header with title and close button */}
-      <header className="flex items-center gap-2.5 shrink-0 px-3 pt-3 pb-3 border-b border-border"
-        style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
-      >
-        <span className="text-[15px] font-semibold text-foreground flex-1">
-          {OVERLAY_TITLES[overlay] || overlay}
-        </span>
-        <Button
-          size="icon"
-          title="Close"
-          onClick={closeOverlay}
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </header>
-      {/* Overlay body */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        {overlayContent}
-      </div>
-    </div>
-  ) : null;
-
   if (page === "library") {
     return (
-      <>
-        <LibraryPage
-          status={libraryStatus}
-          games={libraryGames}
-          covers={covers}
-          titleVisuals={titleVisuals}
-          connectedTo={libraryConnectedTo}
-          onToggle={handleLibraryToggle}
-          onRefresh={handleLibraryRefresh}
-          refreshBusy={libraryRefreshing}
-          ftpStatus={ftpStatus}
-          libraryLoading={libraryLoading}
-          queueJobs={queueJobs}
-          onReconnect={pingFtp}
-          onNavigateQueue={() => openOverlay("queue")}
-          onNavigateBrowse={() => openOverlay("browse")}
-          onNavigateSettings={() => openOverlay("settings")}
-          onNavigateIso2God={() => openOverlay("iso2god")}
-          onNavigateIso2Xex={() => openOverlay("iso2xex")}
-          onNavigateFtpManager={() => openOverlay("ftpmanager")}
-        />
-        {overlayShell}
-      </>
+      <LibraryPage
+        status={libraryStatus}
+        games={libraryGames}
+        covers={covers}
+        titleVisuals={titleVisuals}
+        connectedTo={libraryConnectedTo}
+        onToggle={handleLibraryToggle}
+        onRefresh={handleLibraryRefresh}
+        refreshBusy={libraryRefreshing}
+        ftpStatus={ftpStatus}
+        libraryLoading={libraryLoading}
+        queueJobs={queueJobs}
+        onReconnect={pingFtp}
+        onNavigateQueue={navProps.onNavigateQueue}
+        onNavigateBrowse={navProps.onNavigateBrowse}
+        onNavigateSettings={navProps.onNavigateSettings}
+        onNavigateIso2God={navProps.onNavigateIso2God}
+        onNavigateIso2Xex={navProps.onNavigateIso2Xex}
+        onNavigateFtpManager={navProps.onNavigateFtpManager}
+      />
     );
   }
 
-  return (
-    <>
+  if (page === "home") {
+    return (
       <HomePage
         outputLines={outputLines}
         logInfo={logInfo}
         ftpStatus={ftpStatus}
-        onNavigateSettings={() => openOverlay("settings")}
-        onNavigateQueue={() => openOverlay("queue")}
-        onNavigateBrowse={() => openOverlay("browse")}
-        onNavigateIso2God={() => openOverlay("iso2god")}
-        onNavigateIso2Xex={() => openOverlay("iso2xex")}
-        onNavigateFtpManager={() => openOverlay("ftpmanager")}
+        onNavigateSettings={navProps.onNavigateSettings}
+        onNavigateQueue={navProps.onNavigateQueue}
+        onNavigateBrowse={navProps.onNavigateBrowse}
+        onNavigateIso2God={navProps.onNavigateIso2God}
+        onNavigateIso2Xex={navProps.onNavigateIso2Xex}
+        onNavigateFtpManager={navProps.onNavigateFtpManager}
         onLibraryToggle={handleLibraryToggle}
         onReconnect={pingFtp}
         libraryLoading={libraryLoading}
         onAppendLine={appendLine}
         queueJobs={queueJobs}
       />
-      {overlayShell}
-    </>
+    );
+  }
+
+  // ── Tool / utility pages (settings, queue, browse, tools) ─────────────────
+  let pageContent: React.ReactNode = null;
+  if (page === "settings") {
+    pageContent = <SettingsPage onAppendLine={appendLine} />;
+  } else if (page === "queue") {
+    pageContent = <QueuePage />;
+  } else if (page === "browse") {
+    pageContent = <BrowsePage />;
+  } else if (page === "iso2god") {
+    pageContent = <ISO2GODPage />;
+  } else if (page === "iso2xex") {
+    pageContent = <ISO2XEXPage />;
+  } else if (page === "ftpmanager") {
+    pageContent = <FTPManagerPage />;
+  }
+
+  return (
+    <div className="flex flex-col h-screen p-3 gap-2.5">
+      <header className="flex items-center shrink-0">
+        <span className="text-[15px] font-semibold text-foreground flex-1">
+          {PAGE_TITLES[page] || page}
+        </span>
+        <MainNav {...navProps} />
+      </header>
+      <div className="flex-1 min-h-0 overflow-auto">
+        {pageContent}
+      </div>
+    </div>
   );
 }

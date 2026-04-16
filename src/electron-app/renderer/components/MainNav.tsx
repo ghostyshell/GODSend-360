@@ -86,7 +86,7 @@ export function ToolboxDropdown({ onIso2God, onIso2Xex, onFtpManager }: ToolboxD
 
 export interface MainNavProps {
   ftpStatus: string;
-  currentPage: "home" | "library";
+  currentPage: "home" | "library" | "settings" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager";
   libraryAvailable: boolean;
   libraryLoading: boolean;
   queueJobs: any[];

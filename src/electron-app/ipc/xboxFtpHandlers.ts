@@ -157,7 +157,7 @@ export function register(ipcMain: IpcMain): void {
         scripts_dir: scriptsDir,
         remote_path: remotePath,
         server_ip:   pcIp,
-        server_port: serverPort,
+        server_port: String(serverPort),
       });
       if (r.ok) {
         sendProgress("Upload complete.");

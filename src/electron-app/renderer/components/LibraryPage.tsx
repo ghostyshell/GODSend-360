@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Gamepad2, Loader2, WifiOff,
-  Star, Disc3, RefreshCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
+  Star, Disc3, RotateCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
   ArrowUpDown, Filter, HardDrive, ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -1012,7 +1012,7 @@ function GameDetail({
           onClick={() => onRefresh?.()}
           title="Refresh library cache from Xbox"
         >
-          <RefreshCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
+          <RotateCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
         </Button>
         <span className="text-[14px] font-semibold text-foreground truncate flex-1 min-w-0">
           {game.name}
@@ -1552,7 +1552,7 @@ export default function LibraryPage({
               disabled={refreshBusy || status !== "ready" || typeof onRefresh !== "function"}
               onClick={() => { setRxeaCovers({}); onRefresh?.(); }}
             >
-              <RefreshCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
+              <RotateCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
             </Button>
             <MainNav
               ftpStatus={ftpStatus}
