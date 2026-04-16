@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 - **README overview media** — replaced the top README overview asset with `GODsend-360-2.9.2.mov` and embedded it above the Table of Contents using an inline HTML video tag.
+- **README overview media rendering** — switched the inline HTML video embed to a Markdown-friendly clickable preview image (`GODsend-360-2.9.2-preview.png`) that links to `GODsend-360-2.9.2.mov` for better compatibility on Git README renderers.
 
 ## [2.9.2] — 2026-04-16
 
