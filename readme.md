@@ -30,17 +30,17 @@ Download priority for online libraries: **Local Transfer folder → Minerva Arch
 
 ### 1. Download the installer
 
-Go to the [GODsend 360 v2.7.0 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.7.0) and download the build for your platform (direct links below match the release assets):
+Go to the [GODsend 360 v2.9.2 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.9.2) and download the build for your platform (direct links below match the release assets):
 
 | Platform | File |
 |---|---|
-| **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.7.0.exe`](https://gitgud.io/-/project/46780/uploads/117a1e7d3844190e1e0104aa389cb30c/godsend-Setup-2.7.0.exe) |
-| **macOS (Apple Silicon)** | [`godsend-2.7.0-arm64.dmg`](https://gitgud.io/-/project/46780/uploads/4f64c2ac45cebac3bf67762cfed9151c/godsend-2.7.0-arm64.dmg) |
-| **macOS (Intel)** | [`godsend-2.7.0-x64.dmg`](https://gitgud.io/-/project/46780/uploads/17f09c725a049c7dbf48b56b5f8e130a/godsend-2.7.0-x64.dmg) |
-| **Linux (x64 / amd64)** | [`godsend-2.7.0-x86_64.AppImage`](https://gitgud.io/-/project/46780/uploads/3820294f50767e4ceba2b5a4b77b26a0/godsend-2.7.0-x86_64.AppImage) |
-| **Linux (arm64)** | [`godsend-2.7.0-arm64.AppImage`](https://gitgud.io/-/project/46780/uploads/6c8117f892126417905f45e419783620/godsend-2.7.0-arm64.AppImage) |
+| **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.9.2.exe`](https://gitgud.io/-/project/46780/uploads/0a412edfe2f295690886178d7fa65b0/godsend-Setup-2.9.2.exe) |
+| **macOS (Apple Silicon)** | [`godsend-mac` (Apple Silicon build inside bundle)](https://gitgud.io/-/project/46780/uploads/c5a02a5f9ad3c5ae8216452ad20941f7/godsend-mac) |
+| **macOS (Intel)** | [`godsend-mac` (Intel build inside bundle)](https://gitgud.io/-/project/46780/uploads/c5a02a5f9ad3c5ae8216452ad20941f7/godsend-mac) |
+| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gitgud.io/-/project/46780/uploads/05a7c699c101852f6482af9c4581f0b0/godsend-linux-x64) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gitgud.io/-/project/46780/uploads/ef695b9aeb116f7bab5a8b9f1c2d790d/godsend-linux-arm64) |
 
-> **Windows:** use **`godsend-Setup-2.7.0.exe`** for the desktop tray app. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
+> **Windows:** use **`godsend-Setup-2.9.2.exe`** for the desktop tray app. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
