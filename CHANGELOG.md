@@ -9,6 +9,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **README overview media** — added `GODsend-390-2.9.2.gif` to the repo and embedded it near the top of the README directly above the Table of Contents.
+
 ## [2.9.2] — 2026-04-16
 
 ### Changed
