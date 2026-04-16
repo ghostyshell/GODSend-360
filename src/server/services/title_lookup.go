@@ -152,10 +152,10 @@ func lookupTitleNameXboxUnity(titleID string) string {
 	return ""
 }
 
-// isTruncatedName returns true when a title name looks like it was cut short
+// IsTruncatedName returns true when a title name looks like it was cut short
 // by the data source (e.g. XboxUnity stores "Cloudy with a..." instead of the
 // full title).  We treat trailing "..." or unicode ellipsis as truncated.
-func isTruncatedName(name string) bool {
+func IsTruncatedName(name string) bool {
 	return strings.HasSuffix(name, "...") || strings.HasSuffix(name, "\u2026")
 }
 
@@ -170,13 +170,13 @@ func LookupTitleName(titleID string) string {
 	}
 	var truncated string
 	if s := lookupTitleNameXboxUnity(titleID); s != "" {
-		if !isTruncatedName(s) {
+		if !IsTruncatedName(s) {
 			return s
 		}
 		truncated = s
 	}
 	if s := lookupTitleNameXboxDB(titleID); s != "" {
-		if !isTruncatedName(s) {
+		if !IsTruncatedName(s) {
 			return s
 		}
 		if truncated == "" || len(s) > len(truncated) {
@@ -184,7 +184,7 @@ func LookupTitleName(titleID string) string {
 		}
 	}
 	if s := lookupTitleNameIso2GodEmbedded(titleID); s != "" {
-		if !isTruncatedName(s) {
+		if !IsTruncatedName(s) {
 			return s
 		}
 		if truncated == "" || len(s) > len(truncated) {

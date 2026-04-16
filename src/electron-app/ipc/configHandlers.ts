@@ -188,7 +188,7 @@ export function register(ipcMain: IpcMain): void {
       ftpScriptsPath: typeof p.ftpScriptsPath  === "string" ? p.ftpScriptsPath.trim() : getConfiguredFtpScriptsPath(),
     });
     appendAppEvent("CONFIG", `xboxConnection saved (ftpUser=${getConfiguredFtpUser()})`);
-    restartGodsendIfRunning();
+    if (!p.skipRestart) restartGodsendIfRunning();
     return true;
   });
 

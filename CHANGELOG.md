@@ -9,6 +9,15 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.9.1] — 2026-04-16
+
+### Changed
+- **Version** — **2.9.1** (root + Electron `package.json`, lockfile roots, backend banner, Aurora script `scriptVersion`).
+
+### Fixed
+- **Settings: FTP scripts upload AggregateError** — uploading Aurora scripts to the console from Settings no longer fails with an AggregateError. The connection settings save was restarting the Go backend, and the FTP upload request fired before the backend finished restarting. The save now defers the restart so the upload proceeds against the running backend.
+- **ISO tools: title name still truncated when all lookup sources return "..."** — the ISO to GOD, ISO to XEX, and probe-iso handlers now fall back to the cleaned ISO filename (stripping region tags like "(USA)") when every online/embedded title source returns a truncated name (e.g. "Cloudy with a..."). This fixes truncated display names, output folder names, and LIVE CON header titles for affected games.
+
 ## [2.9.0] — 2026-04-16
 
 ### Changed

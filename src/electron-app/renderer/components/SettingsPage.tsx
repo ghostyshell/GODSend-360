@@ -266,6 +266,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
         ftpUser:        ftpUser.trim(),
         ftpPassword,
         ftpScriptsPath: ftpScriptsPath.trim(),
+        skipRestart:    true,
       });
       const r = await window.godsendApi.ftpAuroraScripts({
         xboxIp:         xboxIp.trim(),

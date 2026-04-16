@@ -7,11 +7,43 @@ import (
 	stdhttp "net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"godsend/services"
 	"godsend/utils"
 )
+
+// toolsCleanISOFileName derives a human-readable title from an ISO filename
+// by stripping the extension and removing trailing region/format tags in
+// parentheses or brackets, e.g. "Cloudy with a Chance of Meatballs (USA).iso"
+// → "Cloudy with a Chance of Meatballs".
+var reTrailingTags = regexp.MustCompile(`\s*[\(\[][^\)\]]*[\)\]]\s*$`)
+
+func toolsCleanISOFileName(isoPath string) string {
+	base := strings.TrimSuffix(filepath.Base(isoPath), filepath.Ext(isoPath))
+	for reTrailingTags.MatchString(base) {
+		base = reTrailingTags.ReplaceAllString(base, "")
+	}
+	return strings.TrimSpace(base)
+}
+
+// toolsResolveTitleName returns the best available display name for a title ID,
+// falling back to a cleaned ISO filename when the online/embedded lookup yields
+// a truncated result (e.g. "Cloudy with a..." → prefer filename).
+func toolsResolveTitleName(titleID, isoPath string) string {
+	looked := services.LookupTitleName(titleID)
+	if looked != "" && !services.IsTruncatedName(looked) {
+		return looked
+	}
+	// Lookup was empty or truncated — use the ISO filename as a better source.
+	fromFile := toolsCleanISOFileName(isoPath)
+	if fromFile != "" {
+		return fromFile
+	}
+	// Last resort: return the (possibly truncated) lookup.
+	return looked
+}
 
 // POST /tools/probe-iso  { "isoPath": "C:\\...\\game.iso" }
 // Returns title info from the ISO without converting.
@@ -33,7 +65,7 @@ func (d *Deps) handleToolsProbeISO(w stdhttp.ResponseWriter, r *stdhttp.Request)
 		return
 	}
 	titleIDStr := fmt.Sprintf("%08X", info.TitleID)
-	displayName := services.LookupTitleName(titleIDStr)
+	displayName := toolsResolveTitleName(titleIDStr, req.ISOPath)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"titleId":        titleIDStr,
@@ -67,10 +99,7 @@ func (d *Deps) handleToolsISO2GOD(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 		return
 	}
 	titleIDStr := fmt.Sprintf("%08X", info.TitleID)
-	displayName := services.LookupTitleName(titleIDStr)
-	if displayName == "" {
-		displayName = strings.TrimSuffix(filepath.Base(req.ISOPath), filepath.Ext(req.ISOPath))
-	}
+	displayName := toolsResolveTitleName(titleIDStr, req.ISOPath)
 
 	safeName := toolsSanitizeFileName(displayName)
 	folderName := fmt.Sprintf("%s - %s", safeName, titleIDStr)
@@ -82,7 +111,7 @@ func (d *Deps) handleToolsISO2GOD(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 
 	d.App.Logf("[TOOLS] ISO2GOD: %s → %s", filepath.Base(req.ISOPath), godOutDir)
 	resolveTitle := func(tid uint32) string {
-		return services.LookupTitleName(fmt.Sprintf("%08X", tid))
+		return toolsResolveTitleName(fmt.Sprintf("%08X", tid), req.ISOPath)
 	}
 	if err := utils.RunIso2GodNative(req.ISOPath, godOutDir, resolveTitle); err != nil {
 		jsonError(w, 500, fmt.Sprintf("ISO2GOD failed: %v", err))
@@ -121,10 +150,7 @@ func (d *Deps) handleToolsISO2XEX(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 		return
 	}
 	titleIDStr := fmt.Sprintf("%08X", info.TitleID)
-	displayName := services.LookupTitleName(titleIDStr)
-	if displayName == "" {
-		displayName = strings.TrimSuffix(filepath.Base(req.ISOPath), filepath.Ext(req.ISOPath))
-	}
+	displayName := toolsResolveTitleName(titleIDStr, req.ISOPath)
 
 	safeName := toolsSanitizeFileName(displayName)
 	folderName := fmt.Sprintf("%s - %s", safeName, titleIDStr)

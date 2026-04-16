@@ -1,6 +1,6 @@
 {
   "name": "godsend-360",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "private": true,
   "description": "GODsend — Go backend + Electron desktop app",
   "scripts": {

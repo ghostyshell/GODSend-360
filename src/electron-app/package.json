@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Minimal Electron UI for running and monitoring godsend.exe",
   "main": "main.js",
   "scripts": {
