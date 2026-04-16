@@ -35,16 +35,16 @@ Go to the [GODsend 360 v2.9.2 release](https://gitgud.io/ghosty99/godsend-360/-/
 | Platform | File |
 |---|---|
 | **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.9.2.exe`](https://gitgud.io/-/project/46780/uploads/0a412edfe2f295690886178d7fa65b0/godsend-Setup-2.9.2.exe) |
-| **macOS (Apple Silicon)** | [`godsend-mac` (Apple Silicon build inside bundle)](https://gitgud.io/-/project/46780/uploads/c5a02a5f9ad3c5ae8216452ad20941f7/godsend-mac) |
-| **macOS (Intel)** | [`godsend-mac` (Intel build inside bundle)](https://gitgud.io/-/project/46780/uploads/c5a02a5f9ad3c5ae8216452ad20941f7/godsend-mac) |
-| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gitgud.io/-/project/46780/uploads/05a7c699c101852f6482af9c4581f0b0/godsend-linux-x64) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gitgud.io/-/project/46780/uploads/ef695b9aeb116f7bab5a8b9f1c2d790d/godsend-linux-arm64) |
+| **macOS (Apple Silicon)** | [`godsend-2.9.2-arm64.dmg`](https://gitgud.io/-/project/46780/uploads/6ed6d5e0bba26e24a96ffe214803c29e/godsend-2.9.2-arm64.dmg) |
+| **macOS (Intel)** | [`godsend-2.9.2-x64.dmg`](https://gitgud.io/-/project/46780/uploads/b07644d814b08b0b1104d23589af1d11/godsend-2.9.2-x64.dmg) |
+| **Linux (x64 / amd64)** | [`godsend-2.9.2-x86_64.AppImage`](https://gitgud.io/-/project/46780/uploads/2b36772c90103946e5d580ea0b6a1538/godsend-2.9.2-x86_64.AppImage) |
+| **Linux (arm64)** | [`godsend-2.9.2-arm64.AppImage`](https://gitgud.io/-/project/46780/uploads/ba2fb7f2fc3edd794168b6dcf8362b30/godsend-2.9.2-arm64.AppImage) |
 
 > **Windows:** use **`godsend-Setup-2.9.2.exe`** for the desktop tray app. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.7.0.exe`** and follow the installer.
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.9.2.exe`** and follow the installer.
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher — the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
