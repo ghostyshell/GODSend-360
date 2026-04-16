@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, RefreshCw, Loader2, X, Upload, HardDrive } from "lucide-react";
+import { RefreshCw, Loader2, X, Upload, HardDrive } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 
@@ -115,11 +115,7 @@ function JobRow({ job, onRemove, removing }: JobRowProps) {
 
 // ── QueuePage ─────────────────────────────────────────────────────────────────
 
-interface QueuePageProps {
-  onBack: () => void;
-}
-
-export default function QueuePage({ onBack }: QueuePageProps) {
+export default function QueuePage() {
   const [jobs, setJobs]           = useState<UnifiedJob[]>([]);
   const [loading, setLoading]     = useState(true);
   const [removing, setRemoving]   = useState<Record<string, boolean>>({});
@@ -205,21 +201,17 @@ export default function QueuePage({ onBack }: QueuePageProps) {
   const ftpActiveCount = ftpJobs.filter(j => j.state === "Processing" || j.state === "Queued").length;
 
   return (
-    <div className="flex flex-col h-screen p-3 gap-2.5">
-      {/* Header */}
-      <header className="flex items-center gap-2.5 shrink-0 pb-3 border-b border-border">
-        <Button size="icon" title="Back" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-[15px] font-semibold text-foreground flex-1">
-          Job Queue
+    <div className="flex flex-col h-full p-3 gap-2.5">
+      {/* Header — refresh + summary */}
+      <header className="flex items-center gap-2.5 shrink-0">
+        <span className="text-[13px] text-muted-foreground flex-1">
           {!loading && jobs.length > 0 && (
-            <span className="ml-2 text-[12px] font-normal text-muted-foreground">
+            <>
               {jobs.length} job{jobs.length !== 1 ? "s" : ""}
               {activeCount > 0 ? `, ${activeCount} active` : ""}
               {pendingCount > 0 ? `, ${pendingCount} pending FTP` : ""}
               {ftpActiveCount > 0 ? `, ${ftpActiveCount} FTP transfer${ftpActiveCount !== 1 ? "s" : ""}` : ""}
-            </span>
+            </>
           )}
         </span>
         <Button size="icon" title="Refresh" onClick={fetchAll} disabled={loading}>

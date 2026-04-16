@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  ArrowLeft, FolderOpen, FileUp, Loader2, Check, AlertTriangle, X, Disc,
+  FolderOpen, FileUp, Loader2, Check, AlertTriangle, X, Disc,
 } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -54,10 +54,9 @@ function IsoRow({ file, onRemove }: IsoRowProps) {
 }
 
 interface ISO2GODPageProps {
-  onBack: () => void;
 }
 
-export default function ISO2GODPage({ onBack }: ISO2GODPageProps) {
+export default function ISO2GODPage({}: ISO2GODPageProps) {
   const [files, setFiles]     = useState<IsoFile[]>([]);
   const [outDir, setOutDir]   = useState("");
   const [busy, setBusy]       = useState(false);
@@ -125,16 +124,7 @@ export default function ISO2GODPage({ onBack }: ISO2GODPageProps) {
   const canConvert = outDir && pending.length > 0 && !busy;
 
   return (
-    <div className="flex flex-col h-screen p-3 gap-2.5">
-      <header className="flex items-center gap-2.5 shrink-0 pb-3 border-b border-border">
-        <Button size="icon" title="Back" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-[15px] font-semibold text-foreground flex-1">
-          ISO to GOD
-        </span>
-      </header>
-
+    <div className="flex flex-col h-full p-3 gap-2.5">
       {/* Controls */}
       <div className="flex items-center gap-2 shrink-0">
         <Button size="sm" onClick={handleSelectISOs} disabled={busy}>

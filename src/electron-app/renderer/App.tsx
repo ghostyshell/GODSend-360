@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import HomePage from "./components/HomePage";
 import SettingsPage from "./components/SettingsPage";
 import LibraryPage from "./components/LibraryPage";
@@ -8,10 +8,23 @@ import BrowsePage from "./components/BrowsePage";
 import ISO2GODPage from "./components/ISO2GODPage";
 import ISO2XEXPage from "./components/ISO2XEXPage";
 import FTPManagerPage from "./components/FTPManagerPage";
+import { Button } from "./components/ui/button";
+
+// Overlay titles for the header bar
+const OVERLAY_TITLES: Record<string, string> = {
+  settings:   "Settings",
+  queue:      "Job Queue",
+  browse:     "Browse & Download",
+  iso2god:    "ISO to GOD",
+  iso2xex:    "ISO to XEX",
+  ftpmanager: "FTP Manager",
+};
 
 export default function App() {
-  // "loading" during the initial ping; then "home" | "settings" | "library" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager"
+  // "loading" during the initial ping; then "home" | "library"
   const [page, setPage] = useState("loading");
+  // Overlay panel rendered on top of the current base page (null = none)
+  const [overlay, setOverlay] = useState<string | null>(null);
 
   // ── Console output ────────────────────────────────────────────────────────
   const [outputLines, setOutputLines] = useState<string[]>([]);
@@ -225,6 +238,9 @@ export default function App() {
     }
   }
 
+  const closeOverlay = useCallback(() => setOverlay(null), []);
+  const openOverlay  = useCallback((id: string) => setOverlay(id), []);
+
   // ── Routing ───────────────────────────────────────────────────────────────
   if (page === "loading") {
     return (
@@ -234,76 +250,97 @@ export default function App() {
     );
   }
 
-  if (page === "settings") {
-    return (
-      <SettingsPage
-        onBack={() => setPage("home")}
-        onAppendLine={appendLine}
-      />
+  // Determine which overlay content to render (if any)
+  let overlayContent: React.ReactNode = null;
+  if (overlay === "settings") {
+    overlayContent = (
+      <SettingsPage onAppendLine={appendLine} />
     );
+  } else if (overlay === "queue") {
+    overlayContent = <QueuePage />;
+  } else if (overlay === "browse") {
+    overlayContent = <BrowsePage />;
+  } else if (overlay === "iso2god") {
+    overlayContent = <ISO2GODPage />;
+  } else if (overlay === "iso2xex") {
+    overlayContent = <ISO2XEXPage />;
+  } else if (overlay === "ftpmanager") {
+    overlayContent = <FTPManagerPage />;
   }
 
-  if (page === "queue") {
-    return <QueuePage onBack={() => setPage("home")} />;
-  }
-
-  if (page === "browse") {
-    return <BrowsePage onBack={() => setPage("home")} />;
-  }
-
-  if (page === "iso2god") {
-    return <ISO2GODPage onBack={() => setPage("home")} />;
-  }
-
-  if (page === "iso2xex") {
-    return <ISO2XEXPage onBack={() => setPage("home")} />;
-  }
-
-  if (page === "ftpmanager") {
-    return <FTPManagerPage onBack={() => setPage("home")} />;
-  }
+  // Overlay shell — renders on top of whichever base page is active
+  const overlayShell = overlay && overlayContent ? (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      {/* Overlay header with title and close button */}
+      <header className="flex items-center gap-2.5 shrink-0 px-3 pt-3 pb-3 border-b border-border"
+        style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+      >
+        <span className="text-[15px] font-semibold text-foreground flex-1">
+          {OVERLAY_TITLES[overlay] || overlay}
+        </span>
+        <Button
+          size="icon"
+          title="Close"
+          onClick={closeOverlay}
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </header>
+      {/* Overlay body */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        {overlayContent}
+      </div>
+    </div>
+  ) : null;
 
   if (page === "library") {
     return (
-      <LibraryPage
-        status={libraryStatus}
-        games={libraryGames}
-        covers={covers}
-        titleVisuals={titleVisuals}
-        connectedTo={libraryConnectedTo}
-        onToggle={handleLibraryToggle}
-        onRefresh={handleLibraryRefresh}
-        refreshBusy={libraryRefreshing}
-        ftpStatus={ftpStatus}
-        libraryLoading={libraryLoading}
-        queueJobs={queueJobs}
-        onReconnect={pingFtp}
-        onNavigateQueue={() => setPage("queue")}
-        onNavigateBrowse={() => setPage("browse")}
-        onNavigateSettings={() => setPage("settings")}
-        onNavigateIso2God={() => setPage("iso2god")}
-        onNavigateIso2Xex={() => setPage("iso2xex")}
-        onNavigateFtpManager={() => setPage("ftpmanager")}
-      />
+      <>
+        <LibraryPage
+          status={libraryStatus}
+          games={libraryGames}
+          covers={covers}
+          titleVisuals={titleVisuals}
+          connectedTo={libraryConnectedTo}
+          onToggle={handleLibraryToggle}
+          onRefresh={handleLibraryRefresh}
+          refreshBusy={libraryRefreshing}
+          ftpStatus={ftpStatus}
+          libraryLoading={libraryLoading}
+          queueJobs={queueJobs}
+          onReconnect={pingFtp}
+          onNavigateQueue={() => openOverlay("queue")}
+          onNavigateBrowse={() => openOverlay("browse")}
+          onNavigateSettings={() => openOverlay("settings")}
+          onNavigateIso2God={() => openOverlay("iso2god")}
+          onNavigateIso2Xex={() => openOverlay("iso2xex")}
+          onNavigateFtpManager={() => openOverlay("ftpmanager")}
+        />
+        {overlayShell}
+      </>
     );
   }
 
   return (
-    <HomePage
-      outputLines={outputLines}
-      logInfo={logInfo}
-      ftpStatus={ftpStatus}
-      onNavigateSettings={() => setPage("settings")}
-      onNavigateQueue={() => setPage("queue")}
-      onNavigateBrowse={() => setPage("browse")}
-      onNavigateIso2God={() => setPage("iso2god")}
-      onNavigateIso2Xex={() => setPage("iso2xex")}
-      onNavigateFtpManager={() => setPage("ftpmanager")}
-      onLibraryToggle={handleLibraryToggle}
-      onReconnect={pingFtp}
-      libraryLoading={libraryLoading}
-      onAppendLine={appendLine}
-      queueJobs={queueJobs}
-    />
+    <>
+      <HomePage
+        outputLines={outputLines}
+        logInfo={logInfo}
+        ftpStatus={ftpStatus}
+        onNavigateSettings={() => openOverlay("settings")}
+        onNavigateQueue={() => openOverlay("queue")}
+        onNavigateBrowse={() => openOverlay("browse")}
+        onNavigateIso2God={() => openOverlay("iso2god")}
+        onNavigateIso2Xex={() => openOverlay("iso2xex")}
+        onNavigateFtpManager={() => openOverlay("ftpmanager")}
+        onLibraryToggle={handleLibraryToggle}
+        onReconnect={pingFtp}
+        libraryLoading={libraryLoading}
+        onAppendLine={appendLine}
+        queueJobs={queueJobs}
+      />
+      {overlayShell}
+    </>
   );
 }

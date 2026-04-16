@@ -1,6 +1,6 @@
 scriptTitle       = "GODsend 360"
 scriptAuthor      = "Nesquin/david12549 & ghosty99"
-scriptVersion     = "2.8.5"
+scriptVersion     = "2.9.0"
 scriptDescription = "Browse and install Xbox 360, Original, Digital (XBLA/DLC), and Retro ROMs via Minerva Archive, Internet Archive, or EdgeEmu!"
 scriptIcon        = "icon\\icon.xur"
 scriptPermissions = { "http", "filesystem" }

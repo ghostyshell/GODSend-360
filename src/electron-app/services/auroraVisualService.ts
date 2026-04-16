@@ -1,6 +1,7 @@
 import path from "path";
 import fs from "fs";
 import http from "http";
+import crypto from "crypto";
 
 import { imageExtFromMagic, fetchHttpImage } from "../infrastructure/httpHelper";
 import { gameCacheDir } from "../infrastructure/auroraLibraryCache";
@@ -22,10 +23,10 @@ function safeVisualLocalName(name: string): string {
 
 export function classifyFlatMediaSuffix(titleId: string, filename: string): string {
   const base = path.basename(filename);
-  const tid  = titleId.toUpperCase();
-  const nu   = base.toUpperCase();
+  const tid = titleId.toUpperCase();
+  const nu = base.toUpperCase();
   if (!nu.startsWith(tid)) return "other";
-  const dot  = nu.lastIndexOf(".");
+  const dot = nu.lastIndexOf(".");
   const stem = dot >= tid.length ? nu.slice(tid.length, dot) : nu.slice(tid.length);
   if (!stem) return "other";
   if (stem === "GC") return "cover";
@@ -39,7 +40,7 @@ export function classifyFlatMediaSuffix(titleId: string, filename: string): stri
 export function classifyAuroraFileKind(name: string): string {
   const lower = String(name || "").toLowerCase();
   if (lower.endsWith(".asset")) return "asset";
-  if (lower.endsWith(".bin"))   return "bin";
+  if (lower.endsWith(".bin")) return "bin";
   if (/\.(jpg|jpeg|png|gif|bmp|dds)$/i.test(lower)) return "image";
   return "other";
 }
@@ -52,20 +53,22 @@ export function parseGameAssetInfoXml(xmlText: string): {
   background: string | null; banner: string | null; icon: string | null;
   cover: string | null; screenshots: string[];
 } {
-  const result = { background: null as string | null, banner: null as string | null,
-    icon: null as string | null, cover: null as string | null, screenshots: [] as string[] };
+  const result = {
+    background: null as string | null, banner: null as string | null,
+    icon: null as string | null, cover: null as string | null, screenshots: [] as string[]
+  };
   if (!xmlText || typeof xmlText !== "string") return result;
 
   for (const [, block] of xmlText.matchAll(/<live:asset[^>]*>([\s\S]*?)<\/live:asset>/gi)) {
-    const urlM  = (block as string).match(/<live:fileUrl[^>]*>\s*(https?:\/\/[^\s<]+)\s*<\/live:fileUrl>/i);
+    const urlM = (block as string).match(/<live:fileUrl[^>]*>\s*(https?:\/\/[^\s<]+)\s*<\/live:fileUrl>/i);
     const typeM = (block as string).match(/<live:relationshipType[^>]*>\s*(\d+)\s*<\/live:relationshipType>/i);
     if (!urlM || !typeM) continue;
-    const url  = urlM[1].trim();
+    const url = urlM[1].trim();
     const type = parseInt(typeM[1], 10);
-    if      (type === 25 && !result.background) result.background = url;
-    else if (type === 27 && !result.banner)     result.banner     = url;
-    else if (type === 23 && !result.icon)       result.icon       = url;
-    else if (type === 33 && !result.cover)      result.cover      = url;
+    if (type === 25 && !result.background) result.background = url;
+    else if (type === 27 && !result.banner) result.banner = url;
+    else if (type === 23 && !result.icon) result.icon = url;
+    else if (type === 33 && !result.cover) result.cover = url;
   }
 
   for (const [, block] of xmlText.matchAll(/<live:slideShow[^>]*>([\s\S]*?)<\/live:slideShow>/gi)) {
@@ -88,12 +91,12 @@ export function summarizeGameCoverInfoJson(text: string | null): {
   }
   if (!Array.isArray(arr)) return { entryCount: 0, preview: [] };
   const preview = arr.slice(0, 12).map((e, i) => ({
-    index:        i,
-    official:     !!e?.official,
-    rating:       e?.rating != null ? Number(e.rating) : null,
-    hasFront:     !!(e?.front     && String(e.front).trim()),
+    index: i,
+    official: !!e?.official,
+    rating: e?.rating != null ? Number(e.rating) : null,
+    hasFront: !!(e?.front && String(e.front).trim()),
     hasThumbnail: !!(e?.thumbnail && String(e.thumbnail).trim()),
-    hasUrl:       !!(e?.url       && String(e.url).trim()),
+    hasUrl: !!(e?.url && String(e.url).trim()),
   }));
   return { entryCount: arr.length, preview };
 }
@@ -122,19 +125,19 @@ export function emitAuroraTitleVisualEvents(titleId: string, gameDataDir: string
     gameDataDir,
     visuals: {
       coverIsBooklet: Boolean(m.importCover && m.importCover.rel),
-      cover:          toAsset(m.importCover || m.mediaCover),
-      background:     toAsset(m.background),
-      banner:         toAsset(m.banner),
-      icon:           toAsset(m.icon),
+      cover: toAsset(m.importCover || m.mediaCover),
+      background: toAsset(m.background),
+      banner: toAsset(m.banner),
+      icon: toAsset(m.icon),
       screenshots: Array.isArray(m.screenshots)
         ? m.screenshots
-            .map((s: any) => ({ src: s.rel ? auroraCdnUrl(s.rel) : "", ext: s.ext || "", name: s.name || "" }))
-            .filter((s: any) => s.src)
+          .map((s: any) => ({ src: s.rel ? auroraCdnUrl(s.rel) : "", ext: s.ext || "", name: s.name || "" }))
+          .filter((s: any) => s.src)
         : [],
       other: Array.isArray(m.other)
         ? m.other
-            .map((o: any) => ({ src: o.rel ? auroraCdnUrl(o.rel) : "", ext: o.ext || "", name: o.name || "" }))
-            .filter((o: any) => o.src)
+          .map((o: any) => ({ src: o.rel ? auroraCdnUrl(o.rel) : "", ext: o.ext || "", name: o.name || "" }))
+          .filter((o: any) => o.src)
         : [],
     },
   });
@@ -143,8 +146,8 @@ export function emitAuroraTitleVisualEvents(titleId: string, gameDataDir: string
 export function emitAuroraCoverEvents(titleId: string, gameDataDir: string, cacheRoot: string): void {
   const wc = getWebContentsForPush();
   if (!wc) return;
-  const gdir     = gameCacheDir(cacheRoot, gameDataDir);
-  const metaP    = path.join(gdir, "cover-files.json");
+  const gdir = gameCacheDir(cacheRoot, gameDataDir);
+  const metaP = path.join(gdir, "cover-files.json");
   let primarySrc: string | null = null;
   if (fs.existsSync(metaP)) {
     try {
@@ -192,12 +195,12 @@ async function decodeRxeaBuffer(
   const decoded: any = await new Promise((res) => {
     const req = http.request(
       {
-        host:    "127.0.0.1",
-        port:    goPort,
-        path:    "/rxea/decode",
-        method:  "POST",
+        host: "127.0.0.1",
+        port: goPort,
+        path: "/rxea/decode",
+        method: "POST",
         headers: {
-          "Content-Type":   "application/octet-stream",
+          "Content-Type": "application/octet-stream",
           "Content-Length": assetBuf.length,
         },
       },
@@ -254,6 +257,39 @@ function importListingFingerprint(entries: any[]): string {
     .join(",");
 }
 
+// ── Content hashing helpers ──────────────────────────────────────────────────
+
+function sha256(buf: Buffer): string {
+  return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
+function sha256File(filePath: string): string | null {
+  try {
+    return sha256(fs.readFileSync(filePath));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verify local cache integrity against stored content hashes.
+ * Returns true if every file in `contentHashes` exists locally with the
+ * expected SHA-256 digest.
+ */
+function verifyCacheIntegrity(
+  vdir: string,
+  contentHashes: Record<string, string> | undefined
+): boolean {
+  if (!contentHashes || typeof contentHashes !== "object") return false;
+  for (const [localName, expectedHash] of Object.entries(contentHashes)) {
+    if (!expectedHash) continue;  // file was absent at sync time
+    const localPath = path.join(vdir, localName);
+    const actualHash = sha256File(localPath);
+    if (actualHash !== expectedHash) return false;
+  }
+  return true;
+}
+
 // ── Main sync functions ────────────────────────────────────────────────────────
 
 /**
@@ -269,9 +305,9 @@ export async function syncAuroraTitleVisualAssets(
   cacheRoot: string,
   force: boolean
 ): Promise<void> {
-  const gdir         = gameCacheDir(cacheRoot, gameDataDir);
-  const vdir         = path.join(gdir, "visual");
-  const importBase   = `${auroraRoot}/User/Import/${titleId}`;
+  const gdir = gameCacheDir(cacheRoot, gameDataDir);
+  const vdir = path.join(gdir, "visual");
+  const importBase = `${auroraRoot}/User/Import/${titleId}`;
   const gameDataPath = `${auroraRoot}/Data/GameData/${gameDataDir}`;
   fs.mkdirSync(vdir, { recursive: true });
 
@@ -299,19 +335,27 @@ export async function syncAuroraTitleVisualAssets(
 
   // ── Phase 2: Early exit if all source fingerprints match the cached manifest ─
   const manifestPath = path.join(gdir, "visual-manifest.json");
-  if (!force && fs.existsSync(manifestPath)) {
+  if (fs.existsSync(manifestPath)) {
     try {
-      const prev     = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      const prev = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
       const cachedFp = prev?._sourceFingerprints;
       if (cachedFp && typeof cachedFp === "object") {
-        const allKeys  = [...fpAssetKeys, "_importListing"];
+        const allKeys = [...fpAssetKeys, "_importListing"];
         const allMatch = allKeys.every((k) => {
-          const cached  = cachedFp[k];
+          const cached = cachedFp[k];
           const current = newFp[k];
           if (cached === undefined || cached === null) return current === -1 || current === "";
           return cached === current;
         });
-        if (allMatch) return;  // unchanged — existing manifest is still valid
+        if (allMatch) {
+          if (!force) return;  // unchanged — existing manifest is still valid
+          // force mode: fingerprints match, verify local cache integrity via content hashes
+          if (verifyCacheIntegrity(vdir, prev?._contentHashes)) {
+            addOutputLine(`[INFO] Visual sync ${titleId}: force refresh — fingerprints + hashes match, skipping.`);
+            return;
+          }
+          addOutputLine(`[INFO] Visual sync ${titleId}: force refresh — hash mismatch, re-syncing.`);
+        }
       }
     } catch { /* corrupt manifest — proceed with full sync */ }
   }
@@ -323,17 +367,17 @@ export async function syncAuroraTitleVisualAssets(
   const importByStem = new Map<string, { name: string; extWithDot: string }>();
   for (const e of importEntries) {
     if (!e || !e.name || e.type === "dir") continue;
-    const dot  = e.name.lastIndexOf(".");
+    const dot = e.name.lastIndexOf(".");
     const stem = (dot >= 0 ? e.name.slice(0, dot) : e.name).toLowerCase();
-    const ext  = dot >= 0 ? e.name.slice(dot).toLowerCase() : "";
+    const ext = dot >= 0 ? e.name.slice(dot).toLowerCase() : "";
     if (!importByStem.has(stem)) importByStem.set(stem, { name: e.name, extWithDot: ext });
   }
 
   // Queue import-file downloads
   const importSlotStems: { slotKey: string; stems: string[] }[] = [
-    { slotKey: "background",  stems: ["background", "boxartback"] },
-    { slotKey: "banner",      stems: ["banner"] },
-    { slotKey: "icon",        stems: ["icon"] },
+    { slotKey: "background", stems: ["background", "boxartback"] },
+    { slotKey: "banner", stems: ["banner"] },
+    { slotKey: "icon", stems: ["icon"] },
     { slotKey: "importCover", stems: ["cover", "boxartfront"] },
   ];
   const importDownloads: { slotKey: string; localName: string; idx: number; entryName: string }[] = [];
@@ -410,10 +454,11 @@ export async function syncAuroraTitleVisualAssets(
   }
 
   // ── Phase 4: Process downloaded data ─────────────────────────────────────────
+  const contentHashes: Record<string, string> = {};
   const m: Record<string, any> = {
     importCover: null, mediaCover: null,
-    background:  null, banner:     null,
-    icon:        null, screenshots: [], other: [],
+    background: null, banner: null,
+    icon: null, screenshots: [], other: [],
   };
   const screenshotSort: { sortKey: string; rel: string; ext: string; name: string }[] = [];
 
@@ -428,32 +473,40 @@ export async function syncAuroraTitleVisualAssets(
   for (const dl of importDownloads) {
     const lp = path.join(vdir, dl.localName);
     if (dl.idx < 0) {
-      if (fs.existsSync(lp)) m[dl.slotKey] = assetFor(dl.localName);
+      if (fs.existsSync(lp)) {
+        m[dl.slotKey] = assetFor(dl.localName);
+        contentHashes[dl.localName] = sha256File(lp) || "";
+      }
       continue;
     }
     const buf = bufFromBatchResult(dlResults, dl.idx);
     if (!buf || buf.length < 16) continue;
     fs.writeFileSync(lp, buf);
     m[dl.slotKey] = assetFor(dl.localName);
+    contentHashes[dl.localName] = sha256(buf);
   }
 
   // Process import-screenshot downloads
   for (const dl of importScreenshots) {
-    const lp   = path.join(vdir, dl.localName);
+    const lp = path.join(vdir, dl.localName);
     const info = {
       sortKey: dl.sortKey,
-      rel:     assetFor(dl.localName).rel,
-      ext:     assetFor(dl.localName).ext,
-      name:    dl.entryName,
+      rel: assetFor(dl.localName).rel,
+      ext: assetFor(dl.localName).ext,
+      name: dl.entryName,
     };
     if (dl.idx < 0) {
-      if (fs.existsSync(lp)) screenshotSort.push(info);
+      if (fs.existsSync(lp)) {
+        screenshotSort.push(info);
+        contentHashes[dl.localName] = sha256File(lp) || "";
+      }
       continue;
     }
     const buf = bufFromBatchResult(dlResults, dl.idx);
     if (!buf || buf.length < 16) continue;
     fs.writeFileSync(lp, buf);
     screenshotSort.push(info);
+    contentHashes[dl.localName] = sha256(buf);
   }
 
   // RXEA decode helper
@@ -461,9 +514,14 @@ export async function syncAuroraTitleVisualAssets(
     if (m[slotKey]) return;
     const localName = `rxea-${localBase}.png`;
     const lp = path.join(vdir, localName);
-    if (!force && fs.existsSync(lp)) { m[slotKey] = assetFor(localName); return; }
+    if (!force && fs.existsSync(lp)) {
+      m[slotKey] = assetFor(localName);
+      contentHashes[localName] = sha256File(lp) || "";
+      return;
+    }
     fs.writeFileSync(lp, pngBuf);
     m[slotKey] = assetFor(localName);
+    contentHashes[localName] = sha256(pngBuf);
   }
 
   // BK asset → background
@@ -487,7 +545,7 @@ export async function syncAuroraTitleVisualAssets(
     const buf = bufFromBatchResult(dlResults, rxeaDownloads[2].idx);
     if (buf && buf.length >= 2048) {
       const decoded = await decodeRxeaBuffer(buf, titleId, rxeaDownloads[2].name);
-      if (decoded[0]) await cacheDecodedSlot("icon",   decoded[0], "gl-icon");
+      if (decoded[0]) await cacheDecodedSlot("icon", decoded[0], "gl-icon");
       if (decoded[1]) await cacheDecodedSlot("banner", decoded[1], "gl-banner");
     }
   }
@@ -502,10 +560,12 @@ export async function syncAuroraTitleVisualAssets(
         const lp = path.join(vdir, localName);
         if (!force && fs.existsSync(lp)) {
           screenshotSort.push({ sortKey: `${String(si - 4).padStart(3, "0")}-rxea`, rel: assetFor(localName).rel, ext: ".png", name: localName });
+          contentHashes[localName] = sha256File(lp) || "";
           continue;
         }
         fs.writeFileSync(lp, decoded[si]);
         screenshotSort.push({ sortKey: `${String(si - 4).padStart(3, "0")}-rxea`, rel: assetFor(localName).rel, ext: ".png", name: localName });
+        contentHashes[localName] = sha256(decoded[si]);
       }
     }
   }
@@ -521,43 +581,53 @@ export async function syncAuroraTitleVisualAssets(
 
   async function pullCdnImage(slotKey: string, url: string | null, localBase: string): Promise<void> {
     if (m[slotKey] || !url) return;
-    const rawExt    = path.extname(url).toLowerCase();
-    const safeExt   = [".jpg", ".jpeg", ".png", ".gif"].includes(rawExt) ? rawExt : ".jpg";
+    const rawExt = path.extname(url).toLowerCase();
+    const safeExt = [".jpg", ".jpeg", ".png", ".gif"].includes(rawExt) ? rawExt : ".jpg";
     const localName = `cdnasset-${localBase}${safeExt}`;
-    const lp        = path.join(vdir, localName);
-    if (!force && fs.existsSync(lp)) { m[slotKey] = assetFor(localName); return; }
+    const lp = path.join(vdir, localName);
+    if (!force && fs.existsSync(lp)) {
+      m[slotKey] = assetFor(localName);
+      contentHashes[localName] = sha256File(lp) || "";
+      return;
+    }
     const buf = await fetchHttpImage(url);
     if (!buf || buf.length < 100) return;
-    const realExt   = imageExtFromMagic(buf);
+    const realExt = imageExtFromMagic(buf);
     const finalName = `cdnasset-${localBase}${realExt}`;
     fs.writeFileSync(path.join(vdir, finalName), buf);
     m[slotKey] = assetFor(finalName);
+    contentHashes[finalName] = sha256(buf);
   }
 
-  await pullCdnImage("background",  assetInfo.background, "background");
-  await pullCdnImage("banner",      assetInfo.banner,     "banner");
-  await pullCdnImage("icon",        assetInfo.icon,       "icon");
-  await pullCdnImage("importCover", assetInfo.cover,      "cover");
+  await pullCdnImage("background", assetInfo.background, "background");
+  await pullCdnImage("banner", assetInfo.banner, "banner");
+  await pullCdnImage("icon", assetInfo.icon, "icon");
+  await pullCdnImage("importCover", assetInfo.cover, "cover");
 
   if (screenshotSort.length === 0) {
     for (let i = 0; i < assetInfo.screenshots.length; i++) {
       const url = assetInfo.screenshots[i];
       if (!url) continue;
-      const rawExt    = path.extname(url).toLowerCase();
-      const safeExt   = [".jpg", ".jpeg", ".png", ".gif"].includes(rawExt) ? rawExt : ".jpg";
+      const rawExt = path.extname(url).toLowerCase();
+      const safeExt = [".jpg", ".jpeg", ".png", ".gif"].includes(rawExt) ? rawExt : ".jpg";
       const localName = `cdnasset-screenshot${i + 1}${safeExt}`;
-      const lp        = path.join(vdir, localName);
+      const lp = path.join(vdir, localName);
       const info = {
         sortKey: `${String(i + 1).padStart(3, "0")}-cdn`,
         rel: assetFor(localName).rel, ext: safeExt, name: `Screenshot${i + 1}${safeExt}`,
       };
-      if (!force && fs.existsSync(lp)) { screenshotSort.push(info); continue; }
+      if (!force && fs.existsSync(lp)) {
+        screenshotSort.push(info);
+        contentHashes[localName] = sha256File(lp) || "";
+        continue;
+      }
       const buf = await fetchHttpImage(url);
       if (!buf || buf.length < 100) continue;
-      const realExt   = imageExtFromMagic(buf);
+      const realExt = imageExtFromMagic(buf);
       const finalName = `cdnasset-screenshot${i + 1}${realExt}`;
       fs.writeFileSync(path.join(vdir, finalName), buf);
       screenshotSort.push({ ...info, rel: assetFor(finalName).rel, ext: realExt });
+      contentHashes[finalName] = sha256(buf);
     }
   }
 
@@ -576,17 +646,22 @@ export async function syncAuroraTitleVisualAssets(
           for (const row of sorted) {
             const url = (row.front || row.thumbnail || row.url || "").trim();
             if (!url) continue;
-            const rawExt    = path.extname(url).toLowerCase();
-            const safeExt   = [".jpg", ".jpeg", ".png", ".gif"].includes(rawExt) ? rawExt : ".jpg";
+            const rawExt = path.extname(url).toLowerCase();
+            const safeExt = [".jpg", ".jpeg", ".png", ".gif"].includes(rawExt) ? rawExt : ".jpg";
             const localName = `cdnasset-xboxunity-cover${safeExt}`;
-            const lp        = path.join(vdir, localName);
-            if (!force && fs.existsSync(lp)) { m.mediaCover = assetFor(localName); break; }
+            const lp = path.join(vdir, localName);
+            if (!force && fs.existsSync(lp)) {
+              m.mediaCover = assetFor(localName);
+              contentHashes[localName] = sha256File(lp) || "";
+              break;
+            }
             const imgBuf = await fetchHttpImage(url);
             if (!imgBuf || imgBuf.length < 100) continue;
-            const realExt   = imageExtFromMagic(imgBuf);
+            const realExt = imageExtFromMagic(imgBuf);
             const finalName = `cdnasset-xboxunity-cover${realExt}`;
             fs.writeFileSync(path.join(vdir, finalName), imgBuf);
             m.mediaCover = assetFor(finalName);
+            contentHashes[finalName] = sha256(imgBuf);
             break;
           }
         }
@@ -598,6 +673,7 @@ export async function syncAuroraTitleVisualAssets(
   m.screenshots = screenshotSort.map((s) => ({ rel: s.rel, ext: s.ext, name: s.name }));
 
   m._sourceFingerprints = newFp;
+  m._contentHashes = contentHashes;
   fs.writeFileSync(manifestPath, JSON.stringify(m, null, 2), "utf8");
 }
 
@@ -616,7 +692,7 @@ export async function syncAuroraGameCoverAssets(
   cacheRoot: string,
   force: boolean
 ): Promise<void> {
-  const gdir      = gameCacheDir(cacheRoot, gameDataDir);
+  const gdir = gameCacheDir(cacheRoot, gameDataDir);
   fs.mkdirSync(gdir, { recursive: true });
 
   const remoteBin = `${auroraRoot}/Data/GameData/${gameDataDir}/GameCoverInfo.bin`;
@@ -627,10 +703,39 @@ export async function syncAuroraGameCoverAssets(
   if (sizeResults[0] && sizeResults[0].ok) remoteSz = Number(sizeResults[0].data);
 
   const binPath = path.join(gdir, "GameCoverInfo.bin");
-  let needBin   = force;
-  if (remoteSz >= 0) {
-    if (!fs.existsSync(binPath))                       needBin = true;
-    else if (fs.statSync(binPath).size !== remoteSz)   needBin = true;
+  let needBin = false;
+  if (force) {
+    // force mode: check remote size + local file hash to determine if re-download needed
+    if (remoteSz >= 0 && fs.existsSync(binPath) && fs.statSync(binPath).size === remoteSz) {
+      // Size matches — check stored hash against local file
+      let prevMeta: any = {};
+      try { prevMeta = JSON.parse(fs.readFileSync(path.join(gdir, "cover-files.json"), "utf8")); } catch { /* none */ }
+      const storedBinHash = prevMeta._binHash;
+      const localBinHash = sha256File(binPath);
+      if (storedBinHash && localBinHash === storedBinHash) {
+        // GameCoverInfo.bin unchanged — check if cover image is also intact
+        if (
+          prevMeta.primaryFile &&
+          fs.existsSync(path.join(gdir, prevMeta.primaryFile)) &&
+          prevMeta._coverHash
+        ) {
+          const localCoverHash = sha256File(path.join(gdir, prevMeta.primaryFile));
+          if (localCoverHash === prevMeta._coverHash) {
+            addOutputLine(`[INFO] Cover sync ${titleId}: force refresh — hashes match, skipping.`);
+            emitAuroraCoverEvents(titleId, gameDataDir, cacheRoot);
+            return;
+          }
+        }
+      }
+      needBin = true;  // hash mismatch or missing — re-download
+    } else {
+      needBin = remoteSz >= 0;  // size differs or file missing
+    }
+  } else {
+    if (remoteSz >= 0) {
+      if (!fs.existsSync(binPath)) needBin = true;
+      else if (fs.statSync(binPath).size !== remoteSz) needBin = true;
+    }
   }
 
   if (needBin && remoteSz >= 0) {
@@ -648,22 +753,25 @@ export async function syncAuroraGameCoverAssets(
   }
 
   // Media fallback: try downloading cover from Aurora Media directory (all extensions in one batch)
+  const binHash = fs.existsSync(binPath) ? sha256File(binPath) : null;
   const tryMediaFallback = async (): Promise<boolean> => {
-    const exts      = ["jpg", "jpeg", "png", "dds"];
-    const mediaOps  = exts.map((x) => ({ op: "download_base64", path: `${mediaDir}/${titleId}GC.${x}` }));
-    const mediaRes  = await batchFtp(xboxIp, mediaOps);
+    const exts = ["jpg", "jpeg", "png", "dds"];
+    const mediaOps = exts.map((x) => ({ op: "download_base64", path: `${mediaDir}/${titleId}GC.${x}` }));
+    const mediaRes = await batchFtp(xboxIp, mediaOps);
     for (let i = 0; i < mediaRes.length; i++) {
       const buf = bufFromBatchResult(mediaRes, i);
       if (!buf || buf.length < 100) continue;
-      const ext         = imageExtFromMagic(buf);
+      const ext = imageExtFromMagic(buf);
       const primaryName = `cover-primary${ext}`;
       fs.writeFileSync(path.join(gdir, primaryName), buf);
       fs.writeFileSync(
         path.join(gdir, "cover-files.json"),
         JSON.stringify({
           primaryFile: primaryName,
-          bestUrl:     `aurora:MediaGC.${exts[i]}`,
+          bestUrl: `aurora:MediaGC.${exts[i]}`,
           gameCoverInfoEntryCount: entries.length,
+          _binHash: binHash,
+          _coverHash: sha256(buf),
         }, null, 2),
         "utf8"
       );
@@ -710,7 +818,7 @@ export async function syncAuroraGameCoverAssets(
     return;
   }
 
-  const ext         = imageExtFromMagic(buf);
+  const ext = imageExtFromMagic(buf);
   const primaryName = `cover-primary${ext}`;
   fs.writeFileSync(path.join(gdir, primaryName), buf);
   fs.writeFileSync(
@@ -719,6 +827,8 @@ export async function syncAuroraGameCoverAssets(
       primaryFile: primaryName,
       bestUrl,
       gameCoverInfoEntryCount: entries.length,
+      _binHash: binHash,
+      _coverHash: sha256(buf),
     }, null, 2),
     "utf8"
   );

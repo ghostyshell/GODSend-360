@@ -9,6 +9,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-04-16
+
+### Changed
+- **Overlay navigation** — Settings, Job Queue, Browse & Download, ISO to GOD, ISO to XEX, and FTP Manager now open as overlay panels on top of the current page instead of navigating away. Close with the X button; no back-navigation required.
+- **Aurora asset sync: content-hash-based change detection** — full library refresh (`force=true`) now uses SHA-256 content hashes alongside existing size-based fingerprints. On subsequent refreshes, games whose remote file sizes and content hashes are all unchanged are skipped entirely (no FTP downloads, no RXEA decodes, no CDN fetches). Per-file granularity: individual RXEA assets, import images, GameAssetInfo.bin, GameCoverInfo.bin, and CDN/XboxUnity cover images are each hash-checked and skipped independently when unchanged. Cover sync also stores `_binHash` and `_coverHash` to avoid re-downloading GameCoverInfo.bin and cover art. First force refresh after upgrade will be normal speed (populates hashes); subsequent force refreshes of an unchanged library will be near-instant.
+- **Version** — **2.9.0** (root + Electron `package.json`, lockfile roots, backend banner, Aurora script `scriptVersion`).
+
+### Fixed
+- **Title lookup truncation** — when XboxUnity or the embedded iso2god-rs title list returns a name ending with "..." (e.g. "Cloudy with a..."), the lookup now tries XboxDB and subsequent sources for the full title before falling back to the truncated version. This fixes truncated names in ISO to GOD conversion output folders and display names.
+
 ## [2.8.5] — 2026-04-16
 
 ### Changed

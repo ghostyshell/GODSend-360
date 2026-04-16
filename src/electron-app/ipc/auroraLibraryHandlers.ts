@@ -198,9 +198,10 @@ export function register(ipcMain: IpcMain): void {
     let lastProcessed = -1;
     try {
       addOutputLine(
-        `[INFO] Aurora covers + artwork: FTP sync starting for ${gameList.length} title(s)…`
+        `[INFO] Aurora covers + artwork: FTP sync starting for ${gameList.length} title(s)${force ? " (force refresh with hash verification)" : ""}…`
       );
 
+      const syncStartTime = Date.now();
       const progressEvery = 25;
       for (let gi = 0; gi < gameList.length; gi += 1) {
         const { titleId, gameDataDir } = gameList[gi];
@@ -224,7 +225,8 @@ export function register(ipcMain: IpcMain): void {
         }
       }
 
-      addOutputLine(`[INFO] Aurora covers + artwork: finished ${gameList.length} title(s).`);
+      const elapsed = ((Date.now() - syncStartTime) / 1000).toFixed(1);
+      addOutputLine(`[INFO] Aurora covers + artwork: finished ${gameList.length} title(s) in ${elapsed}s.`);
       return { ok: true };
     } catch (err: any) {
       const msg = err.message || String(err);

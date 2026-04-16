@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Folder, File, Upload, Trash2, Loader2, RefreshCw,
+  Folder, File, Upload, Trash2, Loader2, RefreshCw,
   FolderPlus, ChevronRight, HardDrive, X, Check, AlertTriangle,
   Scissors, Copy, ClipboardPaste, Clipboard, ChevronDown,
 } from "lucide-react";
@@ -97,10 +97,9 @@ function UploadJobRow({ job, onRemove }: UploadJobRowProps) {
 }
 
 interface FTPManagerPageProps {
-  onBack: () => void;
 }
 
-export default function FTPManagerPage({ onBack }: FTPManagerPageProps) {
+export default function FTPManagerPage({}: FTPManagerPageProps) {
   const [cwd, setCwd]             = useState("/");
   const [entries, setEntries]     = useState<FtpEntry[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -327,14 +326,8 @@ export default function FTPManagerPage({ onBack }: FTPManagerPageProps) {
   const activeUploads = uploads.filter(j => j.state === "Processing" || j.state === "Queued");
 
   return (
-    <div className="flex flex-col h-screen p-3 gap-2.5">
-      <header className="flex items-center gap-2.5 shrink-0 pb-3 border-b border-border">
-        <Button size="icon" title="Back" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-[15px] font-semibold text-foreground">
-          FTP Manager
-        </span>
+    <div className="flex flex-col h-full p-3 gap-2.5">
+      <header className="flex items-center gap-2.5 shrink-0">
         {activeUploads.length > 0 && (
           <span className="text-[11px] text-blue-400">
             {activeUploads.length} transfer{activeUploads.length !== 1 ? "s" : ""} active

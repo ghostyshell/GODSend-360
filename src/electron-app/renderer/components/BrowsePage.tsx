@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  ArrowLeft, Search, Loader2, WifiOff, Gamepad2, Download,
+  Search, Loader2, WifiOff, Gamepad2, Download,
   RefreshCw, ChevronDown, X,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -289,10 +289,9 @@ function QueueDialog({
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface BrowsePageProps {
-  onBack: () => void;
 }
 
-export default function BrowsePage({ onBack }: BrowsePageProps) {
+export default function BrowsePage({}: BrowsePageProps) {
   const [source,   setSource]   = useState("minerva");
   const [platform, setPlatform] = useState("xbox360");
   const [status,   setStatus]   = useState("idle");  // idle|loading|cache-building|ready|empty|error
@@ -363,19 +362,12 @@ export default function BrowsePage({ onBack }: BrowsePageProps) {
     : games;
 
   return (
-    <div className="relative flex flex-col h-screen p-3 gap-2 overflow-hidden">
+    <div className="relative flex flex-col h-full p-3 gap-2 overflow-hidden">
 
       {/* ── Header ── */}
-      <header className="flex items-center gap-2 shrink-0 pb-2.5 border-b border-border">
-        <Button size="icon" onClick={onBack} title="Back">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-[15px] font-semibold text-foreground">
-          Browse Library
-        </span>
-
+      <header className="flex items-center gap-2 shrink-0">
         {/* Source pills */}
-        <div className="flex gap-1 ml-auto">
+        <div className="flex gap-1">
           {SOURCES.map((s) => (
             <PillBtn
               key={s.id}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
@@ -40,11 +40,10 @@ function Status({ children, className }: { children?: React.ReactNode; className
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface SettingsPageProps {
-  onBack: () => void;
   onAppendLine: (line: string) => void;
 }
 
-export default function SettingsPage({ onBack, onAppendLine }: SettingsPageProps) {
+export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   // Form state
   const [startup, setStartup]                   = useState(false);
   const [serverPort, setServerPort]             = useState("8080");
@@ -412,15 +411,7 @@ export default function SettingsPage({ onBack, onAppendLine }: SettingsPageProps
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-screen p-3 gap-2.5">
-
-      {/* Header */}
-      <header className="flex items-center gap-2.5 shrink-0 pb-3 border-b border-border">
-        <Button size="icon" title="Back to terminal" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-[15px] font-semibold text-foreground">Settings</span>
-      </header>
+    <div className="flex flex-col h-full p-3 gap-2.5">
 
       {/* Scrollable settings body */}
       <ScrollArea className="flex-1 min-h-0">
