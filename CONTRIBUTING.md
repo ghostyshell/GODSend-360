@@ -48,9 +48,11 @@ go build -C src/server -o ../../dist/godsend.exe .
 
 ### Electron app (`src/electron-app/`)
 
-- New IPC channels must be added to `preload.js` and documented in `AGENTS.md`.
-- Settings that persist to `config.json` must go through `settingsService.js` getters/setters — do not read/write `config.json` directly from `bootstrap.js`.
-- UI changes go in `index.html` + `renderer.js`. Keep `renderer.js` DOM-only (no Node/Electron imports).
+- The Electron main process is written in **TypeScript** (compiled in-place via `tsconfig.json`; `strict: false`). All source files are `.ts`.
+- New IPC channels must be added to `preload.ts` and documented in `AGENTS.md`.
+- Settings that persist to `config.json` must go through `settingsService.ts` getters/setters — do not read/write `config.json` directly from `bootstrap.ts`.
+- FTP operations must go through the Go backend's `ftp.Manager` endpoints (`/ftp/*`) — do not use `basic-ftp` or any npm FTP client directly from Electron.
+- UI changes go in the React/Vite renderer (`renderer/`). Pages: `HomePage`, `SettingsPage`, `LibraryPage`, `QueuePage`.
 
 ### Aurora Lua scripts (`aurora-scripts/`)
 

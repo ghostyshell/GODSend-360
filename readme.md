@@ -99,6 +99,8 @@ Download a **platform-matched backend binary** (or a desktop AppImage/DMG if you
 
 Minerva Archive (BitTorrent, no account), Internet Archive (chunked parallel HTTP, optional), local ISOs, XBLA, DLC, XBLIG, Game Archives, Retro ROMs (62 systems via EdgeEmu), multi-disc support, GOD/XEX/content install layouts, FTP transfer with persistent retry, server queue management, and persistent logging.
 
+The desktop app adds an **Xbox Library** (live view of games on your console with cover art, sorting, filtering, and move-to-drive), an **FTP Manager** (full file browser with cut/copy/paste/delete/rename/mkdir), an **Aurora Asset Editor** (search, preview, and upload cover/background/banner/icon artwork via RXEA or XboxUnity), **ISO to GOD and ISO to XEX** conversion tools, a **Job Queue** (unified game pipeline + FTP jobs), and **overlay navigation** so tools open as panels without leaving the current page.
+
 **[Full feature list with details on each capability](docs/features.md)**
 
 ---
@@ -107,14 +109,21 @@ Minerva Archive (BitTorrent, no account), Internet Archive (chunked parallel HTT
 
 ```
 [Xbox Aurora script] ──HTTP──▶ [Go backend on host] ──FTP──▶ [Xbox HDD/USB]
-                                      │
-                          ┌───────────┴────────────┐
-                    Minerva Archive           Internet Archive
-                    (BitTorrent via           (chunked parallel HTTP,
-                     aria2c)                   optional account)
+                                      │         ▲
+                          ┌───────────┴──────┐  │
+                    Minerva Archive     Internet Archive
+                    (BitTorrent via     (chunked parallel HTTP,
+                     aria2c)            optional account)
                           │
                    Local Transfer folder
                    (your own ISOs, highest priority)
+
+[Electron desktop app] ──IPC──▶ [Go backend] ──FTP──▶ [Xbox]
+  ├─ Xbox Library (browse games, covers, move between drives)
+  ├─ FTP Manager (file browser, cut/copy/paste, upload)
+  ├─ Aurora Asset Editor (RXEA decode/encode, artwork upload)
+  ├─ ISO to GOD / ISO to XEX conversion tools
+  └─ Job Queue (unified pipeline + FTP transfer tracking)
 ```
 
 1. The Aurora script on the Xbox browses game libraries — lists are sourced from Minerva Archive or Internet Archive metadata
@@ -215,7 +224,7 @@ If the host IP or port changes after installation, edit `state.lua` in the scrip
 
 ## Backend HTTP API, runtime folders & environment variables
 
-The backend listens on port `8080` by default. Key endpoints: `/browse`, `/trigger`, `/status`, `/queue`, `/register`, `/files/`, `/cache-status`, `/cache-refresh`.
+The backend listens on port `8080` by default. Key endpoints: `/browse`, `/trigger`, `/status`, `/queue`, `/register`, `/files/`, `/cache-status`, `/cache-refresh`, `/tools/probe-iso`, `/tools/iso2god`, `/tools/iso2xex`, `/rxea/decode`, `/rxea/encode`, and 17 FTP endpoints under `/ftp/*` (ping, list, mkdir, delete, rename, batch, upload, copy, move-game, jobs, and more).
 
 **[Full API reference, runtime folder layout, and environment variable table](docs/api-reference.md)**
 

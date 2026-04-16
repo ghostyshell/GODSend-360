@@ -4,9 +4,9 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 ## Desktop app (Electron) + backend
 
-- **What:** Run the Go HTTP server with a small UI, live log output, and settings — **Windows** (NSIS installer), **macOS** (DMG), or **Linux** (AppImage). One-click upload of Aurora scripts to the Xbox via FTP with live per-file progress.
-- **How:** Launch GODsend from the **Start menu** (Windows), **Applications** (macOS), or your **app launcher** (Linux; tray icon support depends on the desktop environment). Use the tray icon to open the window. Restart the backend from the home screen; optional **Launch at login** in Settings. Set **Backend server port** first (if needed), then under **Xbox connection** enter your Xbox IP and click **FTP Aurora Scripts to Xbox** — your computer’s LAN IP + selected backend port are patched into `state.lua` automatically and upload progress is shown file-by-file.
-- **How it works:** Electron spawns the Go backend (`godsend-backend` / `godsend-backend.exe`) with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings. The FTP upload streams `godsend-ftp-progress` IPC events to the renderer so the button reflects real progress rather than a static label.
+- **What:** Run the Go HTTP server with a full desktop UI — **Windows** (NSIS installer), **macOS** (DMG), or **Linux** (AppImage). Includes Xbox Library, FTP Manager, Aurora Asset Editor, ISO conversion tools, unified job queue, and one-click Aurora script deployment.
+- **How:** Launch GODsend from the **Start menu** (Windows), **Applications** (macOS), or your **app launcher** (Linux; tray icon support depends on the desktop environment). Use the tray icon to open the window. Tools open as overlay panels on top of the current page (close with X, no back-navigation needed). Restart the backend from the home screen; optional **Launch at login** in Settings. Set **Backend server port** first (if needed), then under **Xbox connection** enter your Xbox IP and click **FTP Aurora Scripts to Xbox** — your computer’s LAN IP + selected backend port are patched into `state.lua` automatically and upload progress is shown file-by-file.
+- **How it works:** Electron (TypeScript main process) spawns the Go backend (`godsend-backend` / `godsend-backend.exe`) with a writable runtime (`Transfer`, `Ready`, `Temp`, `cache`) and injects `GODSEND_*` environment variables from your settings. All FTP operations are centralised through the Go backend’s `ftp.Manager` (no npm FTP dependency). The React/Vite renderer communicates via typed IPC channels exposed through `preload.ts`.
 
 ## Minerva Archive (BitTorrent — no account needed)
 
@@ -78,6 +78,54 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 - **What:** Daily rotating log files that capture all backend activity — useful for diagnosing failed installs, FTP errors, IA download issues, or anything else that goes wrong.
 - **How:** Logs are written automatically under **`logs/`** in Electron’s user-data directory (e.g. **`%APPDATA%\GODsend\logs\godsend-server-YYYY-MM-DD.log`** on Windows, **`~/Library/Application Support/GODsend/logs/`** on macOS — on Linux, use **Open logs folder** to see the exact path). On the home screen, click **Open logs folder** to open that directory in the system file manager.
 - **How it works:** Each session opens with a banner that records app/Electron versions, OS, hostname, primary IPv4, `GODSEND_HOME`, backend executable path, effective Transfer folder, and all `GODSEND_*` environment variables (IA secrets redacted). Backend stdout/stderr are tagged `BACKEND_OUT`/`BACKEND_ERR`; UI events (FTP upload steps, cache refresh triggers, config saves, IA login) are tagged separately. Lines use ISO 8601 timestamps with PID so multi-process output is unambiguous.
+
+## Xbox Library
+
+- **What:** Live view of every game installed on your Aurora console — cover art, metadata, sorting, filtering, and drive management.
+- **How:** Open **Xbox Library** from the home page. The first load downloads Aurora's content.db and settings.db via FTP and syncs cover art from RXEA assets, User/Import images, and online sources (Xbox CDN, XboxUnity). Subsequent refreshes use fingerprint-based caching (FTP SIZE checks and SHA-256 content hashes) to skip unchanged games — near-instant after the first sync. Use the **search bar** to filter by name, title ID, publisher, or developer. Sort by name, rating, last played, most played, drive, or favorites. Filter to favorites, on-drive, or multi-disc titles.
+- **How it works:** `auroraLibraryService.ts` parses Aurora's SQLite databases into `AuroraGame[]` and probes FTP drives. `auroraVisualService.ts` syncs visual assets with a priority chain: User/Import files → RXEA `.asset` decode → GameAssetInfo.bin CDN URLs → GameCoverInfo.bin XboxUnity cover. Per-game fingerprints are stored in `visual-manifest.json` so unchanged assets are skipped on refresh. Covers render as CSS 3D box art (replacing the earlier WebGL approach that hit Chromium's ~16 context limit). Games with title IDs above `0x7FFFFFFF` (homebrew/unsigned) use unsigned 32-bit conversion to avoid negative hex strings.
+
+## FTP Manager
+
+- **What:** Full file browser for your Xbox's filesystem — navigate, upload, download, cut/copy/paste, delete, rename, and create directories.
+- **How:** Open **FTP Manager** from the home page (opens as an overlay panel). Browse the Xbox FTP root; right-click files or folders for Cut, Copy, Paste, Delete. Multi-select via Ctrl+Click and Shift+Click with a selection toolbar. The Clipboard dropdown shows pending items. Upload files via the upload button; transfers show streaming progress with speed and current filename.
+- **How it works:** All FTP operations go through the Go backend's `ftp.Manager` (the `basic-ftp` npm dependency was fully removed in 2.8.4). 17 HTTP endpoints under `/ftp/*` handle list, upload, delete, mkdir, rename, copy, move, batch operations, and tracked async jobs. Cut uses FTP `RNFR`/`RNTO`; copy downloads to a temp file and re-uploads. The batch endpoint (`POST /ftp/batch`) executes multiple operations over a single FTP connection for efficiency.
+
+## Aurora Asset Editor
+
+- **What:** Search, preview, and upload cover, background, banner, icon, and screenshot artwork for any game on the console — using XboxUnity, Xbox CDN, or local image files.
+- **How:** Open a game in the Xbox Library and scroll to the asset editor. Each slot (Background, Banner, Icon, Cover, Screenshots) shows the current image. Click **Search** to query XboxUnity by title name and ID, or **File** to pick a local image (JPEG/PNG/BMP/GIF). Staged uploads show a blue dot. Click **Save to Console** to push all staged images.
+- **How it works:** The Go backend's `/rxea/encode` endpoint encodes images as RXEA `.asset` files (DXT5-compressed Xbox 360 Xenos GPU textures) and uploads them directly to `Aurora/Data/GameData/{dir}/` for immediate visibility without an Aurora rescan. `/rxea/decode` converts RXEA assets back to PNG for display. The backend accepts any Go-supported image format. XboxUnity search (`xbox:search-assets` IPC) queries the API by title ID and name, prepending Xbox CDN high-res covers when available.
+
+## ISO to GOD and ISO to XEX tools
+
+- **What:** Convert local `.iso` files to Games on Demand or XEX folder format without downloading anything — useful for ISOs you already have.
+- **How:** Open **ISO to GOD** or **ISO to XEX** from the home page toolbox. Select an ISO file, choose a destination, and the backend converts and optionally transfers to the Xbox. Title names are resolved from XboxUnity → XboxDB → embedded title list → cleaned ISO filename (stripping region tags like "(USA)") as a final fallback.
+- **How it works:** Uses the pure-Go ISO converter (`src/server/utils/iso2god.go`) via `/tools/iso2god`, `/tools/iso2xex`, and `/tools/probe-iso` HTTP endpoints. The probe endpoint reads disc metadata (title ID, media ID, disc number) without converting.
+
+## Move Game to Drive
+
+- **What:** Move a game from one Xbox drive to another directly from the Library page.
+- **How:** Open a game's detail view in the Xbox Library, select a target drive from "Move to Drive" (the current drive is excluded), and click Move. Progress, transfer speed, and current file are shown in real time. The job persists across page navigation.
+- **How it works:** The `xbox:move-game` IPC handler queues an FTP job through the Go backend. Uses FTP rename (`RNFR`/`RNTO`) when supported (fast, same-drive moves); falls back to download-reupload-delete for cross-drive moves. FTP timeout is 120 seconds for large transfers. Double-slash path bugs (from Aurora's leading-slash DB entries) are stripped. The local Aurora library cache auto-syncs after completion.
+
+## Unified Job Queue
+
+- **What:** Single view of all active work — game pipeline jobs and FTP Manager jobs merged together.
+- **How:** Open **Job Queue** from the home page. Each job shows its source (Store vs FTP), state, progress bar, transfer speed, and current file detail. Remove completed or stuck jobs individually.
+- **How it works:** The Queue page merges jobs from `/queue` (game pipeline) and `/ftp/jobs` (FTP Manager tracked jobs) into one unified list. Progress bars and percentage hide for completed/errored jobs.
+
+## Auto Aurora sync
+
+- **What:** After a game is downloaded and transferred to the Xbox, cover art and the local library cache update automatically — no manual refresh needed.
+- **How:** Automatic; no user action required. After any successful game FTP transfer or drive move, the app fetches cover/background/banner/icon from XboxUnity and Xbox CDN, uploads them to `Aurora/User/Import/{TitleId}/`, and re-downloads content.db + settings.db.
+- **How it works:** `autoSyncService.ts` listens for backend FTP completion events. `autoUploadAuroraAssets` fetches artwork from multiple CDN sources and uploads via FTP. `doAuroraLibrarySync` re-downloads Aurora databases to keep the Library page current.
+
+## Overlay navigation
+
+- **What:** Settings, Job Queue, Browse & Download, ISO to GOD, ISO to XEX, and FTP Manager open as overlay panels on top of the current page instead of navigating away.
+- **How:** Click any of those buttons — the panel slides in over the current view. Close with the X button. No back-navigation required; the page underneath is preserved.
+- **How it works:** React overlay components mount on top of the existing route, keeping Library or Home state intact while tools are used.
 
 ## Developer / diagnostics
 

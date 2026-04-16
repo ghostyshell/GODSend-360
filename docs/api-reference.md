@@ -16,6 +16,28 @@ The backend listens on port `8080` by default (configurable via Electron `Backen
 | GET | `/data/status` | Returns `active_jobs`, `pending_ftp_jobs`, `local_data_mb` — used by Electron clear-data UI |
 | GET | `/data/clear` | Cancels all jobs and pending FTP transfers, wipes `Ready/` and `Temp/` |
 | GET | `/config` | Returns server-side config readable by Lua (currently `default_drive`) |
+| POST | `/tools/probe-iso` | Probe ISO disc metadata (title ID, media ID, disc number) without converting |
+| POST | `/tools/iso2god` | Convert a local ISO file to Games on Demand format |
+| POST | `/tools/iso2xex` | Convert a local ISO file to XEX folder format |
+| POST | `/rxea/decode` | Decode an Aurora RXEA `.asset` file to PNG images (returns JSON with slot→PNG data) |
+| POST | `/rxea/encode?slot=N` | Encode a PNG/JPEG/image into an RXEA `.asset` file (returns raw RXEA bytes) |
+| GET | `/ftp/ping` | Test FTP connectivity to the Xbox |
+| GET | `/ftp/test` | Verbose FTP connection test with detailed diagnostics |
+| POST | `/ftp/list` | List directory contents on the Xbox via FTP |
+| POST | `/ftp/mkdir` | Create a directory on the Xbox via FTP |
+| POST | `/ftp/delete` | Delete a file or directory on the Xbox via FTP |
+| POST | `/ftp/rename` | Rename/move a file or directory on the Xbox via FTP |
+| POST | `/ftp/size` | Get file size on the Xbox via FTP |
+| POST | `/ftp/download-file` | Download a file from the Xbox via FTP |
+| POST | `/ftp/upload-file` | Upload a single file to the Xbox via FTP |
+| GET | `/ftp/drives` | List Xbox drives (filters to valid `Hdd\d*`/`Usb\d+` patterns) |
+| POST | `/ftp/batch` | Execute multiple FTP operations over a single connection (list, size, download, upload, ensure_dir, remove, cd, pwd) |
+| POST | `/ftp/upload` | Queue a tracked async FTP upload job with progress reporting |
+| POST | `/ftp/copy` | Queue a tracked async FTP copy job (download + re-upload) |
+| POST | `/ftp/move-game` | Queue a tracked async game drive move (rename or download-reupload-delete) |
+| POST | `/ftp/upload-scripts` | Queue a tracked async Aurora scripts upload |
+| GET | `/ftp/jobs` | List all active and completed FTP Manager jobs |
+| POST | `/ftp/jobs/remove` | Remove an FTP Manager job from the list |
 
 ## Runtime folders
 

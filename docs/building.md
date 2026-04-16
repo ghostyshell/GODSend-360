@@ -29,15 +29,36 @@ src/server/              Go backend
   infrastructure/          Infrastructure helpers (config loading, path resolution)
   interfaces/http/         HTTP router factory
 
-src/electron-app/        Electron desktop app (Windows / macOS / Linux)
-  main.js                  Entry point (requires app/bootstrap)
-  app/bootstrap.js         App lifecycle, window creation, IPC handler registration
+src/electron-app/        Electron desktop app (Windows / macOS / Linux) — TypeScript source, compiled in-place
+  main.ts                  Entry point (registers protocol scheme, calls app/bootstrap)
+  preload.ts               IPC bridge exposing window.godsendApi to the renderer
+  app/
+    bootstrap.ts           App lifecycle, window/tray creation, IPC handler registration
+    window.ts              BrowserWindow creation, minimize/close-to-tray behaviour
   services/
-    settingsService.js     Config file read/write and all setting accessors
-    backendClient.js       Backend process lifecycle, IA login, output buffer
+    settingsService.ts     Config file read/write and all setting accessors
+    backendClient.ts       Backend process lifecycle, IA login, output buffer
+    auroraLibraryService.ts  Aurora SQLite DB parsing, FTP drive probing, game cache
+    auroraVisualService.ts   Visual asset sync (RXEA, Import, CDN), cover events
+    auroraPathHelper.ts      Aurora install root discovery from FTP scripts path
+    coverArtService.ts       Multi-source cover art fetching (XboxUnity, CDN, MS Store)
+    autoSyncService.ts       Post-FTP automation (asset upload, library re-sync)
+  ipc/
+    configHandlers.ts      Startup, logs, settings, Xbox connection, cache refresh
+    xboxFtpHandlers.ts     FTP ping/test/port scan, scripts upload, drives, games
+    auroraLibraryHandlers.ts  Library sync, cover + visual asset sync
+    auroraAssetHandlers.ts   Asset search, image fetch, RXEA decode/encode, upload
+    browseHandlers.ts      Game list, queue, disc info, browse cover art
+    toolsHandlers.ts       ISO probe/convert, FTP Manager ops, game drive move
   infrastructure/
-    fileSystem.js          Path resolution, directory/file helpers, runtime preparation
-    electronTray.js        System-tray icon and context menu
+    fileSystem.ts          Path resolution, directory/file helpers, runtime preparation
+    electronTray.ts        System-tray icon and context menu
+    backendHttp.ts         Thin HTTP helpers for the local Go backend
+    httpHelper.ts          Redirect-following image fetch, MIME detection
+    serverLog.ts           Session-structured log file appender
+    auroraLibraryCache.ts  Local Aurora DB cache layout, meta read/write
+    sqlHelper.ts           sql.js wrapper for Aurora SQLite databases
+  renderer/               React/Vite renderer (App.jsx, HomePage, SettingsPage, LibraryPage, QueuePage)
 
 aurora-scripts/          Aurora Lua script + icons installed on the Xbox
   main.lua                 Entry point: script metadata, module loading, main() loop
