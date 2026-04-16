@@ -38,7 +38,7 @@ Go to the [GODsend 360 v2.9.2 release](https://gitgud.io/ghosty99/godsend-360/-/
 
 | Platform | File |
 |---|---|
-| **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.9.2.exe`](https://gitgud.io/-/project/46780/uploads/0a412edfe2f295690886178d7fa65b0/godsend-Setup-2.9.2.exe) |
+| **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.9.2.exe`](https://gitgud.io/-/project/46780/uploads/ff1140757faa35695427d521cfe32a8e/godsend-Setup-2.9.2.exe) |
 | **macOS (Apple Silicon)** | [`godsend-2.9.2-arm64.dmg`](https://gitgud.io/-/project/46780/uploads/6ed6d5e0bba26e24a96ffe214803c29e/godsend-2.9.2-arm64.dmg) |
 | **macOS (Intel)** | [`godsend-2.9.2-x64.dmg`](https://gitgud.io/-/project/46780/uploads/b07644d814b08b0b1104d23589af1d11/godsend-2.9.2-x64.dmg) |
 | **Linux (x64 / amd64)** | [`godsend-2.9.2-x86_64.AppImage`](https://gitgud.io/-/project/46780/uploads/2b36772c90103946e5d580ea0b6a1538/godsend-2.9.2-x86_64.AppImage) |
