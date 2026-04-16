@@ -9,6 +9,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.8.5] — 2026-04-16
+
+### Changed
+- **Version** — **2.8.5** (root + Electron `package.json`, lockfile roots, backend banner, Aurora script `scriptVersion`).
+
+### Fixed
+- **FTP copy/move streaming progress** — `doCopy` (FTP Manager copy operations) now uses the same streaming progress tracking as `doMoveGame` instead of hardcoded 10/50/100% jumps. Both download and upload phases report smooth per-file progress, transfer speed, and current filename via `ManagerJob.Detail` and `ManagerJob.Speed`.
+- **Move-to-drive progress detail in Library UI** — the game move progress display now shows the current phase (e.g. "Downloading default.xex"), transfer speed (e.g. "2.4 MB/s"), and smooth percentage instead of only "Moving… 45%".
+- **Job Queue progress bar persisting after completion** — the progress bar and percentage now hide for completed ("Ready") and errored jobs in the Queue page, matching the clean look of finished pipeline jobs. Active FTP jobs also show transfer speed and current file detail inline.
+
 ## [2.8.4] — 2026-04-16
 
 ### Changed

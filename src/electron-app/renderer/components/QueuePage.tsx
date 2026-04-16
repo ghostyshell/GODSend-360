@@ -16,6 +16,8 @@ interface UnifiedJob {
   message?: string;
   /** 0-100 progress (null = indeterminate) */
   progress: number | null;
+  /** Transfer speed string (e.g. "2.4 MB/s") */
+  speed?: string;
   /** "pipeline" | "ftp" — which source this job came from */
   source: "pipeline" | "ftp";
   /** Original FTP job id (for remove) */
@@ -62,6 +64,7 @@ interface JobRowProps {
 
 function JobRow({ job, onRemove, removing }: JobRowProps) {
   const pct = job.progress;
+  const isFinished = job.state === "Ready" || job.state === "Error";
 
   return (
     <div className="flex items-start gap-2 py-2 border-b border-[#1e242e] last:border-0">
@@ -72,8 +75,11 @@ function JobRow({ job, onRemove, removing }: JobRowProps) {
         <div className="flex items-center gap-1.5">
           <span className="text-[13px] font-medium text-foreground truncate">{job.name}</span>
           <span className={cn("text-[11px] shrink-0", stateColor(job.state))}>{job.state}</span>
-          {pct !== null && pct > 0 && (
+          {!isFinished && pct !== null && pct > 0 && (
             <span className="text-[11px] text-muted-foreground shrink-0">{pct}%</span>
+          )}
+          {!isFinished && job.speed && (
+            <span className="text-[10px] text-muted-foreground/70 font-mono shrink-0">{job.speed}</span>
           )}
           <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground/60 shrink-0 ml-auto border border-border/40 rounded px-1 py-0.5">
             {sourceIcon(job.source)}
@@ -85,7 +91,7 @@ function JobRow({ job, onRemove, removing }: JobRowProps) {
             {job.message}
           </p>
         )}
-        {pct !== null && pct > 0 && (
+        {!isFinished && pct !== null && pct > 0 && (
           <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden max-w-[300px]">
             <div
               className="h-full bg-primary rounded-full transition-all duration-300"
@@ -149,12 +155,18 @@ export default function QueuePage({ onBack }: QueuePageProps) {
     // FTP Manager jobs (uploads, copies, moves, script uploads)
     if (ftpRes.ok && Array.isArray(ftpRes.jobs)) {
       for (const j of ftpRes.jobs) {
+        // Build message: prefer detail over remote path; show remote path for completed/errored jobs
+        const isActive = j.state === "Processing" || j.state === "Queued";
+        const detailMsg = isActive && j.detail ? j.detail : undefined;
+        const fallbackMsg = j.error || (j.remotePath ? `→ ${j.remotePath}` : undefined);
+
         unified.push({
           key:       `ftp-${j.id}`,
           name:      j.name,
           state:     j.state,
-          message:   j.error || (j.remotePath ? `→ ${j.remotePath}` : undefined),
+          message:   detailMsg || fallbackMsg,
           progress:  typeof j.progress === "number" ? j.progress : null,
+          speed:     isActive && j.speed ? j.speed : undefined,
           source:    "ftp",
           ftpJobId:  j.id,
         });

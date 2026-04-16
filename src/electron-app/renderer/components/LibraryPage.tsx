@@ -9,6 +9,7 @@ import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "../lib/utils";
 import XboxBoxCover from "./XboxBoxCover";
+import MainNav from "./MainNav";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -821,6 +822,8 @@ function GameDetail({
   const [moveMessage, setMoveMessage]     = useState<string | null>(null);
   const [moveJobId, setMoveJobId]         = useState<number | null>(null);
   const [moveProgress, setMoveProgress]   = useState<number>(0);
+  const [moveDetail, setMoveDetail]       = useState<string | null>(null);
+  const [moveSpeed, setMoveSpeed]         = useState<string | null>(null);
 
   // Pending move = a successful move whose new location Aurora hasn't picked
   // up yet. Persisted so the notice survives navigation/reloads until Aurora
@@ -880,22 +883,31 @@ function GameDetail({
   useEffect(() => {
     window.godsendApi.toolsFtpUploadStatus().then((r: any) => {
       if (!r?.ok || !Array.isArray(r.jobs)) return;
-      // Find an active move job for this game (job name starts with "Move: <gameName>")
       const movePrefix = `Move: ${game.name}`;
-      const activeJob = r.jobs.find(
-        (j: any) => j.name.startsWith(movePrefix) && (j.state === "Queued" || j.state === "Processing")
+      const matchingJobs = r.jobs.filter((j: any) => j.name.startsWith(movePrefix));
+      if (matchingJobs.length === 0) return;
+
+      const activeJob = matchingJobs.find(
+        (j: any) => j.state === "Queued" || j.state === "Processing"
       );
       if (activeJob) {
         setMoveJobId(activeJob.id);
         setMoveStatus("moving");
         setMoveProgress(activeJob.progress ?? 0);
+        setMoveDetail(activeJob.detail || null);
+        setMoveSpeed(activeJob.speed || null);
         setMoveMessage(`${activeJob.state}… ${activeJob.progress ?? 0}%`);
+        return;
       }
-      // Also check for recently completed moves
-      const doneJob = r.jobs.find(
-        (j: any) => j.name.startsWith(movePrefix) && j.state === "Ready"
-      );
-      if (!activeJob && doneJob) {
+      const errorJob = matchingJobs.find((j: any) => j.state === "Error");
+      if (errorJob) {
+        setMoveJobId(errorJob.id);
+        setMoveStatus("error");
+        setMoveError(errorJob.error || "Move failed.");
+        return;
+      }
+      const doneJob = matchingJobs.find((j: any) => j.state === "Ready");
+      if (doneJob) {
         setMoveJobId(doneJob.id);
         setMoveStatus("done");
         setMoveProgress(100);
@@ -924,6 +936,8 @@ function GameDetail({
     setMoveMessage(null);
     setMoveJobId(null);
     setMoveProgress(0);
+    setMoveDetail(null);
+    setMoveSpeed(null);
     try {
       const r = await window.godsendApi.moveGameToDrive({ game, targetDrive: moveTarget });
       if (r?.ok) {
@@ -952,10 +966,14 @@ function GameDetail({
         const job = (r.jobs || []).find((j: any) => j.id === moveJobId);
         if (!job) return;
         setMoveProgress(job.progress ?? 0);
+        setMoveDetail(job.detail || null);
+        setMoveSpeed(job.speed || null);
         if (job.state === "Ready") {
           setMoveStatus("done");
           setMoveMessage("Move completed successfully.");
           setMoveProgress(100);
+          setMoveDetail(null);
+          setMoveSpeed(null);
           if (moveTarget) {
             setPendingMoveDrive(moveTarget);
             try { localStorage.setItem(pendingMoveKey, moveTarget); } catch {}
@@ -964,11 +982,17 @@ function GameDetail({
         } else if (job.state === "Error") {
           setMoveStatus("error");
           setMoveError(job.error || "Move failed.");
+          setMoveDetail(null);
+          setMoveSpeed(null);
           clearInterval(id);
         } else {
-          // Still in progress — update the message with the state
+          // Still in progress — build a rich status message
           const pct = job.progress ?? 0;
-          setMoveMessage(`${job.state}… ${pct}%`);
+          const parts: string[] = [];
+          if (job.detail) parts.push(job.detail);
+          parts.push(`${pct}%`);
+          if (job.speed) parts.push(`(${job.speed})`);
+          setMoveMessage(parts.join(" — "));
         }
       } catch { /* ignore poll errors */ }
     }, 1500);
@@ -1155,29 +1179,57 @@ function GameDetail({
                     <span className="text-[11px] text-muted-foreground">No other drives found.</span>
                   )}
                 </div>
+                {!moveTarget && moveStatus === "moving" && (
+                  <div className="flex flex-col gap-0.5 mt-0.5">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      <span className="text-[11px] text-foreground font-medium">
+                        {moveProgress > 0 ? `Moving… ${moveProgress}%` : "Moving…"}
+                        {moveSpeed ? ` — ${moveSpeed}` : ""}
+                      </span>
+                    </div>
+                    {moveDetail && (
+                      <span className="text-[10px] text-muted-foreground ml-5 truncate max-w-[260px]">
+                        {moveDetail}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {moveTarget && (
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <Button
-                      size="sm"
-                      onClick={handleMoveGame}
-                      disabled={moveStatus === "moving" || moveStatus === "done"}
-                      className="gap-1"
-                    >
-                      {moveStatus === "moving" ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : moveStatus === "done" ? (
-                        <Check className="h-3 w-3" />
-                      ) : (
-                        <ArrowRightLeft className="h-3 w-3" />
+                  <div className="flex flex-col gap-0.5 mt-0.5">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleMoveGame}
+                        disabled={moveStatus === "moving" || moveStatus === "done"}
+                        className="gap-1"
+                      >
+                        {moveStatus === "moving" ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : moveStatus === "done" ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <ArrowRightLeft className="h-3 w-3" />
+                        )}
+                        {moveStatus === "moving"
+                          ? (moveProgress > 0 ? `Moving… ${moveProgress}%` : "Moving…")
+                          : moveStatus === "done" ? "Done"
+                          : `Move to ${moveTarget.replace(/:$/, "")}`}
+                      </Button>
+                      {moveStatus === "moving" && moveSpeed && (
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {moveSpeed}
+                        </span>
                       )}
-                      {moveStatus === "moving"
-                        ? (moveProgress > 0 ? `Moving… ${moveProgress}%` : "Moving…")
-                        : moveStatus === "done" ? "Done"
-                        : `Move to ${moveTarget.replace(/:$/, "")}`}
-                    </Button>
-                    {moveStatus !== "moving" && moveStatus !== "done" && (
-                      <span className="text-[10px] text-muted-foreground">
-                        This will queue an FTP transfer job.
+                      {moveStatus !== "moving" && moveStatus !== "done" && (
+                        <span className="text-[10px] text-muted-foreground">
+                          This will queue an FTP transfer job.
+                        </span>
+                      )}
+                    </div>
+                    {moveStatus === "moving" && moveDetail && (
+                      <span className="text-[10px] text-muted-foreground ml-0 truncate max-w-[300px]">
+                        {moveDetail}
                       </span>
                     )}
                   </div>
@@ -1377,6 +1429,16 @@ interface LibraryPageProps {
   onToggle: () => void;
   onRefresh?: () => void;
   refreshBusy?: boolean;
+  ftpStatus: string;
+  libraryLoading: boolean;
+  queueJobs: any[];
+  onReconnect: () => void;
+  onNavigateQueue: () => void;
+  onNavigateBrowse: () => void;
+  onNavigateSettings: () => void;
+  onNavigateIso2God: () => void;
+  onNavigateIso2Xex: () => void;
+  onNavigateFtpManager: () => void;
 }
 
 export default function LibraryPage({
@@ -1388,6 +1450,16 @@ export default function LibraryPage({
   onToggle,
   onRefresh,
   refreshBusy = false,
+  ftpStatus,
+  libraryLoading,
+  queueJobs,
+  onReconnect,
+  onNavigateQueue,
+  onNavigateBrowse,
+  onNavigateSettings,
+  onNavigateIso2God,
+  onNavigateIso2Xex,
+  onNavigateFtpManager,
 }: LibraryPageProps) {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [rxeaCovers, setRxeaCovers] = useState<Record<string, string>>({});
@@ -1472,7 +1544,7 @@ export default function LibraryPage({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Button
               size="icon"
               variant="ghost"
@@ -1482,9 +1554,21 @@ export default function LibraryPage({
             >
               <RefreshCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
             </Button>
-            <Button size="icon" title="Back to console" onClick={onToggle}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+            <MainNav
+              ftpStatus={ftpStatus}
+              currentPage="library"
+              libraryAvailable={true}
+              libraryLoading={libraryLoading}
+              queueJobs={queueJobs}
+              onReconnect={onReconnect}
+              onLibraryToggle={onToggle}
+              onNavigateQueue={onNavigateQueue}
+              onNavigateBrowse={onNavigateBrowse}
+              onNavigateSettings={onNavigateSettings}
+              onNavigateIso2God={onNavigateIso2God}
+              onNavigateIso2Xex={onNavigateIso2Xex}
+              onNavigateFtpManager={onNavigateFtpManager}
+            />
           </div>
         </div>
 

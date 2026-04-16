@@ -51,6 +51,8 @@ type ManagerJob struct {
 	RemotePath string          `json:"remotePath"`
 	State      ManagerJobState `json:"state"`
 	Progress   int             `json:"progress"` // 0-100
+	Detail     string          `json:"detail,omitempty"`
+	Speed      string          `json:"speed,omitempty"`
 	Error      string          `json:"error,omitempty"`
 	CreatedAt  time.Time       `json:"createdAt"`
 }
@@ -120,7 +122,12 @@ func (m *Manager) List(ip, remotePath string) ([]DirEntry, error) {
 	}
 	defer c.Quit()
 
-	entries, err := c.List(remotePath)
+	if remotePath != "" {
+		if err := c.ChangeDir(remotePath); err != nil {
+			return nil, fmt.Errorf("CWD %s: %v", remotePath, err)
+		}
+	}
+	entries, err := c.List("")
 	if err != nil {
 		return nil, fmt.Errorf("LIST %s: %v", remotePath, err)
 	}
@@ -173,11 +180,17 @@ func (m *Manager) Delete(ip, remotePath string) error {
 
 // removeDirRecursive removes a directory and all its contents recursively.
 func (m *Manager) removeDirRecursive(c *goftp.ServerConn, remotePath string) error {
-	entries, err := c.List(remotePath)
+	if err := c.ChangeDir(remotePath); err != nil {
+		return c.RemoveDirRecur(remotePath)
+	}
+	entries, err := c.List("")
 	if err != nil {
 		return c.RemoveDirRecur(remotePath)
 	}
 	for _, e := range entries {
+		if e.Name == "." || e.Name == ".." {
+			continue
+		}
 		child := remotePath + "/" + e.Name
 		if e.Type == goftp.EntryTypeFolder {
 			if err := m.removeDirRecursive(c, child); err != nil {
@@ -272,9 +285,10 @@ func (m *Manager) ListDrives(ip string) ([]string, error) {
 			continue
 		}
 		d := e.Name + ":"
-		// Only include known Xbox drive patterns
+		// Only include drives matching Hdd<N> or Usb<N> (e.g. Hdd1, Usb0).
 		lower := strings.ToLower(e.Name)
-		if strings.HasPrefix(lower, "hdd") || strings.HasPrefix(lower, "usb") {
+		if len(lower) >= 4 && lower[len(lower)-1] >= '0' && lower[len(lower)-1] <= '9' &&
+			(strings.HasPrefix(lower, "hdd") || strings.HasPrefix(lower, "usb")) {
 			drives = append(drives, d)
 		}
 	}
@@ -381,7 +395,13 @@ func (m *Manager) Batch(ip string, ops []BatchOp) []BatchResult {
 
 		switch op.Op {
 		case "list":
-			entries, err := c.List(p)
+			if p != "" {
+				if err := c.ChangeDir(p); err != nil {
+					results[i] = BatchResult{OK: false, Error: fmt.Sprintf("CWD %s: %v", p, err)}
+					continue
+				}
+			}
+			entries, err := c.List("")
 			if err != nil {
 				results[i] = BatchResult{OK: false, Error: err.Error()}
 			} else {
@@ -655,6 +675,7 @@ func (m *Manager) Copy(ip, src, dst string, isDir bool) *ManagerJob {
 
 func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 	j.State = JobProcessing
+	j.Detail = "Connecting…"
 
 	tmpDir := filepath.Join(os.TempDir(), fmt.Sprintf("godsend-ftp-copy-%d", time.Now().UnixNano()))
 	os.MkdirAll(tmpDir, 0755)
@@ -668,35 +689,66 @@ func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 	}
 	defer c.Quit()
 
-	j.Progress = 10
 	if isDir {
+		// Measure remote size for accurate progress
+		j.Detail = "Scanning size…"
+		totalBytes := m.remoteDirSize(c, src)
+
+		// Phase 1: Download (0–50%)
+		j.Progress = 0
+		j.Detail = "Downloading from Xbox…"
 		localDir := filepath.Join(tmpDir, filepath.Base(src))
-		if err := m.downloadDirRecursive(c, src, localDir); err != nil {
+		var downloaded int64
+		if err := m.downloadDirTracked(c, src, localDir, j, 0, 50, &totalBytes, &downloaded); err != nil {
 			j.State = JobError
 			j.Error = "download: " + err.Error()
 			return
 		}
+
+		// Phase 2: Upload (50–100%)
 		j.Progress = 50
-		if err := m.uploadDirRecursive(c, localDir, dst, j); err != nil {
+		j.Detail = "Uploading to Xbox…"
+		j.Speed = ""
+		if err := m.uploadDirTracked(c, localDir, dst, j, 50, 100); err != nil {
 			j.State = JobError
 			j.Error = "upload: " + err.Error()
 			return
 		}
 	} else {
+		// Single file — measure size for progress
+		j.Detail = "Scanning size…"
+		fileSize := m.remoteFileSize(c, src)
+		totalBytes := fileSize
+
+		// Phase 1: Download (0–50%)
+		j.Progress = 0
+		j.Detail = "Downloading " + filepath.Base(src)
 		localFile := filepath.Join(tmpDir, filepath.Base(src))
-		if err := m.downloadSingleFile(c, src, localFile); err != nil {
+		var downloaded int64
+		if err := m.downloadSingleFileTracked(c, src, localFile, j, 0, 50, &totalBytes, &downloaded); err != nil {
 			j.State = JobError
 			j.Error = "download: " + err.Error()
 			return
 		}
+
+		// Phase 2: Upload (50–100%)
 		j.Progress = 50
+		j.Detail = "Uploading " + filepath.Base(src)
+		j.Speed = ""
 		f, err := os.Open(localFile)
 		if err != nil {
 			j.State = JobError
 			j.Error = err.Error()
 			return
 		}
-		err = c.Stor(dst, f)
+		pr := &managerProgressReader{
+			reader:       f,
+			total:        fileSize,
+			job:          j,
+			baseProgress: 50,
+			maxProgress:  100,
+		}
+		err = c.Stor(dst, pr)
 		f.Close()
 		if err != nil {
 			j.State = JobError
@@ -706,6 +758,8 @@ func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 	}
 	j.State = JobReady
 	j.Progress = 100
+	j.Detail = "Done"
+	j.Speed = ""
 }
 
 // MoveGame starts an async job that moves a game between Xbox drives.
@@ -732,6 +786,7 @@ func (m *Manager) MoveGame(ip, gameName, srcDrive, directory, targetDrive string
 
 func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJob) {
 	j.State = JobProcessing
+	j.Detail = "Connecting…"
 	m.App.Logf("FTP MOVE %s: connecting to %s", gameName, ip)
 
 	c, err := m.connect(ip)
@@ -750,31 +805,44 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 	}
 
 	// Try FTP RENAME (works for same-drive moves)
+	j.Detail = "Attempting same-drive rename…"
 	m.App.Logf("FTP MOVE %s: attempting rename %s → %s", gameName, srcPath, dstPath)
 	if err := c.Rename(srcPath, dstPath); err == nil {
 		j.State = JobReady
 		j.Progress = 100
+		j.Detail = "Done"
+		j.Speed = ""
 		m.App.Logf("FTP MOVE %s: rename succeeded — done", gameName)
 		return
 	}
 	m.App.Logf("FTP MOVE %s: rename not supported cross-drive, falling back to download+reupload", gameName)
+
+	// Measure remote directory size for accurate progress
+	j.Detail = "Scanning game size…"
+	totalBytes := m.remoteDirSize(c, srcPath)
+	m.App.Logf("FTP MOVE %s: total size = %d bytes", gameName, totalBytes)
 
 	// Fallback: download → upload → delete source
 	tmpDir := filepath.Join(os.TempDir(), fmt.Sprintf("godsend-move-%d", time.Now().UnixNano()))
 	os.MkdirAll(tmpDir, 0755)
 	defer os.RemoveAll(tmpDir)
 
-	j.Progress = 10
+	// Phase 1: Download (progress 0–45%)
+	j.Progress = 0
+	j.Detail = "Downloading from Xbox…"
 	localDir := filepath.Join(tmpDir, filepath.Base(srcPath))
 	m.App.Logf("FTP MOVE %s: downloading from %s to temp", gameName, srcPath)
-	if err := m.downloadDirRecursive(c, srcPath, localDir); err != nil {
+	var downloaded int64
+	if err := m.downloadDirTracked(c, srcPath, localDir, j, 0, 45, &totalBytes, &downloaded); err != nil {
 		j.State = JobError
 		j.Error = "download: " + err.Error()
 		m.App.Logf("FTP MOVE %s: download failed: %v", gameName, err)
 		return
 	}
 
-	j.Progress = 50
+	j.Progress = 45
+	j.Detail = "Reconnecting for upload…"
+	j.Speed = ""
 	m.App.Logf("FTP MOVE %s: uploading to %s", gameName, dstPath)
 
 	// Re-connect in case the download took a long time
@@ -786,22 +854,28 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 		return
 	}
 
-	if err := m.uploadDirSimple(c, localDir, dstPath); err != nil {
+	// Phase 2: Upload (progress 45–90%)
+	j.Detail = "Uploading to Xbox…"
+	if err := m.uploadDirTracked(c, localDir, dstPath, j, 45, 90); err != nil {
 		j.State = JobError
 		j.Error = "upload: " + err.Error()
 		m.App.Logf("FTP MOVE %s: upload failed: %v", gameName, err)
 		return
 	}
 
+	// Phase 3: Cleanup (progress 90–100%)
 	j.Progress = 90
+	j.Detail = "Removing source files…"
+	j.Speed = ""
 	m.App.Logf("FTP MOVE %s: removing source %s", gameName, srcPath)
 	if err := m.removeDirRecursive(c, srcPath); err != nil {
 		m.App.Logf("FTP MOVE %s: WARNING: could not remove source: %v", gameName, err)
-		// Don't fail the job — the copy succeeded
 	}
 
 	j.State = JobReady
 	j.Progress = 100
+	j.Detail = "Done"
+	j.Speed = ""
 	m.App.Logf("FTP MOVE %s: complete", gameName)
 }
 
@@ -911,16 +985,235 @@ func (m *Manager) uploadPatchedStateLua(c *goftp.ServerConn, localPath, remotePa
 
 // ── Internal directory helpers ────────────────────────────────────────
 
-// downloadDirRecursive downloads a remote directory tree to a local path.
-func (m *Manager) downloadDirRecursive(c *goftp.ServerConn, remotePath, localDir string) error {
+// remoteDirSize walks a remote directory tree and returns total file bytes.
+func (m *Manager) remoteDirSize(c *goftp.ServerConn, remotePath string) int64 {
+	var total int64
+	if err := c.ChangeDir(remotePath); err != nil {
+		return 0
+	}
+	entries, err := c.List("")
+	if err != nil {
+		return 0
+	}
+	for _, e := range entries {
+		if e.Name == "." || e.Name == ".." {
+			continue
+		}
+		if e.Type == goftp.EntryTypeFolder {
+			total += m.remoteDirSize(c, remotePath+"/"+e.Name)
+		} else {
+			total += int64(e.Size)
+		}
+	}
+	return total
+}
+
+// remoteFileSize returns the size of a single remote file via FTP SIZE/LIST.
+func (m *Manager) remoteFileSize(c *goftp.ServerConn, remotePath string) int64 {
+	sz, err := c.FileSize(remotePath)
+	if err == nil {
+		return sz
+	}
+	// Fallback: list parent and find by name
+	parent := remotePath[:strings.LastIndex(remotePath, "/")]
+	name := remotePath[strings.LastIndex(remotePath, "/")+1:]
+	if parent == "" {
+		parent = "/"
+	}
+	if err := c.ChangeDir(parent); err != nil {
+		return 0
+	}
+	entries, err := c.List("")
+	if err != nil {
+		return 0
+	}
+	for _, e := range entries {
+		if e.Name == name {
+			return int64(e.Size)
+		}
+	}
+	return 0
+}
+
+// downloadDirTracked downloads a remote directory tree with streaming progress.
+func (m *Manager) downloadDirTracked(c *goftp.ServerConn, remotePath, localDir string, j *ManagerJob, baseProgress, maxProgress int, totalBytes *int64, downloaded *int64) error {
 	os.MkdirAll(localDir, 0755)
 
-	entries, err := c.List(remotePath)
+	if err := c.ChangeDir(remotePath); err != nil {
+		return fmt.Errorf("CWD %s: %v", remotePath, err)
+	}
+	entries, err := c.List("")
 	if err != nil {
 		return fmt.Errorf("LIST %s: %v", remotePath, err)
 	}
 
 	for _, e := range entries {
+		if e.Name == "." || e.Name == ".." {
+			continue
+		}
+		remoteChild := remotePath + "/" + e.Name
+		localChild := filepath.Join(localDir, e.Name)
+
+		if e.Type == goftp.EntryTypeFolder {
+			if err := m.downloadDirTracked(c, remoteChild, localChild, j, baseProgress, maxProgress, totalBytes, downloaded); err != nil {
+				return err
+			}
+		} else {
+			j.Detail = "Downloading " + e.Name
+			if err := m.downloadSingleFileTracked(c, remoteChild, localChild, j, baseProgress, maxProgress, totalBytes, downloaded); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// downloadSingleFileTracked downloads one file with streaming progress updates.
+func (m *Manager) downloadSingleFileTracked(c *goftp.ServerConn, remotePath, localPath string, j *ManagerJob, baseProgress, maxProgress int, totalBytes *int64, downloaded *int64) error {
+	dir := filepath.Dir(localPath)
+	os.MkdirAll(dir, 0755)
+
+	f, err := os.Create(localPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	resp, err := c.Retr(remotePath)
+	if err != nil {
+		return fmt.Errorf("RETR %s: %v", remotePath, err)
+	}
+	defer resp.Close()
+
+	pw := &progressWriter{
+		writer:       f,
+		job:          j,
+		downloaded:   downloaded,
+		totalBytes:   *totalBytes,
+		baseProgress: baseProgress,
+		maxProgress:  maxProgress,
+	}
+	_, err = io.Copy(pw, resp)
+	return err
+}
+
+// progressWriter wraps an io.Writer and updates job progress/speed on writes.
+type progressWriter struct {
+	writer       io.Writer
+	job          *ManagerJob
+	downloaded   *int64
+	totalBytes   int64
+	baseProgress int
+	maxProgress  int
+	lastUpdate   time.Time
+	windowStart  time.Time
+	windowBytes  int64
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n, err := pw.writer.Write(p)
+	*pw.downloaded += int64(n)
+	pw.windowBytes += int64(n)
+
+	now := time.Now()
+	if pw.windowStart.IsZero() {
+		pw.windowStart = now
+	}
+
+	if now.Sub(pw.lastUpdate) >= 500*time.Millisecond {
+		if pw.totalBytes > 0 {
+			frac := float64(*pw.downloaded) / float64(pw.totalBytes)
+			span := pw.maxProgress - pw.baseProgress
+			pw.job.Progress = pw.baseProgress + int(frac*float64(span))
+		}
+		elapsed := now.Sub(pw.windowStart).Seconds()
+		if elapsed > 0.5 {
+			bps := float64(pw.windowBytes) / elapsed
+			pw.job.Speed = formatSpeed(bps)
+			pw.windowBytes = 0
+			pw.windowStart = now
+		}
+		pw.lastUpdate = now
+	}
+	return n, err
+}
+
+// uploadDirTracked uploads a local directory tree with streaming progress.
+func (m *Manager) uploadDirTracked(c *goftp.ServerConn, localDir, remoteDir string, j *ManagerJob, baseProgress, maxProgress int) error {
+	MkdirAll(c, remoteDir)
+
+	var totalSize int64
+	filepath.Walk(localDir, func(_ string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			totalSize += info.Size()
+		}
+		return nil
+	})
+
+	var uploaded int64
+	return filepath.Walk(localDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, _ := filepath.Rel(localDir, path)
+		rel = strings.ReplaceAll(rel, "\\", "/")
+		remote := remoteDir + "/" + rel
+		if info.IsDir() {
+			c.MakeDir(remote)
+			return nil
+		}
+
+		j.Detail = "Uploading " + info.Name()
+
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		pr := &managerProgressReader{
+			reader:       f,
+			total:        info.Size(),
+			job:          j,
+			baseBytes:    uploaded,
+			totalAll:     totalSize,
+			baseProgress: baseProgress,
+			maxProgress:  maxProgress,
+		}
+		if err := c.Stor(remote, pr); err != nil {
+			return err
+		}
+		uploaded += info.Size()
+		return nil
+	})
+}
+
+func formatSpeed(bytesPerSec float64) string {
+	switch {
+	case bytesPerSec >= 1024*1024:
+		return fmt.Sprintf("%.1f MB/s", bytesPerSec/(1024*1024))
+	case bytesPerSec >= 1024:
+		return fmt.Sprintf("%.0f KB/s", bytesPerSec/1024)
+	default:
+		return fmt.Sprintf("%.0f B/s", bytesPerSec)
+	}
+}
+
+// downloadDirRecursive downloads a remote directory tree to a local path.
+func (m *Manager) downloadDirRecursive(c *goftp.ServerConn, remotePath, localDir string) error {
+	os.MkdirAll(localDir, 0755)
+
+	if err := c.ChangeDir(remotePath); err != nil {
+		return fmt.Errorf("CWD %s: %v", remotePath, err)
+	}
+	entries, err := c.List("")
+	if err != nil {
+		return fmt.Errorf("LIST %s: %v", remotePath, err)
+	}
+
+	for _, e := range entries {
+		if e.Name == "." || e.Name == ".." {
+			continue
+		}
 		remoteChild := remotePath + "/" + e.Name
 		localChild := filepath.Join(localDir, e.Name)
 
@@ -982,28 +1275,52 @@ func (m *Manager) uploadDirSimple(c *goftp.ServerConn, localDir, remoteDir strin
 // ── Progress reader for async uploads ─────────────────────────────────
 
 type managerProgressReader struct {
-	reader    io.Reader
-	total     int64
-	written   int64
-	job       *ManagerJob
-	lastLog   time.Time
-	baseBytes int64 // bytes already counted from prior files in a multi-file upload
-	totalAll  int64 // total bytes across all files (0 = single file mode)
+	reader       io.Reader
+	total        int64
+	written      int64
+	job          *ManagerJob
+	lastLog      time.Time
+	baseBytes    int64 // bytes already counted from prior files in a multi-file upload
+	totalAll     int64 // total bytes across all files (0 = single file mode)
+	baseProgress int   // progress range start (default 0)
+	maxProgress  int   // progress range end (default 100)
+	windowStart  time.Time
+	windowBytes  int64
 }
 
 func (r *managerProgressReader) Read(p []byte) (int, error) {
 	n, err := r.reader.Read(p)
 	r.written += int64(n)
+	r.windowBytes += int64(n)
 
-	if time.Since(r.lastLog) > time.Second {
+	now := time.Now()
+	if r.windowStart.IsZero() {
+		r.windowStart = now
+	}
+
+	maxP := r.maxProgress
+	if maxP == 0 {
+		maxP = 100
+	}
+	baseP := r.baseProgress
+
+	if now.Sub(r.lastLog) >= 500*time.Millisecond {
 		if r.totalAll > 0 {
-			// Multi-file mode: progress across all files
 			overall := r.baseBytes + r.written
-			r.job.Progress = int(float64(overall) / float64(r.totalAll) * 100)
+			frac := float64(overall) / float64(r.totalAll)
+			r.job.Progress = baseP + int(frac*float64(maxP-baseP))
 		} else if r.total > 0 {
-			r.job.Progress = int(float64(r.written) / float64(r.total) * 100)
+			frac := float64(r.written) / float64(r.total)
+			r.job.Progress = baseP + int(frac*float64(maxP-baseP))
 		}
-		r.lastLog = time.Now()
+		elapsed := now.Sub(r.windowStart).Seconds()
+		if elapsed > 0.5 {
+			bps := float64(r.windowBytes) / elapsed
+			r.job.Speed = formatSpeed(bps)
+			r.windowBytes = 0
+			r.windowStart = now
+		}
+		r.lastLog = now
 	}
 	return n, err
 }

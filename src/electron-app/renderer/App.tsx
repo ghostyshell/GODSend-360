@@ -95,8 +95,13 @@ export default function App() {
     initApp();
 
     const queueInterval = setInterval(async () => {
-      const r = await window.godsendApi.getQueue().catch(() => ({ ok: false, jobs: [] }));
-      if (r.ok) setQueueJobs(Array.isArray(r.jobs) ? r.jobs : []);
+      const [pipelineRes, ftpRes] = await Promise.all([
+        window.godsendApi.getQueue().catch(() => ({ ok: false, jobs: [] })),
+        window.godsendApi.toolsFtpUploadStatus().catch(() => ({ ok: false, jobs: [] })),
+      ]);
+      const pJobs = pipelineRes.ok && Array.isArray(pipelineRes.jobs) ? pipelineRes.jobs : [];
+      const fJobs = ftpRes.ok && Array.isArray(ftpRes.jobs) ? ftpRes.jobs : [];
+      setQueueJobs([...pJobs, ...fJobs]);
     }, 5000);
 
     return () => {
@@ -269,6 +274,16 @@ export default function App() {
         onToggle={handleLibraryToggle}
         onRefresh={handleLibraryRefresh}
         refreshBusy={libraryRefreshing}
+        ftpStatus={ftpStatus}
+        libraryLoading={libraryLoading}
+        queueJobs={queueJobs}
+        onReconnect={pingFtp}
+        onNavigateQueue={() => setPage("queue")}
+        onNavigateBrowse={() => setPage("browse")}
+        onNavigateSettings={() => setPage("settings")}
+        onNavigateIso2God={() => setPage("iso2god")}
+        onNavigateIso2Xex={() => setPage("iso2xex")}
+        onNavigateFtpManager={() => setPage("ftpmanager")}
       />
     );
   }

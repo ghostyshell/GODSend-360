@@ -137,9 +137,9 @@ func DecodeRXEA(data []byte) ([]*RXEAEntry, []RXEADiag, error) {
 		if slotMask != 0 && (slotMask>>uint(i))&1 == 0 {
 			continue
 		}
-		dw7 := binary.BigEndian.Uint32(ent[28:])
-		dw8 := binary.BigEndian.Uint32(ent[32:])
-		dw9 := binary.BigEndian.Uint32(ent[36:])
+		dw7 := binary.BigEndian.Uint32(ent[32:])
+		dw8 := binary.BigEndian.Uint32(ent[36:])
+		dw9 := binary.BigEndian.Uint32(ent[40:])
 		if slotMask == 0 && dw8 == 0 && dw9 == 0 {
 			continue // empty slot (no bitmask, no GPU constants)
 		}
@@ -265,23 +265,23 @@ func EncodeRXEA(slot AssetSlot, img image.Image) ([]byte, error) {
 	// [0..3]   zero marker/hash
 	binary.BigEndian.PutUint32(buf[eBase+4:],  0x00000003)
 	binary.BigEndian.PutUint32(buf[eBase+8:],  0x00000001)
-	// [12..19] zero
-	binary.BigEndian.PutUint32(buf[eBase+20:], 0xFFFF0000)
+	// [12..23] zero
 	binary.BigEndian.PutUint32(buf[eBase+24:], 0xFFFF0000)
+	binary.BigEndian.PutUint32(buf[eBase+28:], 0xFFFF0000)
 
-	// GPU fetch constants (dw7/dw8/dw9) written directly into the entry.
+	// GPU fetch constants (dw7/dw8/dw9) at entry offsets 32/36/40.
 	pitchField := uint32(alignedBW * blockSz / 128)
 	dw7 := uint32(2) | (pitchField << 22) // bit1=tiled, pitch at bits 22–30
 	dw8 := uint32(gpuFmtDXT5) | (uint32(1) << 6) // fmt + endian=8-in-16
 	dw9 := uint32(widthPx-1) | (uint32(heightPx-1) << 13)
-	binary.BigEndian.PutUint32(buf[eBase+28:], dw7)
-	binary.BigEndian.PutUint32(buf[eBase+32:], dw8)
-	binary.BigEndian.PutUint32(buf[eBase+36:], dw9)
+	binary.BigEndian.PutUint32(buf[eBase+32:], dw7)
+	binary.BigEndian.PutUint32(buf[eBase+36:], dw8)
+	binary.BigEndian.PutUint32(buf[eBase+40:], dw9)
 
-	binary.BigEndian.PutUint32(buf[eBase+40:], 0x00000D10)
-	// [44..47] zero
-	binary.BigEndian.PutUint32(buf[eBase+48:], 0x00000A00)
-	// [52..63] zero tail
+	binary.BigEndian.PutUint32(buf[eBase+44:], 0x00000D10)
+	// [48..51] zero
+	binary.BigEndian.PutUint32(buf[eBase+52:], 0x00000A00)
+	// [56..63] zero tail
 
 	// Image data at rxeaDataOff.
 	copy(buf[rxeaDataOff:], storedDXT)
