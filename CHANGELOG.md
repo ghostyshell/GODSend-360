@@ -9,12 +9,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Changed
-- **README overview media** — replaced the top README overview asset with `GODsend-360-2.9.2.mov` and embedded it above the Table of Contents using an inline HTML video tag.
-- **README overview media rendering** — switched the inline HTML video embed to a Markdown-friendly clickable preview image (`GODsend-360-2.9.2-preview.png`) that links to `GODsend-360-2.9.2.mov` for better compatibility on Git README renderers.
+## [2.10.0] — 2026-04-22
 
-### Fixed
-- **Windows installer download link (README + release asset)** — re-uploaded `godsend-Setup-2.9.2.exe` and updated both the `v2.9.2` release asset link and README Quick Installation URL to the new project-scoped upload path.
+### Added
+- **Browse: Local Library source** — the Browse & Download page now has a "Local Library" source tab alongside Minerva and Internet Archive. Selecting it scans the Transfer folder for ISOs and displays them in a cover-art grid (covers fetched from XboxUnity/Xbox CDN/Wikipedia). Clicking a game opens the queue dialog with all three install methods (GOD, Content, XEX) and a drive selector, same as online sources.
+- **Settings: customisable local storage path** — new "Local storage path" setting lets users choose the root directory for all GODsend data (caches, downloads, temp/ready files). Defaults to the previous automatic location; changing it restarts the backend with the new `GODSEND_HOME`.
+
+### Changed
+- **Version** — **2.10.0** (root + Electron `package.json`, backend banner, Aurora script `scriptVersion`).
+- **Startup: non-blocking FTP connection** — the app no longer shows a full-screen spinner while probing the Xbox FTP connection on startup. The Home page (with navigation header) renders immediately; FTP connection and Aurora library loading happen in the background. Users can navigate to Settings, Browse, or any other page while the connection check proceeds.
+- **README** — added links to both repository mirrors (GitGud + GitHub) and Ko-fi support page at the top of the README. Download links updated for v2.10.0.
 
 ## [2.9.2] — 2026-04-16
 

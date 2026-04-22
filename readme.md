@@ -1,5 +1,9 @@
 # GODsend 360
 
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20GODsend-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/ghosty99)
+
+**Repositories:** [GitGud (primary)](https://gitgud.io/ghosty99/godsend-360) · [GitHub (mirror)](https://github.com/ghostyshell/GODSend-360)
+
 GODsend 360 is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It consists of three parts:
 
 - **Go backend** — HTTP server on your computer (Windows, macOS, or Linux) that fetches games from Minerva Archive (via BitTorrent) or Internet Archive, converts ISOs to GOD format, and transfers them to the Xbox via FTP
@@ -34,21 +38,21 @@ Download priority for online libraries: **Local Transfer folder → Minerva Arch
 
 ### 1. Download the installer
 
-Go to the [GODsend 360 v2.9.2 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.9.2) and download the build for your platform (direct links below match the release assets):
+Download the build for your platform:
 
 | Platform | File |
 |---|---|
-| **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.9.2.exe`](https://gitgud.io/-/project/46780/uploads/ff1140757faa35695427d521cfe32a8e/godsend-Setup-2.9.2.exe) |
-| **macOS (Apple Silicon)** | [`godsend-2.9.2-arm64.dmg`](https://gitgud.io/-/project/46780/uploads/6ed6d5e0bba26e24a96ffe214803c29e/godsend-2.9.2-arm64.dmg) |
-| **macOS (Intel)** | [`godsend-2.9.2-x64.dmg`](https://gitgud.io/-/project/46780/uploads/b07644d814b08b0b1104d23589af1d11/godsend-2.9.2-x64.dmg) |
-| **Linux (x64 / amd64)** | [`godsend-2.9.2-x86_64.AppImage`](https://gitgud.io/-/project/46780/uploads/2b36772c90103946e5d580ea0b6a1538/godsend-2.9.2-x86_64.AppImage) |
-| **Linux (arm64)** | [`godsend-2.9.2-arm64.AppImage`](https://gitgud.io/-/project/46780/uploads/ba2fb7f2fc3edd794168b6dcf8362b30/godsend-2.9.2-arm64.AppImage) |
+| **Windows (x64, NSIS installer — tray app + backend)** | `godsend-Setup-2.10.0.exe` *(upload pending)* |
+| **macOS (Apple Silicon)** | `godsend-2.10.0-arm64.dmg` *(upload pending)* |
+| **macOS (Intel)** | `godsend-2.10.0-x64.dmg` *(upload pending)* |
+| **Linux (x64 / amd64)** | `godsend-2.10.0-x86_64.AppImage` *(upload pending)* |
+| **Linux (arm64)** | `godsend-2.10.0-arm64.AppImage` *(upload pending)* |
 
-> **Windows:** use **`godsend-Setup-2.9.2.exe`** for the desktop tray app. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
+> **Windows:** use **`godsend-Setup-2.10.0.exe`** for the desktop tray app. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.9.2.exe`** and follow the installer.
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.10.0.exe`** and follow the installer.
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher — the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.

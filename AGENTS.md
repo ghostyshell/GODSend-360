@@ -9,7 +9,7 @@ GODsend-360 is a local-network game management system for Xbox 360 consoles runn
 High-level data flow:
 
 - `aurora-scripts` ⇄ **HTTP** ⇄ Go backend ⇄ **Internet Archive / local Transfer folder**
-- Go backend ⇄ **FTP** ⇄ Xbox content drives (via Aurora’s FTP server; GOD/XEX/DLC layout)
+- Go backend ⇄ **FTP** ⇄ Xbox content drives (via Aurora's FTP server; GOD/XEX/DLC layout)
 - Electron app ⇄ **child process & IPC** ⇄ Go backend and local config
 
 External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts** – refactors must preserve them unless explicitly requested otherwise.
@@ -166,25 +166,77 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 - `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.).
 - `tools/`: ignored directory for third-party executables (`7za.exe`, `7za.dll`, `7zxa.dll`) when needed outside the bundled Go pipeline.
 
-### GitGud release assets (upload + links)
+### Release assets (Gofile upload + README links)
 
-- **README and headless-setup version strings** — Do **not** change `readme.md` or `docs/headless-setup.md` to reference a new version (GitGud `.../releases/vX.Y.Z` URLs, installer/AppImage/DMG filenames, or inline “use `godsend-Setup-X.Y.Z.exe`” text) until the **`vX.Y.Z` tag exists on the remote** (e.g. `git ls-remote --tags origin 'refs/tags/vX.Y.Z'` or the GitGud release page). Update those docs when attaching assets for that tag (see verify step below).
-- Preferred public asset URLs must use the project-scoped form:
-  - `https://gitgud.io/-/project/46780/uploads/<upload-id>/<filename>`
-  - Do **not** use `https://gitgud.io/uploads/...` directly (can require sign-in and break README/release links).
-- If PAT credentials are embedded in `origin` (HTTPS URL with user:token), agents may use that token for GitGud API calls.
-- Upload and attach a release asset via GitGud API:
-  1. Extract PAT from `git remote get-url origin`.
-  2. Upload file: `POST /api/v4/projects/:id/uploads` (multipart `file=@...`).
-  3. Build public URL using the returned `upload.url` with `https://gitgud.io` prefix.
-  4. Attach to release: `POST /api/v4/projects/:id/releases/:tag/assets/links` with `name` + `url`.
-- Replacing an existing asset link:
-  - List links: `GET /api/v4/projects/:id/releases/:tag/assets/links`
-  - Update link URL: `PUT /api/v4/projects/:id/releases/:tag/assets/links/:link_id`
-  - Or delete/recreate if needed.
-- After any release asset change, verify:
-  - README download links match the current upload URL.
-  - Release page asset link resolves publicly (unauthenticated) and downloads the file.
+**Do NOT create git tags or GitGud releases.** All build assets are uploaded to Gofile.io and linked directly from `readme.md`.
+
+#### Gofile upload workflow
+
+The Gofile API token lives in `.gofile-io-token` (git-ignored). Read it at runtime:
+
+```bash
+GOFILE_TOKEN=$(cat .gofile-io-token)
+```
+
+Upload steps (per file):
+
+1. **Get an upload server:**
+   ```bash
+   SERVER=$(curl -s https://api.gofile.io/servers | jq -r '.data.servers[0].name')
+   ```
+2. **Upload the file:**
+   ```bash
+   RESPONSE=$(curl -F "file=@dist/godsend-Setup-X.Y.Z.exe" \
+     "https://${SERVER}.gofile.io/contents/uploadfile" \
+     -F "token=${GOFILE_TOKEN}")
+   ```
+3. **Extract the download page URL** from the JSON response:
+   ```bash
+   DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
+   ```
+   The `downloadPage` value (e.g. `https://gofile.io/d/AbC123`) is the public link to use in the README.
+
+#### Updating README download links
+
+After uploading all platform assets, update the download table in `readme.md`:
+
+- Replace each row's URL with the Gofile download page link.
+- The filename in the link text must include the version (e.g. `godsend-Setup-2.10.0.exe`).
+- Keep the existing table format:
+  ```markdown
+  | **Windows (x64, NSIS installer)** | [`godsend-Setup-X.Y.Z.exe`](https://gofile.io/d/XXXXX) |
+  ```
+- Update all inline version references (e.g. "use `godsend-Setup-X.Y.Z.exe`") to match.
+- Update the release heading link text (e.g. "GODsend 360 vX.Y.Z") — but do **not** link to a GitGud release page; remove or replace the link with a plain text heading or a link to the repo root.
+
+#### Rules
+
+- **Never** create git tags, GitGud releases, or push tags to the remote.
+- **Never** commit `.gofile-io-token` — it is in `.gitignore`.
+- Upload each platform build as a **separate file** — do not zip multiple builds together.
+- Always verify the Gofile download page URL is accessible (unauthenticated) before updating the README.
+- When bumping versions, update `readme.md` download links **in the same commit** as the version bump.
+
+### Git remotes and pushing
+
+The repo has **two remotes** that must always be kept in sync:
+
+| Remote | URL | Notes |
+|--------|-----|-------|
+| **origin** (primary) | `git@gitgud.io:ghosty99/godsend-360.git` | [GitGud repo](https://gitgud.io/ghosty99/godsend-360) |
+| **github** (mirror) | `https://github.com/ghostyshell/GODSend-360.git` | [GitHub repo](https://github.com/ghostyshell/GODSend-360) |
+
+When pushing changes, **always push to both remotes**:
+
+```bash
+git push origin HEAD && git push github HEAD
+```
+
+If the current branch does not track a remote yet, use `-u` on the first push:
+
+```bash
+git push -u origin HEAD && git push github HEAD
+```
 
 ---
 
@@ -312,4 +364,3 @@ If you are an agent performing a significant refactor:
 
 - **First**: scan this file and the relevant section of `README.md` for constraints.
 - **After changes**: update this file to reflect any new module layouts, entrypoints, or required commands before finishing your task.
-

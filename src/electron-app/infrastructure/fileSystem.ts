@@ -1,6 +1,7 @@
 import { app, nativeImage } from "electron";
 import path from "path";
 import fs from "fs";
+import { getConfiguredStoragePath } from "../services/settingsService";
 
 /**
  * Monorepo root (directory containing `cache/`, `dist/`, `tools/`).
@@ -49,10 +50,15 @@ export function getGodsendExePath(): string {
   return path.join(repo, devCandidates[0]);
 }
 
-export function getWritableRuntimeRoot(): string {
+export function getDefaultWritableRuntimeRoot(): string {
   return app.isPackaged
     ? path.join(app.getPath("userData"), "runtime")
     : getBundledRoot();
+}
+
+export function getWritableRuntimeRoot(): string {
+  const custom = getConfiguredStoragePath();
+  return custom ? path.resolve(custom) : getDefaultWritableRuntimeRoot();
 }
 
 export function ensureDirectory(dirPath: string): void {

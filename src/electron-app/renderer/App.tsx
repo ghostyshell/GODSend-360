@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { Loader2 } from "lucide-react";
 import HomePage from "./components/HomePage";
 import SettingsPage from "./components/SettingsPage";
 import LibraryPage from "./components/LibraryPage";
@@ -10,7 +9,7 @@ import ISO2XEXPage from "./components/ISO2XEXPage";
 import FTPManagerPage from "./components/FTPManagerPage";
 import MainNav from "./components/MainNav";
 
-type PageId = "loading" | "home" | "library" | "settings" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager";
+type PageId = "home" | "library" | "settings" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager";
 
 const PAGE_TITLES: Record<string, string> = {
   settings:   "Settings",
@@ -22,7 +21,7 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 export default function App() {
-  const [page, setPage] = useState<PageId>("loading");
+  const [page, setPage] = useState<PageId>("home");
 
   // ── Console output ────────────────────────────────────────────────────────
   const [outputLines, setOutputLines] = useState<string[]>([]);
@@ -124,8 +123,6 @@ export default function App() {
   }, []);
 
   async function initApp() {
-    // Retry a few times — the Go backend may still be spinning up when
-    // the renderer mounts, so a single ping can race the server.
     let ping: any = { ok: false };
     for (let attempt = 0; attempt < 10; attempt++) {
       ping = await window.godsendApi.pingXbox().catch(() => ({ ok: false }));
@@ -135,15 +132,19 @@ export default function App() {
 
     if (!ping.ok) {
       setFtpStatus("disconnected");
-      setPage("home");
       return;
     }
 
     setFtpStatus("connected");
     setLibraryStatus("connecting");
-    setPage("library");
 
-    await loadAuroraLibrary();
+    setPage((current) => (current === "home" ? "library" : current));
+
+    const result = await loadAuroraLibrary({ navigateOnLibraryError: false });
+    if (!result || !result.ok) {
+      setFtpStatus("disconnected");
+      setLibraryStatus("error");
+    }
   }
 
   // ── FTP ping (reconnect button) ───────────────────────────────────────────
@@ -256,14 +257,6 @@ export default function App() {
   };
 
   // ── Routing ───────────────────────────────────────────────────────────────
-  if (page === "loading") {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   if (page === "library") {
     return (
       <LibraryPage

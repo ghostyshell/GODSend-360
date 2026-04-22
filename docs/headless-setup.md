@@ -4,17 +4,17 @@ The Go backend works as a standalone headless server — no Electron, no GUI, no
 
 ## 1. Get the server binary
 
-**Option A — Download a prebuilt binary** from the [v2.9.2 release](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.9.2) ([all releases](https://gitgud.io/ghosty99/godsend-360/-/releases)):
+**Option A — Download a prebuilt binary** *(links updated when build assets are uploaded)*:
 
 | Platform | Binary |
 |----------|--------|
-| **Windows (x64)** | [`godsend.exe`](https://gitgud.io/-/project/46780/uploads/339fbf3fa02cf3ae9e0a013fb5a84ccc/godsend.exe) |
-| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gitgud.io/-/project/46780/uploads/05a7c699c101852f6482af9c4581f0b0/godsend-linux-x64) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gitgud.io/-/project/46780/uploads/ef695b9aeb116f7bab5a8b9f1c2d790d/godsend-linux-arm64) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gitgud.io/-/project/46780/uploads/41003612f40ead5e8e3588275770f6a4/godsend-darwin-arm64) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gitgud.io/-/project/46780/uploads/32687bb8e6869fd0759ff6d8278bc82e/godsend-darwin-amd64) |
+| **Windows (x64)** | `godsend.exe` *(upload pending)* |
+| **Linux (x64 / amd64)** | `godsend-linux-x64` *(upload pending)* |
+| **Linux (arm64)** | `godsend-linux-arm64` *(upload pending)* |
+| **macOS (Apple Silicon)** | `godsend-darwin-arm64` *(upload pending)* |
+| **macOS (Intel)** | `godsend-darwin-amd64` *(upload pending)* |
 
-For the **full desktop app** (tray UI + bundled backend), use the **NSIS** (Windows), **DMG** (macOS), or **AppImage** (Linux) assets on the same [release page](https://gitgud.io/ghosty99/godsend-360/-/releases/v2.9.2) instead of the bare binaries above.
+For the **full desktop app** (tray UI + bundled backend), see the download table in the main [README](../readme.md#quick-installation).
 
 On Linux / macOS, make the binary executable after downloading: `chmod +x godsend-*`
 

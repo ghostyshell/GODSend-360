@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Search, Loader2, WifiOff, Gamepad2, Download,
-  RefreshCw, ChevronDown, X,
+  RefreshCw, ChevronDown, X, HardDrive,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
@@ -22,6 +22,7 @@ const PLATFORMS = [
 const SOURCES = [
   { id: "minerva", label: "Minerva" },
   { id: "ia",      label: "Internet Archive" },
+  { id: "local",   label: "Local Library" },
 ];
 
 const METHODS   = [
@@ -119,7 +120,7 @@ function QueueDialog({
   drives,
   onClose,
 }: QueueDialogProps) {
-  const hasMethods = PLATFORMS.find((p) => p.id === platform)?.methods ?? false;
+  const hasMethods = source === "local" || (PLATFORMS.find((p) => p.id === platform)?.methods ?? false);
   const [drive,  setDrive]  = useState(defaultDrive || drives[0] || "Hdd1:");
   const [method, setMethod] = useState("god");
   const [queuing, setQueuing]   = useState(false);
@@ -173,9 +174,9 @@ function QueueDialog({
               {game}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              {PLATFORMS.find((p) => p.id === platform)?.label ?? platform}
-              {" · "}
-              {SOURCES.find((s) => s.id === source)?.label ?? source}
+              {source === "local"
+                ? "Local Library"
+                : `${PLATFORMS.find((p) => p.id === platform)?.label ?? platform} · ${SOURCES.find((s) => s.id === source)?.label ?? source}`}
             </p>
           </div>
         </div>
@@ -286,6 +287,49 @@ function QueueDialog({
   );
 }
 
+// ── Local library game card ──────────────────────────────────────────────────
+
+interface LocalGameCardProps {
+  name: string;
+  cover?: string | null;
+  onClick: () => void;
+}
+
+function LocalGameCard({ name, cover, onClick }: LocalGameCardProps) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col gap-1 rounded-lg p-1.5 hover:bg-accent/40 active:bg-accent transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
+      <div
+        className="relative w-full rounded-lg overflow-hidden border border-border bg-[#0d1117]"
+        style={{ aspectRatio: "3/4" }}
+      >
+        {cover === undefined ? (
+          <div className="absolute inset-0 bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
+        ) : cover ? (
+          <img
+            src={cover}
+            alt={name}
+            className="absolute inset-0 w-full h-full object-cover"
+            draggable={false}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Gamepad2 className="h-7 w-7 text-border" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-2">
+          <Download className="h-4 w-4 text-white/80" />
+        </div>
+      </div>
+      <span className="text-[10px] leading-tight text-foreground/80 group-hover:text-foreground text-center line-clamp-2 min-h-[2lh]">
+        {name}
+      </span>
+    </button>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface BrowsePageProps {
@@ -304,6 +348,10 @@ export default function BrowsePage({}: BrowsePageProps) {
   const [cover,        setCover]        = useState<string | null | undefined>(undefined);
   const [drives,       setDrives]       = useState<string[]>([]);
   const filterRef = useRef<HTMLInputElement>(null);
+
+  const [localCovers, setLocalCovers] = useState<Record<string, string | null | undefined>>({});
+
+  const isLocal = source === "local";
 
   // Load default drive and FTP drive list once
   useEffect(() => {
@@ -327,7 +375,11 @@ export default function BrowsePage({}: BrowsePageProps) {
     setGames([]);
     setFilter("");
     setCacheProgress(null);
-    const r = await window.godsendApi.browseGetGames({ platform, source });
+    setLocalCovers({});
+    const browsePayload = isLocal
+      ? { platform: "local", source: "local" }
+      : { platform, source };
+    const r = await window.godsendApi.browseGetGames(browsePayload);
     if (!r.ok) {
       setStatus("error");
       return;
@@ -340,16 +392,37 @@ export default function BrowsePage({}: BrowsePageProps) {
     const list = Array.isArray(r.games) ? r.games : [];
     setGames(list);
     setStatus(list.length === 0 ? "empty" : "ready");
-    // Focus filter input after load
     setTimeout(() => filterRef.current?.focus(), 50);
+
+    if (isLocal && list.length > 0) {
+      fetchLocalCovers(list);
+    }
+  }
+
+  function fetchLocalCovers(names: string[]) {
+    const initCovers: Record<string, string | null | undefined> = {};
+    for (const n of names) initCovers[n] = undefined;
+    setLocalCovers(initCovers);
+
+    for (const name of names) {
+      window.godsendApi.browseFetchCover(name).then((r: any) => {
+        setLocalCovers((prev) => ({ ...prev, [name]: r.ok ? r.dataUrl : null }));
+      }).catch(() => {
+        setLocalCovers((prev) => ({ ...prev, [name]: null }));
+      });
+    }
   }
 
   function openGame(name: string) {
     setSelected(name);
-    setCover(undefined); // undefined = loading
-    window.godsendApi.browseFetchCover(name).then((r: any) => {
-      setCover(r.ok ? r.dataUrl : null);
-    }).catch(() => setCover(null));
+    if (isLocal && localCovers[name] !== undefined) {
+      setCover(localCovers[name]);
+    } else {
+      setCover(undefined);
+      window.godsendApi.browseFetchCover(name).then((r: any) => {
+        setCover(r.ok ? r.dataUrl : null);
+      }).catch(() => setCover(null));
+    }
   }
 
   function closeDialog() {
@@ -361,12 +434,13 @@ export default function BrowsePage({}: BrowsePageProps) {
     ? games.filter((g) => g.toLowerCase().includes(filter.toLowerCase()))
     : games;
 
+  const effectivePlatform = isLocal ? "local" : platform;
+
   return (
     <div className="relative flex flex-col h-full p-3 gap-2 overflow-hidden">
 
       {/* ── Header ── */}
       <header className="flex items-center gap-2 shrink-0">
-        {/* Source pills */}
         <div className="flex gap-1">
           {SOURCES.map((s) => (
             <PillBtn
@@ -374,31 +448,36 @@ export default function BrowsePage({}: BrowsePageProps) {
               active={source === s.id}
               onClick={() => setSource(s.id)}
             >
+              {s.id === "local" && <HardDrive className="inline h-3 w-3 mr-1 -mt-px" />}
               {s.label}
             </PillBtn>
           ))}
         </div>
       </header>
 
-      {/* ── Platform tabs ── */}
-      <div className="flex gap-1 overflow-x-auto shrink-0 pb-0.5 no-scrollbar">
-        {PLATFORMS.map((p) => (
-          <PillBtn
-            key={p.id}
-            active={platform === p.id}
-            onClick={() => setPlatform(p.id)}
-          >
-            {p.label}
-          </PillBtn>
-        ))}
-      </div>
+      {/* ── Platform tabs (hidden for local library) ── */}
+      {!isLocal && (
+        <div className="flex gap-1 overflow-x-auto shrink-0 pb-0.5 no-scrollbar">
+          {PLATFORMS.map((p) => (
+            <PillBtn
+              key={p.id}
+              active={platform === p.id}
+              onClick={() => setPlatform(p.id)}
+            >
+              {p.label}
+            </PillBtn>
+          ))}
+        </div>
+      )}
 
       {/* ── Content area ── */}
 
       {status === "loading" && (
         <CenteredOverlay>
           <Loader2 className="h-7 w-7 animate-spin text-primary" />
-          <p className="text-[13px]">Loading game list…</p>
+          <p className="text-[13px]">
+            {isLocal ? "Scanning Transfer folder…" : "Loading game list…"}
+          </p>
         </CenteredOverlay>
       )}
 
@@ -437,14 +516,27 @@ export default function BrowsePage({}: BrowsePageProps) {
 
       {status === "empty" && (
         <CenteredOverlay>
-          <Gamepad2 className="h-7 w-7 text-muted-foreground" />
-          <p className="text-[13px]">No games found.</p>
-          <p className="text-[11px] text-muted-foreground/60 max-w-[220px] text-center">
-            The list may still be building. Try again in a moment.
-          </p>
+          {isLocal ? (
+            <>
+              <HardDrive className="h-7 w-7 text-muted-foreground" />
+              <p className="text-[13px]">No ISOs found in Transfer folder.</p>
+              <p className="text-[11px] text-muted-foreground/60 max-w-[260px] text-center">
+                Place Xbox 360 ISO files in your Transfer folder to see them here.
+                The folder path can be changed in Settings.
+              </p>
+            </>
+          ) : (
+            <>
+              <Gamepad2 className="h-7 w-7 text-muted-foreground" />
+              <p className="text-[13px]">No games found.</p>
+              <p className="text-[11px] text-muted-foreground/60 max-w-[220px] text-center">
+                The list may still be building. Try again in a moment.
+              </p>
+            </>
+          )}
           <Button size="sm" onClick={loadGames}>
             <RefreshCw className="h-3 w-3 mr-1.5" />
-            Retry
+            {isLocal ? "Rescan" : "Retry"}
           </Button>
         </CenteredOverlay>
       )}
@@ -482,12 +574,26 @@ export default function BrowsePage({}: BrowsePageProps) {
             </p>
           )}
 
-          {/* Game list */}
+          {/* Game grid (local library) or text list (store) */}
           <ScrollArea className="flex-1 min-h-0">
             {filtered.length === 0 ? (
               <p className="text-[12px] text-muted-foreground text-center py-8">
-                No matches for "{filter}"
+                No matches for &ldquo;{filter}&rdquo;
               </p>
+            ) : isLocal ? (
+              <div
+                className="grid gap-2 pb-4 pr-1"
+                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}
+              >
+                {filtered.map((name) => (
+                  <LocalGameCard
+                    key={name}
+                    name={name}
+                    cover={localCovers[name]}
+                    onClick={() => openGame(name)}
+                  />
+                ))}
+              </div>
             ) : (
               <div className="pr-1 pb-2">
                 {filtered.map((name) => (
@@ -517,7 +623,7 @@ export default function BrowsePage({}: BrowsePageProps) {
       {selected && (
         <QueueDialog
           game={selected}
-          platform={platform}
+          platform={effectivePlatform}
           source={source}
           cover={cover}
           defaultDrive={defaultDrive}

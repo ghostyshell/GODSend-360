@@ -32,3 +32,4 @@ src/electron-app/out/
 # graphify knowledge graph outputs (generated, not tracked)
 graphify-out/
 .gitlab-token
+.gofile-io-token

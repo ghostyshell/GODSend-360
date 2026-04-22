@@ -4,6 +4,7 @@ import fs from "fs";
 import { ensureDirectory } from "../infrastructure/fileSystem";
 
 export interface GodsendConfig {
+  storagePath?: string;
   transferFolder?: string;
   iaCookie?: string;
   iaAuthorization?: string;
@@ -37,6 +38,11 @@ export function writeConfig(partial: Partial<GodsendConfig>): GodsendConfig {
   ensureDirectory(path.dirname(configFilePath()));
   fs.writeFileSync(configFilePath(), JSON.stringify(next, null, 2), "utf8");
   return next;
+}
+
+export function getConfiguredStoragePath(): string {
+  const v = readConfig().storagePath;
+  return typeof v === "string" ? v.trim() : "";
 }
 
 export function getConfiguredTransferFolder(): string {

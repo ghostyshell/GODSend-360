@@ -8,6 +8,7 @@ import http from "http";
 import path from "path";
 
 import {
+  getConfiguredStoragePath,
   getConfiguredTransferFolder,
   getDefaultTransferFolder,
   getConfiguredROMPath,
@@ -32,7 +33,7 @@ import {
   loginInternetArchive,
 } from "../services/backendClient";
 import { getLogInfo, openLogsFolder, appendAppEvent } from "../infrastructure/serverLog";
-import { getWritableRuntimeRoot } from "../infrastructure/fileSystem";
+import { getWritableRuntimeRoot, getDefaultWritableRuntimeRoot } from "../infrastructure/fileSystem";
 import { getMainWindow } from "../app/window";
 
 export function register(ipcMain: IpcMain): void {
@@ -51,6 +52,33 @@ export function register(ipcMain: IpcMain): void {
 
   ipcMain.handle("logs:get-info",    () => getLogInfo());
   ipcMain.handle("logs:open-folder", () => openLogsFolder());
+
+  // ── Storage path (GODSEND_HOME) ─────────────────────────────────────────────
+  ipcMain.handle("config:get-storage-path", () => getConfiguredStoragePath());
+
+  ipcMain.handle("config:get-effective-storage-path", () => getWritableRuntimeRoot());
+
+  ipcMain.handle("config:get-default-storage-path", () => getDefaultWritableRuntimeRoot());
+
+  ipcMain.handle("config:set-storage-path", (_event, folder) => {
+    const f = typeof folder === "string" ? folder.trim() : "";
+    writeConfig({ storagePath: f });
+    appendAppEvent(
+      "CONFIG",
+      `storagePath set to ${f ? path.resolve(f) : "(default)"}; restarting backend`
+    );
+    restartGodsendIfRunning();
+    return getConfiguredStoragePath();
+  });
+
+  ipcMain.handle("config:choose-storage-path", async () => {
+    const win = BrowserWindow.getFocusedWindow() || getMainWindow();
+    const r   = await dialog.showOpenDialog(win || undefined, {
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    return r.filePaths[0];
+  });
 
   // ── Transfer folder ─────────────────────────────────────────────────────────
   ipcMain.handle("config:get-transfer-folder", () => getConfiguredTransferFolder());

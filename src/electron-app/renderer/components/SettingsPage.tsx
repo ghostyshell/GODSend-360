@@ -46,6 +46,8 @@ interface SettingsPageProps {
 export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   // Form state
   const [startup, setStartup]                   = useState(false);
+  const [storagePath, setStoragePath]           = useState("");
+  const [defaultStoragePath, setDefaultStoragePath] = useState("");
   const [serverPort, setServerPort]             = useState("8080");
   const [xboxIp, setXboxIp]                     = useState("");
   const [ftpUser, setFtpUser]                   = useState("");
@@ -100,6 +102,8 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   useEffect(() => {
     async function load() {
       setStartup(await window.godsendApi.getStartupEnabled());
+      setStoragePath((await window.godsendApi.getEffectiveStoragePath()) || "");
+      setDefaultStoragePath((await window.godsendApi.getDefaultStoragePath()) || "");
       setTransferPath((await window.godsendApi.getEffectiveTransferFolder()) || "");
       setServerPort(String(await window.godsendApi.getServerPort()));
 
@@ -160,6 +164,20 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   async function handleStartupChange(checked: boolean | "indeterminate") {
     const result = await window.godsendApi.setStartupEnabled(checked);
     setStartup(result);
+  }
+
+  async function handleStorageBrowse() {
+    const picked = await window.godsendApi.chooseStoragePath();
+    if (!picked) return;
+    await window.godsendApi.setStoragePath(picked);
+    setStoragePath((await window.godsendApi.getEffectiveStoragePath()) || "");
+    onAppendLine(`[INFO] Storage path changed to ${picked}; backend restarted.`);
+  }
+
+  async function handleStorageReset() {
+    await window.godsendApi.setStoragePath("");
+    setStoragePath((await window.godsendApi.getEffectiveStoragePath()) || "");
+    onAppendLine("[INFO] Storage path reset to default; backend restarted.");
   }
 
   async function handlePortSave() {
@@ -424,6 +442,27 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               <Checkbox checked={startup} onCheckedChange={handleStartupChange} />
               Launch GODsend at login
             </label>
+          </Section>
+
+          {/* ── Local storage path ── */}
+          <Section title="Local storage path">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Input
+                type="text"
+                readOnly
+                className="flex-1 min-w-[180px]"
+                placeholder={`Default: ${defaultStoragePath}`}
+                value={storagePath}
+              />
+              <Button onClick={handleStorageBrowse}>Browse&hellip;</Button>
+              <Button onClick={handleStorageReset}>Use default</Button>
+            </div>
+            <Hint>
+              Root directory for all GODsend data (caches, downloads, temp files,
+              ready files). Changing this restarts the backend. The Transfer
+              folder setting below can override just the ISO location
+              independently.
+            </Hint>
           </Section>
 
           {/* ── Backend server port ── */}
