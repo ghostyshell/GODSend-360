@@ -248,6 +248,7 @@ export default function App() {
     queueJobs,
     onReconnect: pingFtp,
     onLibraryToggle: handleLibraryToggle,
+    onNavigateHome:       () => navigateTo("home"),
     onNavigateQueue:      () => navigateTo("queue"),
     onNavigateBrowse:     () => navigateTo("browse"),
     onNavigateSettings:   () => navigateTo("settings"),

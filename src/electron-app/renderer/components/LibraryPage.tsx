@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Gamepad2, Loader2, WifiOff,
   Star, Disc3, RotateCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
-  ArrowUpDown, Filter, HardDrive, ArrowRightLeft,
+  ArrowUpDown, Filter, HardDrive, ArrowRightLeft, Download,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -1473,6 +1473,45 @@ export default function LibraryPage({
   const sortRef   = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
 
+  // ── Download Covers state ──
+  const [dlCoversBusy, setDlCoversBusy]         = useState(false);
+  const [dlCoversProgress, setDlCoversProgress]  = useState<{ processed: number; total: number; current: string } | null>(null);
+  const [dlCoversToast, setDlCoversToast]        = useState<string | null>(null);
+
+  // Listen for progress events while download-covers is running
+  useEffect(() => {
+    const cleanup = (window as any).godsendApi.onDownloadCoversProgress?.((data: any) => {
+      if (data.done) {
+        setDlCoversProgress(null);
+      } else {
+        setDlCoversProgress({ processed: data.processed, total: data.total, current: data.current || "" });
+      }
+    });
+    return () => cleanup?.();
+  }, []);
+
+  async function handleDownloadCovers() {
+    if (dlCoversBusy || games.length === 0) return;
+    setDlCoversBusy(true);
+    setDlCoversProgress({ processed: 0, total: games.length, current: "" });
+    setDlCoversToast(null);
+    try {
+      await (window as any).godsendApi.downloadAllCovers({
+        games: games.map((g: Game) => ({
+          titleId: g.titleId,
+          gameDataDir: g.gameDataDir,
+          name: g.name,
+        })),
+      });
+    } catch { /* errors logged server-side */ }
+    setDlCoversBusy(false);
+    setDlCoversProgress(null);
+    setDlCoversToast("Refresh data in Aurora for changes to reflect");
+    setTimeout(() => setDlCoversToast(null), 3000);
+    setRxeaCovers({});
+    onRefresh?.();
+  }
+
   // Close dropdowns on outside click
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
@@ -1549,10 +1588,19 @@ export default function LibraryPage({
               size="icon"
               variant="ghost"
               title="Refresh library cache from Xbox"
-              disabled={refreshBusy || status !== "ready" || typeof onRefresh !== "function"}
+              disabled={refreshBusy || dlCoversBusy || status !== "ready" || typeof onRefresh !== "function"}
               onClick={() => { setRxeaCovers({}); onRefresh?.(); }}
             >
               <RotateCw className={cn("h-4 w-4", refreshBusy && "animate-spin")} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              title="Download covers for all games missing artwork"
+              disabled={dlCoversBusy || refreshBusy || status !== "ready"}
+              onClick={handleDownloadCovers}
+            >
+              <Download className={cn("h-4 w-4", dlCoversBusy && "animate-pulse")} />
             </Button>
             <MainNav
               ftpStatus={ftpStatus}
@@ -1666,6 +1714,32 @@ export default function LibraryPage({
           </div>
         )}
       </header>
+
+      {/* Download Covers progress bar */}
+      {dlCoversBusy && dlCoversProgress && (
+        <div className="shrink-0 flex items-center gap-2 px-1">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+              <span className="truncate max-w-[200px]">{dlCoversProgress.current}</span>
+              <span className="shrink-0 ml-2">{dlCoversProgress.processed}/{dlCoversProgress.total}</span>
+            </div>
+            <div className="h-1 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300"
+                style={{ width: `${Math.round((dlCoversProgress.processed / Math.max(dlCoversProgress.total, 1)) * 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download Covers toast */}
+      {dlCoversToast && (
+        <div className="shrink-0 px-2 py-1.5 rounded bg-emerald-500/15 text-emerald-300 text-[11px] text-center">
+          {dlCoversToast}
+        </div>
+      )}
 
       {status === "connecting" && (
         <CenteredOverlay>

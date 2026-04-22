@@ -87,11 +87,12 @@ export function ToolboxDropdown({ onIso2God, onIso2Xex, onFtpManager }: ToolboxD
 export interface MainNavProps {
   ftpStatus: string;
   currentPage: "home" | "library" | "settings" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager";
-  libraryAvailable: boolean;
+  libraryAvailable?: boolean;
   libraryLoading: boolean;
   queueJobs: any[];
   onReconnect: () => void;
   onLibraryToggle: () => void;
+  onNavigateHome?: () => void;
   onNavigateQueue: () => void;
   onNavigateBrowse: () => void;
   onNavigateSettings: () => void;
@@ -108,6 +109,7 @@ export default function MainNav({
   queueJobs,
   onReconnect,
   onLibraryToggle,
+  onNavigateHome,
   onNavigateQueue,
   onNavigateBrowse,
   onNavigateSettings,
@@ -118,7 +120,7 @@ export default function MainNav({
   const ftpChecking  = ftpStatus === "checking";
   const showLibBtn   = libraryAvailable || libraryLoading;
   const hasQueueJobs = Array.isArray(queueJobs) && queueJobs.length > 0;
-  const onLibrary    = currentPage === "library";
+  const onHome       = currentPage === "home";
 
   return (
     <div className="flex items-center gap-1.5">
@@ -135,22 +137,26 @@ export default function MainNav({
           : <RotateCcw className="h-3.5 w-3.5" />}
       </Button>
 
+      {!onHome && (
+        <Button
+          size="icon"
+          title="Console"
+          onClick={onNavigateHome || onLibraryToggle}
+        >
+          <Terminal className="h-4 w-4" />
+        </Button>
+      )}
+
       {showLibBtn && (
         <Button
           size="icon"
-          title={
-            libraryLoading
-              ? "Connecting to Xbox…"
-              : onLibrary ? "Show console" : "Xbox Library"
-          }
+          title={libraryLoading ? "Connecting to Xbox…" : "Xbox Library"}
           disabled={libraryLoading}
           onClick={onLibraryToggle}
         >
           {libraryLoading
             ? <Loader2 className="h-4 w-4 animate-spin" />
-            : onLibrary
-              ? <Terminal className="h-4 w-4" />
-              : <Gamepad2 className="h-4 w-4" />}
+            : <Gamepad2 className="h-4 w-4" />}
         </Button>
       )}
 

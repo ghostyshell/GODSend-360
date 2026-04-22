@@ -41,7 +41,7 @@ import {
   fetchXboxCdnAssets,
   resolveTitleIdHex,
 } from "../services/coverArtService";
-import { getMainWindow } from "../app/window";
+import { getMainWindow, getWebContentsForPush } from "../app/window";
 import { backendPost } from "../infrastructure/backendHttp";
 
 // ── FTP batch helper ──────────────────────────────────────────────────────────
@@ -54,6 +54,22 @@ async function batchFtp(xboxIp: string, ops: any[]): Promise<any[]> {
 function bufFromBatchResult(results: any[], idx: number): Buffer | null {
   if (idx < 0 || !results[idx] || !results[idx].ok || !results[idx].data) return null;
   return Buffer.from(results[idx].data, "base64");
+}
+
+async function rxeaEncodeImage(imgBuf: Buffer, slot: number, port: number): Promise<Buffer | null> {
+  return new Promise((resolve) => {
+    const req = http.request(
+      { host: "127.0.0.1", port, path: `/rxea/encode?slot=${slot}`, method: "POST",
+        headers: { "Content-Type": "application/octet-stream", "Content-Length": imgBuf.length } },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve(res.statusCode === 200 ? Buffer.concat(chunks) : null));
+      }
+    );
+    req.on("error", () => resolve(null));
+    req.end(imgBuf);
+  });
 }
 
 export function register(ipcMain: IpcMain): void {
@@ -193,22 +209,8 @@ export function register(ipcMain: IpcMain): void {
     }
     if (!imgBuf || imgBuf.length < 100) return { ok: false, error: "No valid image data provided." };
 
-    // Encode the image into an RXEA .asset via the Go backend.
     const port = getConfiguredServerPort();
-    const finalImgBuf = imgBuf;
-    const rxeaBuf: Buffer | null = await new Promise((resolve) => {
-      const req = http.request(
-        { host: "127.0.0.1", port, path: `/rxea/encode?slot=${slotInfo.slot}`, method: "POST",
-          headers: { "Content-Type": "application/octet-stream", "Content-Length": finalImgBuf.length } },
-        (res) => {
-          const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end",  () => resolve(res.statusCode === 200 ? Buffer.concat(chunks) : null));
-        }
-      );
-      req.on("error", () => resolve(null));
-      req.end(finalImgBuf);
-    });
+    const rxeaBuf = await rxeaEncodeImage(imgBuf, slotInfo.slot, port);
 
     if (!rxeaBuf || rxeaBuf.length < 2048) {
       return { ok: false, error: "RXEA encoding failed — backend returned no data." };
@@ -586,5 +588,156 @@ export function register(ipcMain: IpcMain): void {
     } catch (err: any) {
       return { ok: false, error: err.message || String(err) };
     }
+  });
+
+  // ── Batch download covers for all library games ─────────────────────────────
+  ipcMain.handle("xbox:download-all-covers", async (_event, payload) => {
+    const { games } = payload || {};
+    if (!Array.isArray(games) || games.length === 0) return { ok: false, error: "No games provided." };
+
+    const xboxIp = getConfiguredXboxIP();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    const scriptsPath = getConfiguredFtpScriptsPath();
+    const auroraRoot  = xboxAuroraRoot(scriptsPath);
+    const port        = getConfiguredServerPort();
+    const wc          = getWebContentsForPush();
+
+    let processed = 0;
+    let uploaded  = 0;
+    let skipped   = 0;
+    let errors    = 0;
+
+    addOutputLine(`[INFO] Download covers: starting batch for ${games.length} game(s)…`);
+
+    for (const game of games) {
+      const titleId     = typeof game.titleId === "string" ? game.titleId.trim().toUpperCase() : "";
+      const gameDataDir = typeof game.gameDataDir === "string" ? game.gameDataDir.trim() : "";
+      const gameName    = game.name || titleId;
+
+      if (!titleId || !/^[0-9A-F]{8}$/.test(titleId) || !gameDataDir) {
+        skipped++;
+        processed++;
+        continue;
+      }
+
+      wc?.send("xbox-download-covers-progress", {
+        processed, total: games.length, current: gameName,
+      });
+
+      const gameDataPath = `${auroraRoot}/Data/GameData/${gameDataDir}`;
+
+      try {
+        // Check which RXEA .asset files already exist on the console
+        const sizeResults = await batchFtp(xboxIp, [
+          { op: "size", path: `${gameDataPath}/GC${titleId}.asset` },
+          { op: "size", path: `${gameDataPath}/BK${titleId}.asset` },
+          { op: "size", path: `${gameDataPath}/GL${titleId}.asset` },
+        ]);
+
+        const hasCover      = sizeResults[0]?.ok && Number(sizeResults[0].data) > 0;
+        const hasBackground = sizeResults[1]?.ok && Number(sizeResults[1].data) > 0;
+        const hasGL         = sizeResults[2]?.ok && Number(sizeResults[2].data) > 0;
+
+        if (hasCover && hasBackground && hasGL) {
+          skipped++;
+          processed++;
+          continue;
+        }
+
+        // Build list of missing asset types to search for
+        const missing: { assetType: string; slotKey: string }[] = [];
+        if (!hasCover)      missing.push({ assetType: "cover",      slotKey: "cover" });
+        if (!hasBackground) missing.push({ assetType: "background", slotKey: "background" });
+        if (!hasGL)         missing.push({ assetType: "icon",       slotKey: "icon" });
+
+        addOutputLine(
+          `[INFO] Download covers: ${gameName} — missing: ${missing.map((m) => m.assetType).join(", ")}. Searching…`
+        );
+
+        let didUpload = false;
+
+        for (const { assetType, slotKey } of missing) {
+          try {
+            let imgBuf: Buffer | null = null;
+
+            if (assetType === "cover") {
+              const results = await searchXboxUnityCovers(titleId);
+              if (results.length > 0) {
+                const coverUrl = results[0].front || results[0].url || results[0].thumbnail;
+                if (coverUrl) imgBuf = await fetchHttpImage(coverUrl);
+              }
+              if (!imgBuf || imgBuf.length < 100) {
+                imgBuf = await fetchHttpImage(
+                  `http://catalog.xboxlive.com/Catalog/Product/CoverArt/${titleId}/en-US/1`
+                );
+              }
+            } else {
+              const cdnAssets = await fetchXboxCdnAssets(titleId);
+              const urls = cdnAssets[assetType as keyof typeof cdnAssets] || [];
+              if (urls.length > 0) {
+                const url = urls[0];
+                if (url.startsWith("data:")) {
+                  const b64 = url.split(",")[1];
+                  imgBuf = b64 ? Buffer.from(b64, "base64") : null;
+                } else {
+                  imgBuf = await fetchHttpImage(url);
+                }
+              }
+            }
+
+            if (!imgBuf || imgBuf.length < 100) continue;
+
+            const slotInfo = ASSET_SLOT_MAP[slotKey];
+            if (!slotInfo) continue;
+
+            const rxeaBuf = await rxeaEncodeImage(imgBuf, slotInfo.slot, port);
+            if (!rxeaBuf || rxeaBuf.length < 2048) {
+              addOutputLine(`[WARN] Download covers: ${titleId}/${assetType} — RXEA encode failed.`);
+              continue;
+            }
+
+            const assetName  = `${slotInfo.prefix}${titleId}.asset`;
+            const remotePath = `${gameDataPath}/${assetName}`;
+
+            const upResults = await batchFtp(xboxIp, [
+              { op: "ensure_dir", path: gameDataPath },
+              { op: "upload_base64", path: remotePath, data: rxeaBuf.toString("base64") },
+            ]);
+
+            if (upResults[1]?.ok) {
+              addOutputLine(`[INFO] Download covers: uploaded ${assetType} → ${gameName}`);
+              didUpload = true;
+            } else {
+              addOutputLine(
+                `[WARN] Download covers: upload failed ${assetType} for ${titleId}: ${upResults[1]?.error || "unknown"}`
+              );
+            }
+          } catch (assetErr: any) {
+            addOutputLine(
+              `[WARN] Download covers: ${titleId}/${assetType} — ${assetErr.message || assetErr}`
+            );
+          }
+        }
+
+        if (didUpload) uploaded++;
+        else skipped++;
+      } catch (err: any) {
+        addOutputLine(`[ERROR] Download covers: ${gameName} — ${err.message || err}`);
+        errors++;
+      }
+
+      processed++;
+    }
+
+    wc?.send("xbox-download-covers-progress", {
+      processed: games.length, total: games.length, done: true,
+    });
+    addOutputLine(
+      `[INFO] Download covers: complete — ${uploaded} uploaded, ${skipped} skipped, ${errors} error(s).`
+    );
+    appendAppEvent("AURORA_ASSET", `batch download-covers: ${uploaded} uploaded, ${skipped} skipped, ${errors} errors`);
+
+    return { ok: true, uploaded, skipped, errors };
   });
 }

@@ -9,6 +9,15 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.11.0] — 2026-04-23
+
+### Added
+- **Library: Download Covers button** — new button (download icon) next to the Refresh button in the Xbox Library header. Iterates through all library games, checks which are missing RXEA artwork on the console (cover, background, icon), searches XboxUnity and Xbox CDN for each missing asset type, RXEA-encodes the first result, and uploads it to the console's GameData folder via FTP. Shows a real-time progress bar and a 3-second toast on completion reminding the user to refresh data in Aurora.
+
+### Changed
+- **Version** — **2.11.0** (root + Electron `package.json`, backend banner, Aurora script `scriptVersion`).
+- **Navigation: Console button always reachable** — the Console and Xbox Library buttons in the nav bar are now separate. The Console button (Terminal icon) is always visible from any non-home page regardless of FTP status, so users can always navigate back. The Xbox Library button (Gamepad icon) is hidden only when FTP is unavailable.
+
 ## [2.10.0] — 2026-04-22
 
 ### Added

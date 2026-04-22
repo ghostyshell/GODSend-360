@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld("godsendApi", {
   fetchUrlImage:            (url: string) => ipcRenderer.invoke("xbox:fetch-url-image", url),
   chooseAssetImageFile:     () => ipcRenderer.invoke("xbox:choose-image-file"),
   uploadAssetToConsole:     (payload: any) => ipcRenderer.invoke("xbox:upload-asset-to-console", payload),
+  downloadAllCovers:        (payload: any) => ipcRenderer.invoke("xbox:download-all-covers", payload),
   getQueue:                 () => ipcRenderer.invoke("xbox:get-queue"),
   removeFromQueue:          (game: string) => ipcRenderer.invoke("xbox:remove-queue-item", game),
   getDataStatus:            () => ipcRenderer.invoke("data:status"),
@@ -97,6 +98,11 @@ contextBridge.exposeInMainWorld("godsendApi", {
     const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
     ipcRenderer.on("xbox-cover", handler);
     return () => ipcRenderer.removeListener("xbox-cover", handler);
+  },
+  onDownloadCoversProgress: (callback: (data: any) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on("xbox-download-covers-progress", handler);
+    return () => ipcRenderer.removeListener("xbox-download-covers-progress", handler);
   },
   onXboxTitleVisuals: (callback: (data: any) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
