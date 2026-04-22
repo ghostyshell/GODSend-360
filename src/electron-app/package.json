@@ -12,6 +12,7 @@
     "build:win": "npm run renderer:build && npm run tsc && node scripts/sync-assets-icon.js && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis && npm run clean:compiled-js",
     "build:nsis": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis && npm run clean:compiled-js",
     "build:nsis:x64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis --x64 && npm run clean:compiled-js",
+    "build:portable": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win portable --x64 && npm run clean:compiled-js",
     "build:wl": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --win nsis --linux AppImage && npm run clean:compiled-js",
     "build:mac": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg && npm run clean:compiled-js",
     "build:mac:arm": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --arm64 && npm run clean:compiled-js",
@@ -111,6 +112,9 @@
         ]
       }
     ],
+    "portable": {
+      "artifactName": "godsend-Portable-${version}.${ext}"
+    },
     "win": {
       "target": [
         "nsis"

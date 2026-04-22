@@ -159,8 +159,9 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 
 - Root `package.json`: unified build entrypoint:
   - `npm install` – installs root and Electron dependencies.
-  - `npm run build` – cross-compiles Go for Windows, Linux, and macOS; runs Electron for the **current OS** (Windows → **NSIS**; Linux → **AppImage**; macOS → **AppImage** then **arm64 + x64 DMGs**). AppImage is not built on Windows hosts by default (electron-builder needs symlink creation; use Linux/macOS CI or Windows Developer Mode if you must build it there).
+  - `npm run build` – cross-compiles Go for Windows, Linux, and macOS; runs Electron for the **current OS** (Windows → **NSIS + portable**; Linux → **AppImage**; macOS → **AppImage** then **NSIS + portable** then **arm64 + x64 DMGs**). AppImage is not built on Windows hosts by default (electron-builder needs symlink creation; use Linux/macOS CI or Windows Developer Mode if you must build it there).
   - `npm run build:win` – Windows-only (Go `godsend.exe` + NSIS), same as the former default full build.
+  - `npm run build:electron:win:portable` – Windows portable exe only (no installer, single self-contained `.exe`).
   - `npm run build:server:all` – Go binaries only (all targets into `dist/`).
   - `npm run build:server` / `npm run build:electron` – single-platform server or Electron step.
 - `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.).
@@ -168,7 +169,7 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 
 ### Release assets (GoFile upload + README links)
 
-**Do NOT create git tags or GitGud releases.** All build assets are uploaded to GoFile.io and linked directly from `README.md`.
+**Do NOT create git tags or GitHub releases.** All build assets are uploaded to GoFile.io and linked directly from `README.md`.
 
 #### GoFile upload workflow
 
@@ -191,6 +192,7 @@ After `npm run build` on macOS, the following files in `dist/` must be uploaded:
 | File | Description |
 |---|---|
 | `godsend-Setup-X.Y.Z.exe` | Windows NSIS installer (tray app + backend) |
+| `godsend-Portable-X.Y.Z.exe` | Windows portable exe (no install needed) |
 | `godsend-X.Y.Z-arm64.dmg` | macOS Apple Silicon DMG |
 | `godsend-X.Y.Z-x64.dmg` | macOS Intel DMG |
 | `godsend-X.Y.Z-x86_64.AppImage` | Linux x64 AppImage |
@@ -222,7 +224,7 @@ Also update all inline version references in `README.md` (filenames in prose, in
 
 #### Rules
 
-- **Never** create git tags, GitGud releases, or push tags to the remote.
+- **Never** create git tags, GitHub releases, or push tags to the remote.
 - Upload each platform build as a **separate file** — do not zip multiple builds together.
 - Each file must have its **own unique GoFile download page** (upload without `folderId`).
 - When bumping versions, update `README.md` download links **in the same commit** as the version bump.
@@ -249,7 +251,7 @@ Move the `[Unreleased]` section to a `[X.Y.Z] - YYYY-MM-DD` heading and create a
 #### 3. Update README.md version references
 
 Search-and-replace the old version with the new one in all filenames and inline references:
-- Installer filenames (e.g. `godsend-Setup-2.10.0.exe` → `godsend-Setup-2.11.0.exe`)
+- Installer filenames (e.g. `godsend-Setup-2.10.0.exe` → `godsend-Setup-2.11.0.exe`, `godsend-Portable-2.10.0.exe` → `godsend-Portable-2.11.0.exe`)
 - DMG/AppImage filenames
 - Prose mentioning the version
 
@@ -268,6 +270,7 @@ Upload each file individually (no `folderId`) and collect the per-file download 
 ```bash
 for f in godsend.exe godsend-darwin-arm64 godsend-darwin-amd64 godsend-linux-arm64 \
          godsend-linux-x64 godsend-mac \
+         godsend-Setup-X.Y.Z.exe godsend-Portable-X.Y.Z.exe \
          godsend-X.Y.Z-arm64.dmg godsend-X.Y.Z-x64.dmg \
          godsend-X.Y.Z-arm64.AppImage godsend-X.Y.Z-x86_64.AppImage; do
   resp=$(curl -s -X POST "https://upload.gofile.io/uploadfile" -F "file=@dist/$f")
@@ -281,31 +284,31 @@ Replace every GoFile URL in both download tables with the fresh per-file links f
 
 #### 7. Commit and push
 
-Stage all changed files and commit. Then push to **both** remotes:
+Stage all changed files and commit. Then push:
 
 ```bash
-git push origin HEAD && git push github HEAD
+git push github HEAD
 ```
 
-### Git remotes and pushing
+### Git remote and pushing
 
-The repo has **two remotes** that must always be kept in sync:
+The active remote is **github** (GitHub). The legacy GitGud remote (`origin`) is no longer updated.
 
 | Remote | URL | Notes |
 |--------|-----|-------|
-| **origin** (primary) | `git@gitgud.io:ghosty99/godsend-360.git` | [GitGud repo](https://gitgud.io/ghosty99/godsend-360) |
-| **github** (mirror) | `https://github.com/ghostyshell/GODSend-360.git` | [GitHub repo](https://github.com/ghostyshell/GODSend-360) |
+| **github** | `https://github.com/ghostyshell/GODSend-360.git` | [GitHub repo](https://github.com/ghostyshell/GODSend-360) — push here |
+| **origin** (legacy) | `git@gitgud.io:ghosty99/godsend-360.git` | GitGud — no longer updated |
 
-When pushing changes, **always push to both remotes**:
+When pushing changes, push to **github** only:
 
 ```bash
-git push origin HEAD && git push github HEAD
+git push github HEAD
 ```
 
 If the current branch does not track a remote yet, use `-u` on the first push:
 
 ```bash
-git push -u origin HEAD && git push github HEAD
+git push -u github HEAD
 ```
 
 ---
@@ -317,9 +320,11 @@ git push -u origin HEAD && git push github HEAD
 - **Install dependencies (root + Electron)**:
   - `npm install`
 - **Full build — all Go backends + installer for this OS**:
-  - `npm run build` — cross-compiles **all Go backends**; **Windows**: NSIS; **Linux**: AppImage; **macOS**: AppImage + arm64/x64 DMGs. (Linux AppImage from a Windows PC is skipped — build on Linux or macOS for that artifact.)
+  - `npm run build` — cross-compiles **all Go backends**; **Windows**: NSIS + portable; **Linux**: AppImage; **macOS**: AppImage + NSIS + portable + arm64/x64 DMGs. (Linux AppImage from a Windows PC is skipped — build on Linux or macOS for that artifact.)
 - **Full build — Windows only (faster)**:
   - `npm run build:win`
+- **Windows portable exe only**:
+  - `npm run build:electron:win:portable`
 - **Full build — macOS x64 (Go binary + DMG)**:
   - `npm run build:mac` *(run on macOS)*
 - **Full build — macOS arm64 (Go binary + DMG)**:

@@ -87,12 +87,14 @@ console.log(`\n[build-all] node ${path.relative(root, syncIcon)}`);
     );
     cleanWindowsPackagingArtifacts();
     npmRun("build:nsis");
+    npmRun("build:portable");
   } else if (platform === "linux") {
     npmRun("build:linux");
   } else if (platform === "darwin") {
     npmRun("build:linux");
     cleanWindowsPackagingArtifacts();
     npmRun("build:nsis:x64");
+    npmRun("build:portable");
   } else {
     console.warn(`\n[build-all] Unsupported platform "${platform}" — no Electron target defined.`);
   }

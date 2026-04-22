@@ -2,7 +2,7 @@
 
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20GODsend-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/ghosty99)
 
-**Repositories:** [GitGud (primary)](https://gitgud.io/ghosty99/godsend-360) · [GitHub (mirror)](https://github.com/ghostyshell/GODSend-360)
+**Repository:** [GitHub](https://github.com/ghostyshell/GODSend-360)
 
 GODsend 360 is a local-network game management system for Xbox 360 consoles running the Aurora dashboard. It consists of three parts:
 
@@ -42,17 +42,18 @@ Download the build for your platform:
 
 | Platform | File |
 |---|---|
-| **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.10.0.exe`](https://gofile.io/d/xVrga0) |
+| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.10.0.exe`](https://gofile.io/d/xVrga0) |
+| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.10.0.exe`](https://gofile.io/d/YAYI1v) |
 | **macOS (Apple Silicon)** | [`godsend-2.10.0-arm64.dmg`](https://gofile.io/d/AKIK3t) |
 | **macOS (Intel)** | [`godsend-2.10.0-x64.dmg`](https://gofile.io/d/kTZ9Pd) |
 | **Linux (x64 / amd64)** | [`godsend-2.10.0-x86_64.AppImage`](https://gofile.io/d/zZYGoP) |
 | **Linux (arm64)** | [`godsend-2.10.0-arm64.AppImage`](https://gofile.io/d/MgwjLC) |
 
-> **Windows:** use **`godsend-Setup-2.10.0.exe`** for the desktop tray app. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
+> **Windows:** use **`godsend-Setup-2.10.0.exe`** for the full installer, or **`godsend-Portable-2.10.0.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.10.0.exe`** and follow the installer.
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.10.0.exe`** and follow the installer (or just run **`godsend-Portable-2.10.0.exe`** directly — no install step needed).
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher — the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
@@ -97,7 +98,7 @@ The Xbox will now connect to the backend on your computer. You can browse games,
 
 The Go backend works as a standalone headless server — no Electron, no GUI, no display required. Useful for always-on home servers, NAS boxes, Raspberry Pi, Docker, or any Windows / macOS / Linux host you want to run unattended.
 
-Download a **platform-matched backend binary** (or a desktop AppImage/DMG if you prefer the full app), or build from source with Go 1.21+. Configure via environment variables, run the binary, and point your Xbox at it.
+Download a **platform-matched backend binary** from the table below (or a desktop AppImage/DMG if you prefer the full app), or build from source with Go 1.21+. Configure via environment variables, run the binary, and point your Xbox at it.
 
 | Platform | Binary |
 |---|---|
@@ -265,11 +266,11 @@ Older Windows installers and guides (for example, “GODSend Homelab Edition –
 - A summary of how the legacy layout maps to this repo lives in [`docs/legacy/legacy-installers-and-layout.md`](docs/legacy/legacy-installers-and-layout.md).
 - The full legacy Windows walkthrough (formerly a PDF) is in [`docs/legacy/godsend-windows-install-guide.md`](docs/legacy/godsend-windows-install-guide.md).
 
-Useful external references (for additional background and prebuilt installers):
+Legacy external references (historical, no longer updated):
 
-- Main repo (original): `https://gitgud.io/Nesquin/godsend-homelab-edition`
-- Windows installer repo: `https://github.com/my573ry/GODSendEXE/releases`
-- GitGud releases: `https://gitgud.io/Nesquin/godsend-homelab-edition/-/releases`
+- Original repo (legacy): `https://gitgud.io/Nesquin/godsend-homelab-edition`
+- Legacy Windows installer repo: `https://github.com/my573ry/GODSendEXE/releases`
+- Legacy GitGud releases: `https://gitgud.io/Nesquin/godsend-homelab-edition/-/releases`
 
 ### Common issues (quick checklist)
 
@@ -296,4 +297,4 @@ Useful external references (for additional background and prebuilt installers):
   - Check backend output: the Electron log view, **Open logs folder** daily log file, or your terminal if running headless — look for Minerva / Internet Archive errors.
   - If using your own ISOs, ensure they are in the Transfer folder and the backend is configured for local mode.
 
-For deeper background on how earlier installers worked (and additional screenshots and FAQs), consult the legacy PDF guide or the original GitGud documentation linked above.
+For deeper background on how earlier installers worked (and additional screenshots and FAQs), consult the legacy PDF guide or the legacy documentation linked above.

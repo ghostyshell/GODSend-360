@@ -14,6 +14,7 @@
     "build:server:linux:arm64": "mkdir -p dist && GOOS=linux GOARCH=arm64 go build -C src/server -o ../../dist/godsend-linux-arm64 .",
     "build:electron": "npm run build:win --prefix src/electron-app",
     "build:electron:win:x64": "npm run build:nsis:x64 --prefix src/electron-app",
+    "build:electron:win:portable": "npm run build:portable --prefix src/electron-app",
     "build:electron:mac": "npm run build:mac --prefix src/electron-app",
     "build:electron:mac:arm": "npm run build:mac:arm --prefix src/electron-app",
     "build:electron:linux": "npm run build:linux --prefix src/electron-app",
