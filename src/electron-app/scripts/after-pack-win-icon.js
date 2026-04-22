@@ -8,6 +8,10 @@ module.exports = async function afterPack(context) {
   if (context.electronPlatformName !== "win32") {
     return;
   }
+  if (process.platform !== "win32") {
+    console.warn("after-pack-win-icon: skipping rcedit on non-Windows host (requires Wine + wine64 on PATH)");
+    return;
+  }
   const projectDir = context.packager.projectDir;
   const trayIco = path.join(projectDir, "assets", "tray.ico");
   const iconIco = path.join(projectDir, "assets", "icon.ico");

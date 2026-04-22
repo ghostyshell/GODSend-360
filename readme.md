@@ -42,11 +42,11 @@ Download the build for your platform:
 
 | Platform | File |
 |---|---|
-| **Windows (x64, NSIS installer — tray app + backend)** | `godsend-Setup-2.10.0.exe` *(upload pending)* |
-| **macOS (Apple Silicon)** | `godsend-2.10.0-arm64.dmg` *(upload pending)* |
-| **macOS (Intel)** | `godsend-2.10.0-x64.dmg` *(upload pending)* |
-| **Linux (x64 / amd64)** | `godsend-2.10.0-x86_64.AppImage` *(upload pending)* |
-| **Linux (arm64)** | `godsend-2.10.0-arm64.AppImage` *(upload pending)* |
+| **Windows (x64, NSIS installer — tray app + backend)** | [`godsend-Setup-2.10.0.exe`](https://gofile.io/d/xVrga0) |
+| **macOS (Apple Silicon)** | [`godsend-2.10.0-arm64.dmg`](https://gofile.io/d/AKIK3t) |
+| **macOS (Intel)** | [`godsend-2.10.0-x64.dmg`](https://gofile.io/d/kTZ9Pd) |
+| **Linux (x64 / amd64)** | [`godsend-2.10.0-x86_64.AppImage`](https://gofile.io/d/zZYGoP) |
+| **Linux (arm64)** | [`godsend-2.10.0-arm64.AppImage`](https://gofile.io/d/MgwjLC) |
 
 > **Windows:** use **`godsend-Setup-2.10.0.exe`** for the desktop tray app. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
@@ -97,7 +97,16 @@ The Xbox will now connect to the backend on your computer. You can browse games,
 
 The Go backend works as a standalone headless server — no Electron, no GUI, no display required. Useful for always-on home servers, NAS boxes, Raspberry Pi, Docker, or any Windows / macOS / Linux host you want to run unattended.
 
-Download a **platform-matched backend binary** (or a desktop AppImage/DMG if you prefer the full app) from the [latest release](https://gitgud.io/ghosty99/godsend-360/-/releases), or build from source with Go 1.21+. Configure via environment variables, run the binary, and point your Xbox at it.
+Download a **platform-matched backend binary** (or a desktop AppImage/DMG if you prefer the full app), or build from source with Go 1.21+. Configure via environment variables, run the binary, and point your Xbox at it.
+
+| Platform | Binary |
+|---|---|
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/65rbtR) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/BilT7p) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/4D2pjZ) |
+| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/l2oVc6) |
+| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/p4XlQt) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/glLbAu) |
 
 **[Full headless setup guide (build, configure, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 

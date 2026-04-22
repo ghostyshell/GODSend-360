@@ -166,56 +166,126 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 - `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.).
 - `tools/`: ignored directory for third-party executables (`7za.exe`, `7za.dll`, `7zxa.dll`) when needed outside the bundled Go pipeline.
 
-### Release assets (Gofile upload + README links)
+### Release assets (GoFile upload + README links)
 
-**Do NOT create git tags or GitGud releases.** All build assets are uploaded to Gofile.io and linked directly from `readme.md`.
+**Do NOT create git tags or GitGud releases.** All build assets are uploaded to GoFile.io and linked directly from `README.md`.
 
-#### Gofile upload workflow
+#### GoFile upload workflow
 
-The Gofile API token lives in `.gofile-io-token` (git-ignored). Read it at runtime:
-
-```bash
-GOFILE_TOKEN=$(cat .gofile-io-token)
-```
+Each file must be uploaded **individually** (no `folderId`) so every file gets its own unique download page URL.
 
 Upload steps (per file):
 
-1. **Get an upload server:**
-   ```bash
-   SERVER=$(curl -s https://api.gofile.io/servers | jq -r '.data.servers[0].name')
-   ```
-2. **Upload the file:**
-   ```bash
-   RESPONSE=$(curl -F "file=@dist/godsend-Setup-X.Y.Z.exe" \
-     "https://${SERVER}.gofile.io/contents/uploadfile" \
-     -F "token=${GOFILE_TOKEN}")
-   ```
-3. **Extract the download page URL** from the JSON response:
-   ```bash
-   DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
-   ```
-   The `downloadPage` value (e.g. `https://gofile.io/d/AbC123`) is the public link to use in the README.
+```bash
+RESPONSE=$(curl -s -X POST "https://upload.gofile.io/uploadfile" -F "file=@dist/FILENAME")
+DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
+echo "$DOWNLOAD_PAGE"
+```
+
+The `downloadPage` value (e.g. `https://gofile.io/d/AbC123`) is the per-file public link to use in the README.
+
+##### Files to upload
+
+After `npm run build` on macOS, the following files in `dist/` must be uploaded:
+
+| File | Description |
+|---|---|
+| `godsend-Setup-X.Y.Z.exe` | Windows NSIS installer (tray app + backend) |
+| `godsend-X.Y.Z-arm64.dmg` | macOS Apple Silicon DMG |
+| `godsend-X.Y.Z-x64.dmg` | macOS Intel DMG |
+| `godsend-X.Y.Z-x86_64.AppImage` | Linux x64 AppImage |
+| `godsend-X.Y.Z-arm64.AppImage` | Linux arm64 AppImage |
+| `godsend.exe` | Headless Windows backend |
+| `godsend-darwin-arm64` | Headless macOS Apple Silicon backend |
+| `godsend-darwin-amd64` | Headless macOS Intel backend |
+| `godsend-mac` | Headless macOS (Electron helper copy) |
+| `godsend-linux-x64` | Headless Linux x64 backend |
+| `godsend-linux-arm64` | Headless Linux arm64 backend |
 
 #### Updating README download links
 
-After uploading all platform assets, update the download table in `readme.md`:
+After uploading, update **both** download tables in `README.md`:
 
-- Replace each row's URL with the Gofile download page link.
-- The filename in the link text must include the version (e.g. `godsend-Setup-2.10.0.exe`).
-- Keep the existing table format:
-  ```markdown
-  | **Windows (x64, NSIS installer)** | [`godsend-Setup-X.Y.Z.exe`](https://gofile.io/d/XXXXX) |
-  ```
-- Update all inline version references (e.g. "use `godsend-Setup-X.Y.Z.exe`") to match.
-- Update the release heading link text (e.g. "GODsend 360 vX.Y.Z") — but do **not** link to a GitGud release page; remove or replace the link with a plain text heading or a link to the repo root.
+1. **Quick Installation table** (desktop installers):
+   ```markdown
+   | **macOS (Apple Silicon)** | [`godsend-X.Y.Z-arm64.dmg`](https://gofile.io/d/UNIQUE_CODE) |
+   ```
+
+2. **Running Without the Desktop App table** (headless backend binaries):
+   ```markdown
+   | **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/UNIQUE_CODE) |
+   ```
+
+Each row gets its own unique GoFile link — do **not** point multiple files at the same folder page.
+
+Also update all inline version references in `README.md` (filenames in prose, installer names in instructions).
 
 #### Rules
 
 - **Never** create git tags, GitGud releases, or push tags to the remote.
-- **Never** commit `.gofile-io-token` — it is in `.gitignore`.
 - Upload each platform build as a **separate file** — do not zip multiple builds together.
-- Always verify the Gofile download page URL is accessible (unauthenticated) before updating the README.
-- When bumping versions, update `readme.md` download links **in the same commit** as the version bump.
+- Each file must have its **own unique GoFile download page** (upload without `folderId`).
+- When bumping versions, update `README.md` download links **in the same commit** as the version bump.
+
+---
+
+### Version bump, build & release workflow
+
+When asked to **bump the version**, **cut a release**, or **commit changes** that include a version bump, execute the full pipeline below. Do not skip steps.
+
+#### 1. Bump the version string in all four places
+
+| File | What to change |
+|---|---|
+| `package.json` | `"version": "X.Y.Z"` |
+| `src/electron-app/package.json` | `"version": "X.Y.Z"` |
+| `src/server/main.go` | Banner line: `GODSend Backend Server vX.Y.Z` |
+| `aurora-scripts/main.lua` | `scriptVersion = "X.Y.Z"` (line 3) |
+
+#### 2. Update CHANGELOG.md
+
+Move the `[Unreleased]` section to a `[X.Y.Z] - YYYY-MM-DD` heading and create a fresh empty `[Unreleased]` above it.
+
+#### 3. Update README.md version references
+
+Search-and-replace the old version with the new one in all filenames and inline references:
+- Installer filenames (e.g. `godsend-Setup-2.10.0.exe` → `godsend-Setup-2.11.0.exe`)
+- DMG/AppImage filenames
+- Prose mentioning the version
+
+#### 4. Build all targets
+
+```bash
+npm run build
+```
+
+This cross-compiles all Go backends and produces Electron installers/DMGs/AppImages for the current OS.
+
+#### 5. Upload all dist files to GoFile
+
+Upload each file individually (no `folderId`) and collect the per-file download page URLs:
+
+```bash
+for f in godsend.exe godsend-darwin-arm64 godsend-darwin-amd64 godsend-linux-arm64 \
+         godsend-linux-x64 godsend-mac \
+         godsend-X.Y.Z-arm64.dmg godsend-X.Y.Z-x64.dmg \
+         godsend-X.Y.Z-arm64.AppImage godsend-X.Y.Z-x86_64.AppImage; do
+  resp=$(curl -s -X POST "https://upload.gofile.io/uploadfile" -F "file=@dist/$f")
+  echo "$f | $(echo "$resp" | jq -r '.data.downloadPage')"
+done
+```
+
+#### 6. Update README.md download links
+
+Replace every GoFile URL in both download tables with the fresh per-file links from step 5.
+
+#### 7. Commit and push
+
+Stage all changed files and commit. Then push to **both** remotes:
+
+```bash
+git push origin HEAD && git push github HEAD
+```
 
 ### Git remotes and pushing
 
