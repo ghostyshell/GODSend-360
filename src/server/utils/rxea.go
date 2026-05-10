@@ -32,6 +32,7 @@ import (
 	"image/color"
 	"image/png"
 	"math"
+	"sort"
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -296,6 +297,125 @@ func EncodePNGToRXEA(pngData []byte, slot AssetSlot) ([]byte, error) {
 		return nil, fmt.Errorf("rxea: png decode: %w", err)
 	}
 	return EncodeRXEA(slot, img)
+}
+
+// SlotImage pairs an AssetSlot with its source image for multi-slot encoding.
+type SlotImage struct {
+	Slot AssetSlot
+	Img  image.Image
+}
+
+// EncodeRXEAMulti encodes multiple images into a single RXEA file.
+// The caller must supply SlotIcon and/or SlotBanner together because
+// Aurora stores both in the same GL{TitleId}.asset file; encoding them
+// separately will overwrite the other.
+func EncodeRXEAMulti(slots []SlotImage) ([]byte, error) {
+	if len(slots) == 0 {
+		return nil, fmt.Errorf("rxea: no slots to encode")
+	}
+
+	// Validate slots and convert images up-front.
+	entries := make([]struct {
+		slot     AssetSlot
+		nrgba    *image.NRGBA
+		widthPx  int
+		heightPx int
+		bw       int
+		bh       int
+		linearDXT []byte
+	}, 0, len(slots))
+
+	var mask uint32
+	for _, s := range slots {
+		if s.Slot < 0 || s.Slot >= slotMax {
+			return nil, fmt.Errorf("rxea: invalid slot %d", s.Slot)
+		}
+		bounds := s.Img.Bounds()
+		w, h := bounds.Dx(), bounds.Dy()
+		if w <= 0 || h <= 0 {
+			return nil, fmt.Errorf("rxea: empty image for slot %d", s.Slot)
+		}
+
+		nrgba := toNRGBA(s.Img)
+		bw := (w + 3) / 4
+		bh := (h + 3) / 4
+		linearDXT := encodeDXT5(nrgba, bw, bh)
+
+		for i := 0; i+1 < len(linearDXT); i += 2 {
+			linearDXT[i], linearDXT[i+1] = linearDXT[i+1], linearDXT[i]
+		}
+
+		mask |= uint32(1) << uint(s.Slot)
+		entries = append(entries, struct {
+			slot      AssetSlot
+			nrgba     *image.NRGBA
+			widthPx   int
+			heightPx  int
+			bw        int
+			bh        int
+			linearDXT []byte
+		}{
+			slot:      s.Slot,
+			nrgba:     nrgba,
+			widthPx:   w,
+			heightPx:  h,
+			bw:        bw,
+			bh:        bh,
+			linearDXT: linearDXT,
+		})
+	}
+
+	// Sort by slot so data is laid out in ascending order.
+	sort.Slice(entries, func(i, j int) bool { return entries[i].slot < entries[j].slot })
+
+	const blockSz = 16
+	var totalDataSize uint32
+	for _, e := range entries {
+		alignedBW := alignUp(e.bw, 32)
+		alignedBH := alignUp(e.bh, 32)
+		totalDataSize += uint32(alignedBW * alignedBH * blockSz)
+	}
+
+	buf := make([]byte, rxeaDataOff+int(totalDataSize))
+
+	binary.BigEndian.PutUint32(buf[0x00:], rxeaMagic)
+	binary.BigEndian.PutUint32(buf[0x04:], rxeaVersion)
+	binary.BigEndian.PutUint32(buf[0x08:], totalDataSize)
+	binary.BigEndian.PutUint32(buf[0x0C:], mask)
+
+	dataCursor := uint32(rxeaDataOff)
+	for _, e := range entries {
+		alignedBW := alignUp(e.bw, 32)
+		alignedBH := alignUp(e.bh, 32)
+		storedDXT := make([]byte, alignedBW*alignedBH*blockSz)
+		rowBytes := e.bw * blockSz
+		strideBytes := alignedBW * blockSz
+		for by := 0; by < e.bh; by++ {
+			copy(storedDXT[by*strideBytes:], e.linearDXT[by*rowBytes:(by+1)*rowBytes])
+		}
+		tiledSize := uint32(len(storedDXT))
+
+		eBase := rxeaTableOff + int(e.slot)*rxeaEntryLen
+		binary.BigEndian.PutUint32(buf[eBase+4:], 0x00000003)
+		binary.BigEndian.PutUint32(buf[eBase+8:], 0x00000001)
+		binary.BigEndian.PutUint32(buf[eBase+24:], 0xFFFF0000)
+		binary.BigEndian.PutUint32(buf[eBase+28:], 0xFFFF0000)
+
+		pitchField := uint32(alignedBW * blockSz / 128)
+		dw7 := uint32(2) | (pitchField << 22)
+		dw8 := uint32(gpuFmtDXT5) | (uint32(1) << 6)
+		dw9 := uint32(e.widthPx-1) | (uint32(e.heightPx-1) << 13)
+		binary.BigEndian.PutUint32(buf[eBase+32:], dw7)
+		binary.BigEndian.PutUint32(buf[eBase+36:], dw8)
+		binary.BigEndian.PutUint32(buf[eBase+40:], dw9)
+		binary.BigEndian.PutUint32(buf[eBase+44:], 0x00000D10)
+		binary.BigEndian.PutUint32(buf[eBase+52:], 0x00000A00)
+
+		copy(buf[dataCursor:dataCursor+tiledSize], storedDXT)
+		dataCursor += tiledSize
+	}
+
+	return buf, nil
 }
 
 // EncodeRXEAToPNG encodes a decoded RXEA entry to PNG bytes.

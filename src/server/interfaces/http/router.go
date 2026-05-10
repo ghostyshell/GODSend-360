@@ -12,6 +12,7 @@ func (d *Deps) NewRouter() *stdhttp.ServeMux {
 	// RXEA asset endpoints
 	mux.HandleFunc("/rxea/decode", d.wrap(d.handleRXEADecode))
 	mux.HandleFunc("/rxea/encode", d.wrap(d.handleRXEAEncode))
+	mux.HandleFunc("/rxea/encode-multi", d.wrap(d.handleRXEAEncodeMulti))
 
 	// Core game endpoints
 	mux.HandleFunc("/browse", d.wrap(d.handleBrowse))

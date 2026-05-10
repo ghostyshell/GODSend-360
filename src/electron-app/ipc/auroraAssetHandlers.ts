@@ -72,6 +72,50 @@ async function rxeaEncodeImage(imgBuf: Buffer, slot: number, port: number): Prom
   });
 }
 
+async function rxeaDecodeBuffer(assetBuf: Buffer, port: number): Promise<any[]> {
+  return new Promise((resolve) => {
+    const req = http.request(
+      { host: "127.0.0.1", port, path: `/rxea/decode`, method: "POST",
+        headers: { "Content-Type": "application/octet-stream", "Content-Length": assetBuf.length } },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          try {
+            const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+            resolve(Array.isArray(parsed?.slots) ? parsed.slots : []);
+          } catch { resolve([]); }
+        });
+      }
+    );
+    req.on("error", () => resolve([]));
+    req.end(assetBuf);
+  });
+}
+
+async function rxeaEncodeMulti(slots: { slot: number; imgBuf: Buffer }[], port: number): Promise<Buffer | null> {
+  const payload = {
+    slots: slots.map((s) => ({
+      slot: s.slot,
+      png: s.imgBuf.toString("base64"),
+    })),
+  };
+  const body = Buffer.from(JSON.stringify(payload), "utf8");
+  return new Promise((resolve) => {
+    const req = http.request(
+      { host: "127.0.0.1", port, path: `/rxea/encode-multi`, method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": body.length } },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve(res.statusCode === 200 ? Buffer.concat(chunks) : null));
+      }
+    );
+    req.on("error", () => resolve(null));
+    req.end(body);
+  });
+}
+
 export function register(ipcMain: IpcMain): void {
 
   // ── Search assets (XboxUnity covers + Xbox CDN catalog) ────────────────────
@@ -210,17 +254,69 @@ export function register(ipcMain: IpcMain): void {
     if (!imgBuf || imgBuf.length < 100) return { ok: false, error: "No valid image data provided." };
 
     const port = getConfiguredServerPort();
-    const rxeaBuf = await rxeaEncodeImage(imgBuf, slotInfo.slot, port);
+    const scriptsPath = getConfiguredFtpScriptsPath();
+    const auroraRoot  = xboxAuroraRoot(scriptsPath);
+    const remoteDir   = `${auroraRoot}/Data/GameData/${gameDataDir}`;
 
+    // ── Multi-slot aware upload: GL (icon+banner) and SS (screenshots)
+    //     share a single .asset file.  To avoid wiping the other slot,
+    //     we download the existing file, decode it, overwrite only the
+    //     changed slot, and re-encode all slots together via /rxea/encode-multi.
+    const needsMultiSlot = ["icon", "banner"].includes(assetType);
+    if (needsMultiSlot) {
+      const existingSlots: { slot: number; imgBuf: Buffer }[] = [];
+      const changedSlot = { slot: slotInfo.slot, imgBuf };
+
+      // Download existing GL asset to preserve the other slot.
+      const glPath = `${remoteDir}/GL${titleId}.asset`;
+      try {
+        const dl = await batchFtp(xboxIp, [
+          { op: "download_base64", path: glPath },
+        ]);
+        const existingBuf = bufFromBatchResult(dl, 0);
+        if (existingBuf && existingBuf.length >= 2048) {
+          const decoded = await rxeaDecodeBuffer(existingBuf, port);
+          for (const s of decoded) {
+            if (s.slot === slotInfo.slot) continue; // skip the one we're replacing
+            const pngBuf = Buffer.isBuffer(s.png) ? s.png : Buffer.from(s.png, "base64");
+            if (pngBuf.length >= 100) {
+              existingSlots.push({ slot: s.slot, imgBuf: pngBuf });
+            }
+          }
+        }
+      } catch { /* ignore — file may not exist yet */ }
+
+      const allSlots = [...existingSlots, changedSlot];
+      const rxeaBuf = await rxeaEncodeMulti(allSlots, port);
+      if (!rxeaBuf || rxeaBuf.length < 2048) {
+        return { ok: false, error: "RXEA multi-slot encoding failed — backend returned no data." };
+      }
+
+      try {
+        const results = await batchFtp(xboxIp, [
+          { op: "ensure_dir", path: remoteDir },
+          { op: "upload_base64", path: glPath, data: rxeaBuf.toString("base64") },
+        ]);
+        if (results[1] && !results[1].ok) throw new Error(results[1].error || "Upload failed");
+
+        appendAppEvent("AURORA_ASSET", `encoded+uploaded ${assetType} (multi-slot GL) → ${glPath} (${rxeaBuf.length} B)`);
+        invalidateVisualCache(xboxIp, auroraRoot, gameDataDir);
+        return { ok: true, remotePath: glPath };
+      } catch (err: any) {
+        const msg = err.message || String(err);
+        appendAppEvent("AURORA_ASSET", `upload error ${titleId}/${assetType}: ${msg}`);
+        return { ok: false, error: msg };
+      }
+    }
+
+    // ── Single-slot upload (cover, background, screenshots)
+    const rxeaBuf = await rxeaEncodeImage(imgBuf, slotInfo.slot, port);
     if (!rxeaBuf || rxeaBuf.length < 2048) {
       return { ok: false, error: "RXEA encoding failed — backend returned no data." };
     }
 
     const assetName  = `${slotInfo.prefix}${titleId}.asset`;
-    const scriptsPath = getConfiguredFtpScriptsPath();
-    const auroraRoot  = xboxAuroraRoot(scriptsPath);
-    const remoteDir   = `${auroraRoot}/Data/GameData/${gameDataDir}`;
-    const remotePath  = `${remoteDir}/${assetName}`;
+    const remotePath = `${remoteDir}/${assetName}`;
 
     try {
       const results = await batchFtp(xboxIp, [
@@ -230,35 +326,7 @@ export function register(ipcMain: IpcMain): void {
       if (results[1] && !results[1].ok) throw new Error(results[1].error || "Upload failed");
 
       appendAppEvent("AURORA_ASSET", `encoded+uploaded ${assetType} (slot ${slotInfo.slot}) → ${remotePath} (${rxeaBuf.length} B)`);
-
-      // Invalidate local visual cache so the next refresh re-downloads the new asset.
-      const cacheRoot = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
-      const metaObj   = readMeta(cacheRoot);
-      if (metaObj) writeMeta(cacheRoot, { ...metaObj, updatedAt: Date.now() });
-
-      // Delete the cached visual file for this asset so the next sync re-decodes it.
-      try {
-        const { gameCacheDir: getCacheDir } = await import("../infrastructure/auroraLibraryCache");
-        const gdir = getCacheDir(cacheRoot, gameDataDir);
-        const visualDir = path.join(gdir, "visual");
-        if (fs.existsSync(visualDir)) {
-          for (const name of fs.readdirSync(visualDir)) {
-            const lower = name.toLowerCase();
-            if (
-              (assetType === "cover"      && (lower.includes("cover") || lower.includes("gc-"))) ||
-              (assetType === "background" && (lower.includes("background") || lower.includes("bk-"))) ||
-              (assetType === "banner"     && (lower.includes("banner") || lower.includes("gl-banner"))) ||
-              (assetType === "icon"       && (lower.includes("icon") || lower.includes("gl-icon"))) ||
-              (assetType.startsWith("screenshot") && lower.includes(assetType))
-            ) {
-              try { fs.unlinkSync(path.join(visualDir, name)); } catch { /* ignore */ }
-            }
-          }
-          const manifestPath = path.join(gdir, "visual-manifest.json");
-          try { fs.unlinkSync(manifestPath); } catch { /* ignore */ }
-        }
-      } catch { /* cache cleanup is best-effort */ }
-
+      invalidateVisualCache(xboxIp, auroraRoot, gameDataDir);
       return { ok: true, remotePath };
     } catch (err: any) {
       const msg = err.message || String(err);
@@ -266,6 +334,33 @@ export function register(ipcMain: IpcMain): void {
       return { ok: false, error: msg };
     }
   });
+
+  function invalidateVisualCache(xboxIp: string, auroraRoot: string, gameDataDir: string): void {
+    try {
+      const cacheRoot = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
+      const metaObj   = readMeta(cacheRoot);
+      if (metaObj) writeMeta(cacheRoot, { ...metaObj, updatedAt: Date.now() });
+
+      const { gameCacheDir: getCacheDir } = require("../infrastructure/auroraLibraryCache");
+      const gdir = getCacheDir(cacheRoot, gameDataDir);
+      const visualDir = path.join(gdir, "visual");
+      if (fs.existsSync(visualDir)) {
+        for (const name of fs.readdirSync(visualDir)) {
+          const lower = name.toLowerCase();
+          if (
+            lower.includes("icon") || lower.includes("banner") || lower.includes("gl-") ||
+            lower.includes("cover") || lower.includes("gc-") ||
+            lower.includes("background") || lower.includes("bk-") ||
+            lower.startsWith("screenshot")
+          ) {
+            try { fs.unlinkSync(path.join(visualDir, name)); } catch { /* ignore */ }
+          }
+        }
+        const manifestPath = path.join(gdir, "visual-manifest.json");
+        try { fs.unlinkSync(manifestPath); } catch { /* ignore */ }
+      }
+    } catch { /* cache cleanup is best-effort */ }
+  }
 
   // ── Decode .asset files from the console (RXEA → PNG) ─────────────────────
   ipcMain.handle("xbox:decode-asset", async (_event, payload) => {

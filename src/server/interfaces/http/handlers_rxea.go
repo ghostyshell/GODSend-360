@@ -3,6 +3,7 @@ package http
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"image"
 	_ "image/jpeg"
@@ -130,6 +131,65 @@ func (d *Deps) handleRXEAEncode(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	rxeaBytes, err := utils.EncodeRXEA(utils.AssetSlot(slotIdx), img)
 	if err != nil {
 		jsonError(w, stdhttp.StatusUnprocessableEntity, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", strconv.Itoa(len(rxeaBytes)))
+	w.Write(rxeaBytes) //nolint:errcheck
+}
+
+// handleRXEAEncodeMulti encodes multiple images into a single RXEA file.
+//
+// POST /rxea/encode-multi
+// Body: JSON { "slots": [{ "slot": 0, "png": "base64" }, ...] }
+// Response: raw RXEA bytes (Content-Type: application/octet-stream)
+func (d *Deps) handleRXEAEncodeMulti(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	if r.Method != stdhttp.MethodPost {
+		stdhttp.Error(w, "method not allowed", stdhttp.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Slots []struct {
+			Slot int    `json:"slot"`
+			PNG  string `json:"png"`
+		} `json:"slots"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, stdhttp.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	if len(req.Slots) == 0 {
+		jsonError(w, stdhttp.StatusBadRequest, "no slots")
+		return
+	}
+
+	slotImages := make([]utils.SlotImage, 0, len(req.Slots))
+	for _, s := range req.Slots {
+		if s.Slot < 0 || s.Slot >= 25 {
+			jsonError(w, stdhttp.StatusBadRequest, "invalid slot (0–24)")
+			return
+		}
+		imgBytes, err := base64.StdEncoding.DecodeString(s.PNG)
+		if err != nil {
+			jsonError(w, stdhttp.StatusBadRequest, "bad base64 for slot "+strconv.Itoa(s.Slot))
+			return
+		}
+		img, _, err := image.Decode(bytes.NewReader(imgBytes))
+		if err != nil {
+			jsonError(w, stdhttp.StatusUnprocessableEntity, "unsupported image for slot "+strconv.Itoa(s.Slot)+": "+err.Error())
+			return
+		}
+		slotImages = append(slotImages, utils.SlotImage{
+			Slot: utils.AssetSlot(s.Slot),
+			Img:  img,
+		})
+	}
+
+	rxeaBytes, err := utils.EncodeRXEAMulti(slotImages)
+	if err != nil {
+		jsonError(w, stdhttp.StatusInternalServerError, err.Error())
 		return
 	}
 

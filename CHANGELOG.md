@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.11.1] — 2026-05-10
+
+### Fixed
+- **Library: icon/banner upload wipes the other slot** — updating the Icon (or Banner) in the Aurora Asset Editor previously encoded a single-slot RXEA `.asset` file and overwrote the entire `GL{TitleId}.asset` on the console, causing the other slot (Banner or Icon) to disappear. The upload handler now detects when the target file holds multiple slots (icon+banner in `GL`, screenshots in `SS`), downloads the existing `.asset`, decodes all slots, replaces only the changed slot, and re-encodes the complete multi-slot file via the new `POST /rxea/encode-multi` backend endpoint before uploading. This preserves the unaffected slot(s). The same logic applies to screenshots (`SS`) if that is used in the future.
+
 ## [2.11.0] — 2026-04-23
 
 ### Added
