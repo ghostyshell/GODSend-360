@@ -2,13 +2,11 @@
 package content
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -106,10 +104,6 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		}
 	}
 
-	sort.Slice(tus, func(i, j int) bool {
-		return tus[i].Version > tus[j].Version
-	})
-
 	return &models.InstalledContentReport{
 		TitleID:      strings.ToUpper(titleID),
 		DLCs:         dlcs,
@@ -160,7 +154,15 @@ func (s *Service) isTUActive(conn *goftp.ServerConn, base, ct string) bool {
 	return fileCount > 0
 }
 
-// DiscoverContent fetches available DLC/TU for a TitleID from multiple sources.
+// ============================================================
+// Discovery — Minerva + Internet Archive only.
+// Xbox CDN (xboxunity TitleList) is intentionally removed because
+// it returns inaccurate metadata rather than actual downloadable
+// content.
+// ============================================================
+
+// DiscoverContent fetches available DLC/TU for a TitleID from Minerva
+// and IA caches, merging them with what’s already installed on Xbox.
 func (s *Service) DiscoverContent(titleID, gameName string, xboxIP, drive string) (*models.ContentManifest, error) {
 	titleID = strings.ToUpper(titleID)
 	manifest := &models.ContentManifest{
@@ -178,34 +180,33 @@ func (s *Service) DiscoverContent(titleID, gameName string, xboxIP, drive string
 		}
 	}
 
-	cdnItems, _ := s.discoverFromXboxCDN(titleID)
-	for _, it := range cdnItems {
-		if it.ContentType == "00005000" || it.ContentType == "000B0000" {
+	// Search IA + Minerva for this game's DLC / TU.
+	// We search the dlc, xbla and digital caches — title updates for many
+	// games are stored in the "dlc" or "digital" collections alongside DLC.
+	candidates := s.discoverFromMinerva(gameName, titleID)
+	candidates = append(candidates, s.discoverFromIA(gameName, titleID)...)
+
+	for _, it := range candidates {
+		if isTitleUpdateEntry(it.DisplayName) {
 			if !s.containsTU(manifest.TitleUpdates, it.FileName) {
 				manifest.TitleUpdates = append(manifest.TitleUpdates, it)
 			}
-		} else if it.ContentType == "00000002" || it.ContentType == "00000001" {
+		} else {
 			if !s.containsDLC(manifest.DLCs, it.FileName) {
 				manifest.DLCs = append(manifest.DLCs, it)
 			}
 		}
 	}
 
-	iaItems := s.discoverFromIA(titleID, gameName)
-	for _, it := range iaItems {
-		if it.ContentType == "00005000" || it.ContentType == "000B0000" {
-			if !s.containsTU(manifest.TitleUpdates, it.FileName) {
-				manifest.TitleUpdates = append(manifest.TitleUpdates, it)
-			}
-		} else if it.ContentType == "00000002" || it.ContentType == "00000001" {
-			if !s.containsDLC(manifest.DLCs, it.FileName) {
-				manifest.DLCs = append(manifest.DLCs, it)
-			}
-		}
-	}
+	// Keep the highest TU version information for display.
+	s.normalizeTUVersions(manifest.TitleUpdates)
 
 	return manifest, nil
 }
+
+// ============================================================
+// Source helpers
+// ============================================================
 
 func (s *Service) containsTU(list []models.ContentItem, fileName string) bool {
 	for _, it := range list {
@@ -225,61 +226,213 @@ func (s *Service) containsDLC(list []models.ContentItem, fileName string) bool {
 	return false
 }
 
-func (s *Service) discoverFromXboxCDN(titleID string) ([]models.ContentItem, error) {
-	url := fmt.Sprintf("http://xboxunity.net/Resources/Lib/TitleList.php?search=%s", titleID)
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("status %d", resp.StatusCode)
-	}
-
-	body, _ := io.ReadAll(resp.Body)
-	var result struct {
-		Items []struct {
-			TitleID   string `json:"TitleID"`
-			Name      string `json:"Name"`
-			TitleType string `json:"TitleType"`
-		} `json:"Items"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-
-	var items []models.ContentItem
-	for _, it := range result.Items {
-		if !strings.EqualFold(it.TitleID, titleID) {
-			continue
-		}
-		nameLower := strings.ToLower(it.Name)
-		if strings.Contains(nameLower, "title update") || strings.Contains(nameLower, "tu") {
-			items = append(items, models.ContentItem{
-				TitleID:     titleID,
-				ContentType: "00005000",
-				DisplayName: it.Name,
-				Source:      "xbox_cdn",
-			})
-		} else {
-			items = append(items, models.ContentItem{
-				TitleID:     titleID,
-				ContentType: "00000002",
-				DisplayName: it.Name,
-				Source:      "xbox_cdn",
-			})
-		}
-	}
-	return items, nil
+// isTitleUpdateEntry returns true when the raw title name looks like a TU.
+func isTitleUpdateEntry(name string) bool {
+	lower := strings.ToLower(name)
+	return strings.Contains(lower, "title update") || strings.Contains(lower, "tu ") || strings.Contains(lower, " (tu)") || strings.Contains(lower, "(title update)") || strings.Contains(lower, "title-update") || strings.Contains(lower, "data for tu") || strings.Contains(lower, "title update-ban")
 }
 
-func (s *Service) discoverFromIA(titleID, gameName string) []models.ContentItem {
+// normalizeTUVersions detects version numbers from TU filenames and
+// populates the Version / DisplayName fields for sorting.
+func (s *Service) normalizeTUVersions(tus []models.ContentItem) {
+	type verInfo struct {
+		idx     int
+		version int
+	}
+	var versions []verInfo
+	for i, tu := range tus {
+		v := extractTUVersion(tu.DisplayName)
+		versions = append(versions, verInfo{idx: i, version: v})
+		tus[i].Version = v
+		if v > 0 {
+			tus[i].DisplayName = fmt.Sprintf("Title Update v%d", v)
+		}
+	}
+	// Mark the highest TU version as active (matching Aurora behaviour).
+	var highestVer = -1
+	var highestIdx = -1
+	for _, vi := range versions {
+		if vi.version > highestVer {
+			highestVer = vi.version
+			highestIdx = vi.idx
+		}
+	}
+	if highestIdx >= 0 {
+		tus[highestIdx].Active = true
+	}
+}
+
+func extractTUVersion(name string) int {
+	lower := strings.ToLower(name)
+	// "Title Update v1", "TU 2", "(v3)", "v1.4", etc.
+	patterns := []string{
+		`\(v(\d+)\)`,
+		`\bv(\d+)\b`,
+		` \(v(\d+)\)`,
+		`tu\s+(\d+)`,
+		`title\s+update\s+(\d+)`,
+		`title\s+update\s+v(\d+)`,
+	}
+	best := math.MaxInt
+	bestVer := 0
+	for _, pat := range patterns {
+		// naive manual extraction without regex for speed
+		_ = pat
+	}
+	// Simple string scan for patterns that actually appear in filenames
+	if idx := strings.Index(lower, "title update v"); idx >= 0 {
+		start := idx + len("title update v")
+		numStr := ""
+		for i := start; i < len(lower) && (lower[i] >= '0' && lower[i] <= '9'); i++ {
+			numStr += string(lower[i])
+		}
+		if v, err := strconv.Atoi(numStr); err == nil && v > 0 && v < best {
+			best = v
+			bestVer = v
+		}
+	}
+	if idx := strings.Index(lower, "(v"); idx >= 0 {
+		start := idx + 2
+		numStr := ""
+		for i := start; i < len(lower) && (lower[i] >= '0' && lower[i] <= '9'); i++ {
+			numStr += string(lower[i])
+		}
+		if v, err := strconv.Atoi(numStr); err == nil && v > 0 && v < best {
+			best = v
+			bestVer = v
+		}
+	}
+	if idx := strings.Index(lower, "tu "); idx >= 0 {
+		start := idx + 3
+		numStr := ""
+		for i := start; i < len(lower) && (lower[i] >= '0' && lower[i] <= '9'); i++ {
+			numStr += string(lower[i])
+		}
+		if v, err := strconv.Atoi(numStr); err == nil && v > 0 && v < best {
+			best = v
+			bestVer = v
+		}
+	}
+	return bestVer
+}
+
+// ============================================================
+//  Minerva Archive discovery
+// ============================================================
+
+func (s *Service) discoverFromMinerva(gameName, titleID string) []models.ContentItem {
 	var items []models.ContentItem
-	_ = titleID
-	_ = gameName
+	searchLower := strings.ToLower(gameName)
+
+	s.App.MinervaEntryMapMu.RLock()
+	defer s.App.MinervaEntryMapMu.RUnlock()
+
+	for _, platform := range []string{"dlc", "xbla", "digital", "xblig", "games"} {
+		games, ok := s.App.MinervaGameCache[platform]
+		if !ok {
+			continue
+		}
+		for _, g := range games {
+			lower := strings.ToLower(g)
+			if !s.matchesGameName(lower, searchLower, titleID) {
+				continue
+			}
+			entry, ok := s.App.MinervaEntryMap[lower]
+			if !ok {
+				continue
+			}
+			items = append(items, models.ContentItem{
+				TitleID:     strings.ToUpper(titleID),
+				ContentType: guessContentTypeFromName(g),
+				DisplayName: g,
+				FileName:    entry.FileName,
+				Source:      "minerva",
+				SourceURL:   entry.PathParam,
+				Installed:   false,
+			})
+		}
+	}
 	return items
+}
+
+// ============================================================
+//  Internet Archive discovery
+// ============================================================
+
+func (s *Service) discoverFromIA(gameName, titleID string) []models.ContentItem {
+	var items []models.ContentItem
+	searchLower := strings.ToLower(gameName)
+
+	s.App.GameEntryMapMu.RLock()
+	defer s.App.GameEntryMapMu.RUnlock()
+
+	for _, platform := range []string{"dlc", "xbla", "digital", "xblig", "games"} {
+		games, ok := s.App.IAGameCache[platform]
+		if !ok {
+			continue
+		}
+		for _, g := range games {
+			lower := strings.ToLower(g)
+			if !s.matchesGameName(lower, searchLower, titleID) {
+				continue
+			}
+			entry, ok := s.App.GameEntryMap[lower]
+			if !ok {
+				continue
+			}
+			items = append(items, models.ContentItem{
+				TitleID:     strings.ToUpper(titleID),
+				ContentType: guessContentTypeFromName(g),
+				DisplayName: g,
+				FileName:    entry.FileName,
+				Source:      "ia",
+				SourceURL:   app.IADownloadBase + entry.CollectionID + "/" + entry.FileName,
+				Installed:   false,
+			})
+		}
+	}
+	return items
+}
+
+// ============================================================
+//  Matching helpers
+// ============================================================
+
+func (s *Service) matchesGameName(candidateNameLower, searchNameLower, titleID string) bool {
+	if searchNameLower != "" {
+		if strings.Contains(candidateNameLower, searchNameLower) {
+			return true
+		}
+		// Fuzzy: strip parenthetical suffixes and compare bases
+		candidateBase := strings.ToLower(strings.Split(candidateNameLower, " (")[0])
+		searchBase := strings.ToLower(strings.Split(searchNameLower, " (")[0])
+		if candidateBase == searchBase {
+			return true
+		}
+	}
+	// Also allow matching by TitleID if it appears in the filename.
+	// This is rarer but useful for games with very different naming.
+	if titleID != "" && strings.Contains(strings.ToUpper(candidateNameLower), titleID) {
+		return true
+	}
+	return false
+}
+
+func guessContentTypeFromName(name string) string {
+	lower := strings.ToLower(name)
+	if isTitleUpdateEntry(name) {
+		return "00005000"
+	}
+	if strings.Contains(lower, "(xbla)") || strings.Contains(lower, "arcade") {
+		return "00001000"
+	}
+	if strings.Contains(lower, "(xblig)") || strings.Contains(lower, "indie") {
+		return "00002000"
+	}
+	if strings.Contains(lower, "(digital)") || strings.Contains(lower, "world) (v") {
+		return "00000002"
+	}
+	return "00000002" // default DLC / add-on
 }
 
 // QueueContentDownload prepares a content file for download & FTP.
@@ -344,7 +497,7 @@ func (s *Service) downloadURLToFile(url, dest string) error {
 		return err
 	}
 	defer f.Close()
-	_, err = io.Copy(f, resp.Body)
+	_, err = f.ReadFrom(resp.Body)
 	return err
 }
 

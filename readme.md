@@ -42,18 +42,18 @@ Download the build for your platform:
 
 | Platform | File |
 |---|---|
-| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.11.3.exe`](https://gofile.io/d/sJ5DQv) |
-| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.11.3.exe`](https://gofile.io/d/5LPawc) |
-| **macOS (Apple Silicon)** | [`godsend-2.11.3-arm64.dmg`](https://gofile.io/d/VoLfyj) |
-| **macOS (Intel)** | [`godsend-2.11.3-x64.dmg`](https://gofile.io/d/40zyDT) |
-| **Linux (x64 / amd64)** | [`godsend-2.11.3-x86_64.AppImage`](https://gofile.io/d/npjcYJ) |
-| **Linux (arm64)** | [`godsend-2.11.3-arm64.AppImage`](https://gofile.io/d/T9y3WB) |
+| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.1.exe`](https://gofile.io/d/S3a3tM) |
+| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.1.exe`](https://gofile.io/d/sHWa3E) |
+| **macOS (Apple Silicon)** | [`godsend-2.12.1-arm64.dmg`](https://gofile.io/d/EwFGKI) |
+| **macOS (Intel)** | [`godsend-2.12.1-x64.dmg`](https://gofile.io/d/Uqko9W) |
+| **Linux (x64 / amd64)** | [`godsend-2.12.1-x86_64.AppImage`](https://gofile.io/d/35lOON) |
+| **Linux (arm64)** | [`godsend-2.12.1-arm64.AppImage`](https://gofile.io/d/kjS9py) |
 
-> **Windows:** use **`godsend-Setup-2.11.3.exe`** for the full installer, or **`godsend-Portable-2.11.3.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
+> **Windows:** use **`godsend-Setup-2.12.1.exe`** for the full installer, or **`godsend-Portable-2.12.1.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.11.3.exe`** and follow the installer (or just run **`godsend-Portable-2.11.3.exe`** directly — no install step needed).
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.12.1.exe`** and follow the installer (or just run **`godsend-Portable-2.12.1.exe`** directly — no install step needed).
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher — the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
@@ -102,12 +102,12 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 | Platform | Binary |
 |---|---|
-| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/GeHGsX) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/gFeuBi) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/viaZWp) |
-| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/gnh3sL) |
-| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/EYIUvJ) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/i5oWU6) |
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/awLiSD) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/H7KtSA) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/YvHvEC) |
+| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/WTYehW) |
+| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/4QId41) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/FPgXtx) |
 
 **[Full headless setup guide (build, configure, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 

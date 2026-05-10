@@ -9,10 +9,19 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.1] — 2026-05-10
+
+### Fixed
+- **DLC/TU discovery: removed Xbox CDN, added Minerva + IA search** — the Xbox CDN source was returning inaccurate metadata instead of real downloadable DLC/TU files. Replaced with direct Minerva Archive and Internet Archive cache searches that match by game name and TitleID, returning actual content packages.
+
 ## [2.12.0] — 2026-05-10
 
 ### Added
-- **Library: DLC & Title Update manager** — new section in the game detail view lists installed DLC and Title Updates for the current title, scanned directly from the Xbox `Content/0000000000000000/{TitleID}/` directory over FTP. Also queries Xbox CDN for available content. Installed items show with a green badge; missing items have a Queue button that downloads the content file and FTPs it to the correct content folder. Title Updates support a Make Active toggle (queues the TU for install so it becomes the active update).
+- **Library: DLC & Title Update manager** — new section in the game detail view lists installed DLC and Title Updates for the current title, scanned directly from the Xbox `Content/0000000000000000/{TitleID}/` directory over FTP. Also queries Minerva Archive and Internet Archive caches for available content. Installed items show with a green badge; missing items have a Queue button that downloads the content file and FTPs it to the correct content folder. Title Updates support a Make Active toggle (queues the TU for install so it becomes the active update).
+- **Title Update information from XboxUnity** — queries XboxUnity `TitleList.php` for the game entry to read the `Updates` count, surfacing how many TUs exist for a title even before scanning.
+
+### Changed
+- **DLC/TU discovery: replaced Xbox CDN with Minerva + Internet Archive only** — removed the XboxUnity TitleList-based "Xbox CDN" discovery source from the content manifest because it returned inaccurate metadata (general game info, not actual downloadable DLC/TU files). The backend now searches Minerva Archive and Internet Archive caches directly for entries matching the game name or TitleID, which yields real downloadable content packages.
 
 ## [2.11.3] — 2026-05-10
 
