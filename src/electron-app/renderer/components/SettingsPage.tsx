@@ -95,6 +95,19 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   // Collapsible state
   const [ftpDebugOpen, setFtpDebugOpen] = useState(false);
 
+  // Custom GOD / XEX install paths
+  const [customGodPath, setCustomGodPathState] = useState("");
+  const [customXexPath, setCustomXexPathState] = useState("");
+  const [customPathStatus, setCustomPathStatus] = useState("");
+
+  // FTP inline directory picker state
+  const [ftpPickerOpen, setFtpPickerOpen] = useState(false);
+  const [ftpPickerTarget, setFtpPickerTarget] = useState<"god" | "xex" | null>(null);
+  const [ftpPickerPath, setFtpPickerPath] = useState("/");
+  const [ftpPickerEntries, setFtpPickerEntries] = useState<any[]>([]);
+  const [ftpPickerLoading, setFtpPickerLoading] = useState(false);
+  const [ftpPickerStatus, setFtpPickerStatus] = useState("");
+
   const ftpDebugLogRef = useRef<HTMLPreElement>(null);
 
   // ── Load saved values on mount ─────────────────────────────────────────────
@@ -126,6 +139,8 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
       setAria2ListenPort(await window.godsendApi.getAria2ListenPort());
       setAria2DhtPort(await window.godsendApi.getAria2DhtPort());
       setDefaultDrive(await window.godsendApi.getDefaultXboxDrive());
+      setCustomGodPathState(await window.godsendApi.getCustomGodPath());
+      setCustomXexPathState(await window.godsendApi.getCustomXexPath());
     }
     load();
 
@@ -388,6 +403,93 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
     const saved = await window.godsendApi.setDefaultXboxDrive("");
     setDefaultDrive(saved);
     setDriveStatus("Default drive cleared — Aurora will prompt for drive on each download.");
+  }
+
+  async function handleCustomGodPathSave() {
+    const saved = await window.godsendApi.setCustomGodPath(customGodPath);
+    setCustomGodPathState(saved);
+    setCustomPathStatus(`Custom GOD path ${saved ? `set to ${saved}` : "cleared"}. Backend restarted.`);
+  }
+
+  async function handleCustomGodPathClear() {
+    const saved = await window.godsendApi.setCustomGodPath("");
+    setCustomGodPathState(saved);
+    setCustomPathStatus("Custom GOD path cleared. Backend restarted.");
+  }
+
+  async function handleCustomXexPathSave() {
+    const saved = await window.godsendApi.setCustomXexPath(customXexPath);
+    setCustomXexPathState(saved);
+    setCustomPathStatus(`Custom XEX path ${saved ? `set to ${saved}` : "cleared"}. Backend restarted.`);
+  }
+
+  async function handleCustomXexPathClear() {
+    const saved = await window.godsendApi.setCustomXexPath("");
+    setCustomXexPathState(saved);
+    setCustomPathStatus("Custom XEX path cleared. Backend restarted.");
+  }
+
+  // FTP inline directory picker helpers
+  async function openFtpPicker(target: "god" | "xex") {
+    if (!xboxIp.trim()) {
+      setCustomPathStatus("Enter Xbox IP first.");
+      return;
+    }
+    setFtpPickerTarget(target);
+    setFtpPickerOpen(true);
+    setFtpPickerPath("/");
+    setFtpPickerEntries([]);
+    await ftpPickerLoad("/");
+  }
+
+  async function ftpPickerLoad(remotePath: string) {
+    setFtpPickerLoading(true);
+    setFtpPickerStatus("Loading...");
+    try {
+      const r = await window.godsendApi.toolsFtpList(remotePath);
+      if (r.ok && r.entries) {
+        // Normalize paths: keep relative to drive root, remove leading /Hdd1 etc if present
+        setFtpPickerPath(r.cwd || remotePath);
+        // Only show directories
+        const dirs = r.entries.filter((e: any) => e.type === "directory" || !e.size);
+        // Add a ".." entry when not at root
+        const parent = { name: "..", type: "directory", size: 0 };
+        const isRoot = r.cwd === "/" || !r.cwd || r.cwd.match(/^\/?[A-Za-z0-9]+:?$/);
+        setFtpPickerEntries(isRoot ? dirs : [parent, ...dirs]);
+        setFtpPickerStatus(`${dirs.length} folder(s)`);
+      } else {
+        setFtpPickerStatus(`Error: ${r.error || "unknown"}`);
+      }
+    } catch (err: any) {
+      setFtpPickerStatus(`Error: ${err.message || "unknown"}`);
+    } finally {
+      setFtpPickerLoading(false);
+    }
+  }
+
+  function ftpPickerNavigate(entry: any) {
+    if (entry.name === "..") {
+      const parts = ftpPickerPath.replace(/\/+$/, "").split("/").filter(Boolean);
+      parts.pop();
+      const parentPath = "/" + parts.join("/");
+      ftpPickerLoad(parentPath || "/");
+      return;
+    }
+    const next = (ftpPickerPath.replace(/\/+$/, "") + "/" + entry.name).replace(/\/+/g, "/");
+    ftpPickerLoad(next);
+  }
+
+  function ftpPickerSelect() {
+    if (!ftpPickerTarget) return;
+    const raw = ftpPickerPath.replace(/^\/+/, ""); // strip leading /
+    if (ftpPickerTarget === "god") {
+      setCustomGodPathState(raw);
+    } else {
+      setCustomXexPathState(raw);
+    }
+    setFtpPickerOpen(false);
+    setFtpPickerTarget(null);
+    setCustomPathStatus(`Selected FTP path: ${raw}`);
   }
 
   async function handleDataCheck() {
@@ -826,6 +928,99 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               devices from the console via FTP (Xbox IP must be configured). Click{" "}
               <strong>Clear</strong> to reset — Aurora will prompt for a drive each
               time.
+            </Hint>
+          </Section>
+
+          {/* ── Custom GOD / XEX install paths ── */}
+          <Section title="Custom GOD / XEX install paths">
+            <div className="space-y-4">
+              {/* GOD path */}
+              <div>
+                <Label htmlFor="customGodPath">GOD install folder (on Xbox)</Label>
+                <div className="flex flex-wrap gap-2 items-center mt-1">
+                  <Input
+                    id="customGodPath"
+                    type="text"
+                    className="flex-1 min-w-[180px] max-w-[480px]"
+                    placeholder="Default: GOD"
+                    value={customGodPath}
+                    onChange={(e) => setCustomGodPathState(e.target.value)}
+                  />
+                  <Button onClick={() => openFtpPicker("god")}>Browse FTP&hellip;</Button>
+                  <Button onClick={handleCustomGodPathSave}>Save</Button>
+                  <Button onClick={handleCustomGodPathClear}>Use default</Button>
+                </div>
+              </div>
+
+              {/* XEX path */}
+              <div>
+                <Label htmlFor="customXexPath">XEX install folder (on Xbox)</Label>
+                <div className="flex flex-wrap gap-2 items-center mt-1">
+                  <Input
+                    id="customXexPath"
+                    type="text"
+                    className="flex-1 min-w-[180px] max-w-[480px]"
+                    placeholder="Default: XEX"
+                    value={customXexPath}
+                    onChange={(e) => setCustomXexPathState(e.target.value)}
+                  />
+                  <Button onClick={() => openFtpPicker("xex")}>Browse FTP&hellip;</Button>
+                  <Button onClick={handleCustomXexPathSave}>Save</Button>
+                  <Button onClick={handleCustomXexPathClear}>Use default</Button>
+                </div>
+              </div>
+
+              {customPathStatus && <Status>{customPathStatus}</Status>}
+
+              {/* Inline FTP directory picker modal */}
+              {ftpPickerOpen && (
+                <div className="border border-[#1e242e] rounded-lg overflow-hidden bg-[#0d1117]">
+                  <div className="px-3 py-2 text-[12px] font-semibold text-muted-foreground bg-muted flex items-center justify-between">
+                    <span>
+                      Browse FTP — {ftpPickerTarget === "god" ? "GOD folder" : "XEX folder"}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => setFtpPickerOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                  <div className="px-3 py-2 space-y-2">
+                    <div className="text-[11px] text-muted-foreground font-mono">
+                      {ftpPickerLoading ? "Loading..." : ftpPickerPath}
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto border border-[#1e242e] rounded">
+                      {ftpPickerEntries.length === 0 && !ftpPickerLoading && (
+                        <div className="px-3 py-2 text-[12px] text-muted-foreground">
+                          No directories found.
+                        </div>
+                      )}
+                      {ftpPickerEntries.map((entry) => (
+                        <button
+                          key={entry.name}
+                          className="w-full text-left px-3 py-1.5 text-[12px] text-[#c0c8d4] hover:bg-[#1e242e] transition-colors flex items-center gap-2"
+                          onClick={() => ftpPickerNavigate(entry)}
+                        >
+                          <span>{entry.name === ".." ? "↑ .." : "📁 " + entry.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground">{ftpPickerStatus}</span>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={ftpPickerSelect}>
+                          Select this folder
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <Hint>
+              When set, GOD and XEX installs go into these subfolders on the chosen
+              drive instead of the default <code>GOD</code> and <code>XEX</code> folders.
+              Leave blank to use defaults. Click <strong>Browse FTP</strong> to pick an
+              existing directory from the Xbox. The path is relative to the drive root
+              (e.g. <code>Games/GOD</code> or <code>MyXEX</code>).
             </Hint>
           </Section>
 

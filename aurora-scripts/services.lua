@@ -141,6 +141,14 @@ function loadServerConfig()
     if drive and drive ~= "" then
         gDefaultDrive = drive
     end
+    local godPath = json:match('"custom_god_path"%s*:%s*"([^"]*)"')
+    if godPath then
+        gCustomGodPath = godPath
+    end
+    local xexPath = json:match('"custom_xex_path"%s*:%s*"([^"]*)"')
+    if xexPath then
+        gCustomXexPath = xexPath
+    end
 end
 
 -- ── Processing wait loop ──────────────────────────────────────────────────────
@@ -367,7 +375,8 @@ local function _installGame_http_unused(gameName)
             return
         end
 
-        local installPath = gInstallDrive .. "\\XEX\\" .. folderName .. "\\"
+        local xexSubPath = gCustomXexPath ~= "" and gCustomXexPath or "XEX"
+        local installPath = gInstallDrive .. "\\" .. xexSubPath .. "\\" .. folderName .. "\\"
         local mkOk = pcall(FileSystem.CreateDirectory, installPath)
         if not mkOk then
             showError("INSTALL_FAILED", "Could not create XEX directory: " .. installPath)
@@ -658,7 +667,8 @@ local function _installGame_http_unused(gameName)
     end
 
     local godPrefix = (titleName and titleName ~= "") and titleName or "Title"
-    local installPath = gInstallDrive .. "\\GOD\\" .. godPrefix .. " - " .. titleID .. "\\"
+    local godSubPath = gCustomGodPath ~= "" and gCustomGodPath or "GOD"
+    local installPath = gInstallDrive .. "\\" .. godSubPath .. "\\" .. godPrefix .. " - " .. titleID .. "\\"
     local mkOk = pcall(FileSystem.CreateDirectory, installPath)
     if not mkOk then
         showError("INSTALL_FAILED", "Could not create install directory on " .. gInstallDrive)

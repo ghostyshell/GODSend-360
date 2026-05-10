@@ -25,6 +25,8 @@ type App struct {
 	FTPUsername      string
 	FTPPassword      string
 	DefaultXboxDrive string // GODSEND_DEFAULT_DRIVE
+	CustomGodPath    string // GODSEND_CUSTOM_GOD_PATH (optional override for GOD install dir)
+	CustomXexPath    string // GODSEND_CUSTOM_XEX_PATH (optional override for XEX install dir)
 	Aria2ListenPort  string // GODSEND_ARIA2_LISTEN_PORT
 	Aria2DhtPort     string // GODSEND_ARIA2_DHT_PORT
 	ROMRootPath      string // drive-relative path for ROM installs on Xbox

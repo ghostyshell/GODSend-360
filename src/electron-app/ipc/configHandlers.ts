@@ -24,6 +24,8 @@ import {
   getConfiguredDefaultXboxDrive,
   getConfiguredAria2ListenPort,
   getConfiguredAria2DhtPort,
+  getConfiguredCustomGodPath,
+  getConfiguredCustomXexPath,
   getDefaultFtpScriptsPath,
   writeConfig,
 } from "../services/settingsService";
@@ -247,6 +249,27 @@ export function register(ipcMain: IpcMain): void {
     const n = parseInt(value, 10);
     const v = (Number.isInteger(n) && n >= 1 && n <= 65535) ? String(n) : "";
     writeConfig({ aria2DhtPort: v });
+    restartGodsendIfRunning();
+    return v;
+  });
+
+  // ── Custom GOD/XEX install paths ──────────────────────────────────────────
+  ipcMain.handle("config:get-custom-god-path", () => getConfiguredCustomGodPath());
+
+  ipcMain.handle("config:set-custom-god-path", (_event, value) => {
+    const v = typeof value === "string" ? value.trim() : "";
+    writeConfig({ customGodPath: v });
+    appendAppEvent("CONFIG", `customGodPath=${v || "(default)"}`);
+    restartGodsendIfRunning();
+    return v;
+  });
+
+  ipcMain.handle("config:get-custom-xex-path", () => getConfiguredCustomXexPath());
+
+  ipcMain.handle("config:set-custom-xex-path", (_event, value) => {
+    const v = typeof value === "string" ? value.trim() : "";
+    writeConfig({ customXexPath: v });
+    appendAppEvent("CONFIG", `customXexPath=${v || "(default)"}`);
     restartGodsendIfRunning();
     return v;
   });

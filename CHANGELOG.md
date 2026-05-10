@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.11.2] — 2026-05-10
+
+### Added
+- **Settings: custom GOD / XEX install paths** — new section in Settings lets users override the default `GOD` and `XEX` install subfolders on the Xbox. Supports typing a path or browsing the console via FTP to pick an existing directory. The chosen paths are saved to config, passed to the backend via `GODSEND_CUSTOM_GOD_PATH` / `GODSEND_CUSTOM_XEX_PATH` env vars, exposed through `/config` to Aurora scripts, and used in both Go FTP transfers and local Aurora installs.
+
 ## [2.11.1] — 2026-05-10
 
 ### Fixed

@@ -17,6 +17,8 @@ export interface GodsendConfig {
   ftpPassword?: string;
   ftpScriptsPath?: string;
   defaultXboxDrive?: string;
+  customGodPath?: string;
+  customXexPath?: string;
   aria2ListenPort?: string | number;
   aria2DhtPort?: string | number;
 }
@@ -131,6 +133,16 @@ export function getConfiguredAria2DhtPort(): string {
   return isNaN(n) || n < 1 || n > 65535 ? "" : String(n);
 }
 
+export function getConfiguredCustomGodPath(): string {
+  const v = readConfig().customGodPath;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+export function getConfiguredCustomXexPath(): string {
+  const v = readConfig().customXexPath;
+  return typeof v === "string" ? v.trim() : "";
+}
+
 export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, GODSEND_HOME: writableRoot };
   const custom = getConfiguredTransferFolder();
@@ -150,5 +162,9 @@ export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   if (aria2Listen) env.GODSEND_ARIA2_LISTEN_PORT = aria2Listen;
   const aria2Dht = getConfiguredAria2DhtPort();
   if (aria2Dht) env.GODSEND_ARIA2_DHT_PORT = aria2Dht;
+  const customGodPath = getConfiguredCustomGodPath();
+  if (customGodPath) env.GODSEND_CUSTOM_GOD_PATH = customGodPath;
+  const customXexPath = getConfiguredCustomXexPath();
+  if (customXexPath) env.GODSEND_CUSTOM_XEX_PATH = customXexPath;
   return env;
 }

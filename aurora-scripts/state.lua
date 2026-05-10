@@ -24,6 +24,8 @@ gInstallDrive  = "Hdd1:"
 gTransferMode  = "ftp"    -- always ftp
 gInstallType   = "god"    -- "god" | "content" (DLC / Disc 2 path) | "xex" (loose folder)
 gDefaultDrive  = ""       -- set by loadServerConfig(); overrides drive picker when non-empty
+gCustomGodPath = ""       -- set by loadServerConfig(); optional GOD install subfolder override
+gCustomXexPath = ""       -- set by loadServerConfig(); optional XEX install subfolder override
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 

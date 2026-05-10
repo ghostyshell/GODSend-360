@@ -57,6 +57,10 @@ contextBridge.exposeInMainWorld("godsendApi", {
   setAria2DhtPort:          (v: string) => ipcRenderer.invoke("config:set-aria2-dht-port", v),
   getDefaultXboxDrive:      () => ipcRenderer.invoke("config:get-default-xbox-drive"),
   setDefaultXboxDrive:      (v: string) => ipcRenderer.invoke("config:set-default-xbox-drive", v),
+  getCustomGodPath:         () => ipcRenderer.invoke("config:get-custom-god-path"),
+  setCustomGodPath:         (v: string) => ipcRenderer.invoke("config:set-custom-god-path", v),
+  getCustomXexPath:         () => ipcRenderer.invoke("config:get-custom-xex-path"),
+  setCustomXexPath:         (v: string) => ipcRenderer.invoke("config:set-custom-xex-path", v),
   listXboxDrives:           () => ipcRenderer.invoke("xbox:list-drives"),
 
   browseGetGames:           (payload: any) => ipcRenderer.invoke("browse:get-games", payload),

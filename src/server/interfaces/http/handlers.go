@@ -632,7 +632,9 @@ func (d *Deps) handleDataClear(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 func (d *Deps) handleServerConfig(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"default_drive": d.App.DefaultXboxDrive,
+		"default_drive":    d.App.DefaultXboxDrive,
+		"custom_god_path":  d.App.CustomGodPath,
+		"custom_xex_path":  d.App.CustomXexPath,
 	})
 }
 

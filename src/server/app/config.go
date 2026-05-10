@@ -298,6 +298,8 @@ func (a *App) SetupPaths() error {
 	os.MkdirAll(a.PendingFTPDir, 0755)
 
 	a.DefaultXboxDrive = strings.TrimSpace(os.Getenv("GODSEND_DEFAULT_DRIVE"))
+	a.CustomGodPath = strings.TrimSpace(os.Getenv("GODSEND_CUSTOM_GOD_PATH"))
+	a.CustomXexPath = strings.TrimSpace(os.Getenv("GODSEND_CUSTOM_XEX_PATH"))
 	a.Aria2ListenPort = strings.TrimSpace(os.Getenv("GODSEND_ARIA2_LISTEN_PORT"))
 	a.Aria2DhtPort = strings.TrimSpace(os.Getenv("GODSEND_ARIA2_DHT_PORT"))
 

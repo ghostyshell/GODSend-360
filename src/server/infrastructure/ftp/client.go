@@ -215,7 +215,13 @@ func (s *Service) TransferGame(godDir string, conn *models.XboxConnection, gameN
 	}
 	folderID = helpers.SanitizeFilename(folderID)
 	drive := strings.TrimSuffix(conn.Drive, ":")
-	base := fmt.Sprintf("/%s/GOD/%s - %s", drive, folderID, titleID)
+
+	// Use custom GOD path if configured, otherwise default to "GOD"
+	godSubPath := "GOD"
+	if s.App.CustomGodPath != "" {
+		godSubPath = strings.ReplaceAll(strings.Trim(s.App.CustomGodPath, "/\\"), "\\", "/")
+	}
+	base := fmt.Sprintf("/%s/%s/%s - %s", drive, godSubPath, folderID, titleID)
 	s.App.Logf("FTP GOD Dest: %s", base)
 	MkdirAll(fc, base)
 
@@ -300,7 +306,7 @@ func (s *Service) TransferContent(contentDir string, conn *models.XboxConnection
 	})
 }
 
-// TransferXEX uploads the contents of a XEX folder to /<drive>/XEX/<folderName>/.
+// TransferXEX uploads the contents of a XEX folder to /<drive>/<xexPath>/<folderName>/.
 func (s *Service) TransferXEX(xexFolder, folderName string, conn *models.XboxConnection, gameName string) error {
 	fc, err := s.ConnectWithRetry(conn.IP)
 	if err != nil {
@@ -309,7 +315,13 @@ func (s *Service) TransferXEX(xexFolder, folderName string, conn *models.XboxCon
 	defer fc.Quit()
 
 	drive := strings.TrimSuffix(conn.Drive, ":")
-	base := fmt.Sprintf("/%s/XEX/%s", drive, folderName)
+
+	// Use custom XEX path if configured, otherwise default to "XEX"
+	xexSubPath := "XEX"
+	if s.App.CustomXexPath != "" {
+		xexSubPath = strings.ReplaceAll(strings.Trim(s.App.CustomXexPath, "/\\"), "\\", "/")
+	}
+	base := fmt.Sprintf("/%s/%s/%s", drive, xexSubPath, folderName)
 	s.App.Logf("FTP XEX Dest: %s", base)
 	MkdirAll(fc, base)
 
