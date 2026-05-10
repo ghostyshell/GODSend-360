@@ -55,6 +55,7 @@
     "electron": "^37.2.0",
     "electron-builder": "^26.0.12",
     "jimp": "^0.22.12",
+    "playwright": "^1.59.1",
     "png-to-ico": "^2.1.8",
     "postcss": "^8.5.3",
     "rcedit": "^5.0.2",

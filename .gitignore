@@ -18,6 +18,17 @@ node_modules/
 src/electron-app/node_modules/
 src/electron-app/dist/
 
+# Electron TypeScript artefacts (compiled in-place; source is the .ts files)
+src/electron-app/app/*.js
+src/electron-app/infrastructure/*.js
+src/electron-app/ipc/*.js
+src/electron-app/services/*.js
+src/electron-app/renderer/**/*.js
+src/electron-app/*.js
+
+# Playwright test results (auto-generated videos/screenshots)
+src/electron-app/test-results/
+
 # Runtime data dirs (created by the backend at runtime)
 Ready/
 Temp/

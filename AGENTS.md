@@ -439,3 +439,18 @@ If you are an agent performing a significant refactor:
 
 - **First**: scan this file and the relevant section of `README.md` for constraints.
 - **After changes**: update this file to reflect any new module layouts, entrypoints, or required commands before finishing your task.
+
+### Skill addition pattern
+
+When adding a new skill (agent instructions for a specific task or domain):
+
+1. **Create the canonical skill** under `docs/agents/skills/<skill-name>.md`.
+   - Include a clear `description`, `scope`, and `key conventions` section.
+   - Add a `see also` block linking to `docs/agents/skills/docs-source-of-truth.md`.
+2. **Create shim skills** under each agent-specific directory:
+   - `.claude/skills/<skill-name>.md`
+   - `.opencode/skills/<skill-name>.md`
+   - `.cursor/skills/<skill-name>.md`
+   - Shims should contain a pointer banner and a quick-reference summary.
+3. **Update the source-of-truth index** in `docs/agents/skills/docs-source-of-truth.md` (add to `related_skills`).
+4. **Do not** duplicate full instructions in shims — they reference the canonical file so all agents stay in sync.
