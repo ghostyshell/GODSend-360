@@ -7,8 +7,9 @@
  * All FTP operations are proxied through the Go backend for centralised tracking.
  */
 
-import { app, IpcMain } from "electron";
+import { app, BrowserWindow, dialog, IpcMain } from "electron";
 import fs from "fs";
+import path from "path";
 
 import {
   getConfiguredXboxIP,
@@ -259,5 +260,65 @@ export function register(ipcMain: IpcMain): void {
     setActiveAuroraCacheRoot(cacheRoot);
     emitAuroraTitleVisualEvents(titleId, gameDataDir, cacheRoot);
     return { ok: true };
+  });
+
+  // ── Export Aurora DBs for debugging ────────────────────────────────────────
+  ipcMain.handle("xbox:export-aurora-db", async () => {
+    const xboxIp      = getConfiguredXboxIP();
+    const scriptsPath = getConfiguredFtpScriptsPath();
+    if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+
+    let auroraRoot = xboxAuroraRoot(scriptsPath);
+    let dbDir      = `${auroraRoot}/Data/Databases`;
+
+    // Quick probe to discover Aurora root if default path is wrong
+    try {
+      const probeRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
+        { op: "size", path: `${dbDir}/content.db` },
+      ]});
+      const r = (probeRes.results || [])[0];
+      if (!r || !r.ok) {
+        const discovered = await discoverAuroraRoot(xboxIp);
+        if (discovered) {
+          auroraRoot = discovered;
+          dbDir = `${auroraRoot}/Data/Databases`;
+        }
+      }
+    } catch { /* ignore probe errors, fall back to default */ }
+
+    // Let user pick a destination folder
+    const win = BrowserWindow.getFocusedWindow();
+    const dlg = await dialog.showOpenDialog(win || undefined, {
+      title: "Select folder to save Aurora databases",
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (dlg.canceled || !dlg.filePaths[0]) {
+      return { ok: false, error: "No destination folder selected." };
+    }
+    const destDir = dlg.filePaths[0];
+
+    addOutputLine("[INFO] Exporting Aurora DBs from console…");
+    try {
+      const dlRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
+        { op: "download", path: `${dbDir}/content.db`,  local_path: path.join(destDir, "content.db") },
+        { op: "download", path: `${dbDir}/settings.db`, local_path: path.join(destDir, "settings.db") },
+      ]});
+      const results = dlRes.results || [];
+      const contentOk  = results[0] && results[0].ok;
+      const settingsOk = results[1] && results[1].ok;
+
+      if (!contentOk || !settingsOk) {
+        const err = (!contentOk ? results[0]?.error : "") + " " + (!settingsOk ? results[1]?.error : "");
+        addOutputLine(`[ERROR] Aurora DB export failed: ${err.trim()}`);
+        return { ok: false, error: err.trim() || "FTP download failed." };
+      }
+
+      addOutputLine(`[INFO] Aurora DBs exported to ${destDir}`);
+      return { ok: true, files: [path.join(destDir, "content.db"), path.join(destDir, "settings.db")] };
+    } catch (err: any) {
+      const msg = err.message || String(err);
+      addOutputLine(`[ERROR] Aurora DB export: ${msg}`);
+      return { ok: false, error: msg };
+    }
   });
 }

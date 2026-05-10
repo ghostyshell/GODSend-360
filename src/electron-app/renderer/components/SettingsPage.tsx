@@ -91,6 +91,8 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   const [ftpTestLoading, setFtpTestLoading]     = useState(false);
   const [ftpScanLoading, setFtpScanLoading]     = useState(false);
   const [cacheLoading, setCacheLoading]         = useState(false);
+  const [exportDbLoading, setExportDbLoading]   = useState(false);
+  const [exportDbStatus, setExportDbStatus]     = useState("");
 
   // Collapsible state
   const [ftpDebugOpen, setFtpDebugOpen] = useState(false);
@@ -492,6 +494,27 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
     setCustomPathStatus(`Selected FTP path: ${raw}`);
   }
 
+  async function handleExportDb() {
+    if (!xboxIp.trim()) {
+      setExportDbStatus("Enter the Xbox IP address first.");
+      return;
+    }
+    setExportDbLoading(true);
+    setExportDbStatus("Downloading content.db and settings.db from console…");
+    try {
+      const r = await window.godsendApi.exportAuroraDb();
+      if (r.ok) {
+        setExportDbStatus(`Exported to:\n${(r.files || []).join("\n")}`);
+      } else {
+        setExportDbStatus(`Export failed: ${r.error || "unknown error"}`);
+      }
+    } catch (err: any) {
+      setExportDbStatus(`Export failed: ${err.message || "unknown error"}`);
+    } finally {
+      setExportDbLoading(false);
+    }
+  }
+
   async function handleDataCheck() {
     setDataCheckLoading(true);
     setDataStatusMsg("");
@@ -652,12 +675,18 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
                 <Button disabled={ftpUploadLoading} onClick={handleFtpUpload}>
                   FTP Aurora Scripts to Xbox
                 </Button>
+                <Button disabled={exportDbLoading} onClick={handleExportDb}>
+                  {exportDbLoading ? "Exporting DBs…" : "Export Aurora DBs"}
+                </Button>
               </div>
               {xboxConnectionStatus && (
                 <Status className="mb-0">{xboxConnectionStatus}</Status>
               )}
               {ftpScriptsStatus && (
                 <Status className="mb-0">{ftpScriptsStatus}</Status>
+              )}
+              {exportDbStatus && (
+                <Status className="mb-0 whitespace-pre-wrap">{exportDbStatus}</Status>
               )}
             </div>
 

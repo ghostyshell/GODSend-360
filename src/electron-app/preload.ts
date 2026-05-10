@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld("godsendApi", {
   chooseAssetImageFile:     () => ipcRenderer.invoke("xbox:choose-image-file"),
   uploadAssetToConsole:     (payload: any) => ipcRenderer.invoke("xbox:upload-asset-to-console", payload),
   downloadAllCovers:        (payload: any) => ipcRenderer.invoke("xbox:download-all-covers", payload),
+  exportAuroraDb:           () => ipcRenderer.invoke("xbox:export-aurora-db"),
   getQueue:                 () => ipcRenderer.invoke("xbox:get-queue"),
   removeFromQueue:          (game: string) => ipcRenderer.invoke("xbox:remove-queue-item", game),
   getDataStatus:            () => ipcRenderer.invoke("data:status"),
