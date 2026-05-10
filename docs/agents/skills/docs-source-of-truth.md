@@ -35,11 +35,8 @@ When adding new skills:
 3. If this skill governs a subdomain, it should contain a `seealso` block linking to the docs skill
 4. Update this file's `related_skills` list
 
-### Testing Integration
-All docs changes that describe user-visible behaviour SHOULD have a corresponding Playwright test or video demo under `src/electron-app/tests/`. See `docs/agents/skills/playwright-testing.md` for the recording convention.
-
 ## Related Skills
-- `docs/agents/skills/playwright-testing.md` — video recording & UI test conventions
+- `docs/agents/skills/playwright-testing.md` — video recording & UI test conventions (results saved to ignored `test-results/` dir)
 - `docs/agents/skills/shim-electron.md` — Electron agent conventions
 - `docs/agents/skills/shim-go-backend.md` — Go backend agent conventions
 - `docs/agents/skills/shim-aurora-scripts.md` — Aurora Lua agent conventions
@@ -49,5 +46,5 @@ All docs changes that describe user-visible behaviour SHOULD have a correspondin
 |---|---|
 | Build all | `npm run build` |
 | Electron dev | `npm start --prefix src/electron-app` |
-| Run Playwright video | `node src/electron-app/tests/record-fix-demo-ffmpeg.js` |
+| Run Playwright | `npx playwright test --prefix src/electron-app` |
 | Go backend only | `go build -C src/server -o ../../dist/godsend-mac .` |

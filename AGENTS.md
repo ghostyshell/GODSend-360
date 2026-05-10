@@ -454,3 +454,8 @@ When adding a new skill (agent instructions for a specific task or domain):
    - Shims should contain a pointer banner and a quick-reference summary.
 3. **Update the source-of-truth index** in `docs/agents/skills/docs-source-of-truth.md` (add to `related_skills`).
 4. **Do not** duplicate full instructions in shims — they reference the canonical file so all agents stay in sync.
+
+### NEVER commit video files
+- `test-results/` is already in `.gitignore` for Playwright video outputs.
+- `.mp4`, `.webm`, `.mov` files must never be committed to git.
+- Generated demo videos should be stored in shared drives or linked from docs, never in the repo.

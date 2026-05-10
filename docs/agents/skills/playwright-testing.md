@@ -1,19 +1,17 @@
 # Skill: Playwright Testing — UI Recording & E2E Convention
 
 ## Description
-Defines how to record video demos and write E2E tests for the GODsend-360 Electron app using Playwright.
+Defines how to write E2E tests and record video demos for the GODsend-360 Electron app using Playwright.
 
 ## Scope
 - `src/electron-app/tests/**/*.spec.ts` — Playwright test specs
 - `src/electron-app/tests/**/*.js` — standalone recording scripts
 - `src/electron-app/playwright.config.ts` — Playwright configuration
-- Video outputs under `test-results/`
+- Video outputs under `test-results/` (never committed)
 
 ## Key Files
 | Path | Purpose |
 |---|---|
-| `src/electron-app/tests/record-fix-demo.js` | Standalone video recorder script |
-| `src/electron-app/tests/record-fix-demo-ffmpeg.js` | Screen-capture via ffmpeg |
 | `src/electron-app/playwright.config.ts` | Playwright config (video: on, trace: on-first-retry) |
 
 ## Recording Conventions
@@ -26,16 +24,16 @@ Defines how to record video demos and write E2E tests for the GODsend-360 Electr
 
 ## Video Output
 - Playwright built-in video saves to `test-results/` in webm format
-- FFmpeg screen capture saves to `test-results/fix-demo-video.mp4`
+- FFmpeg screen capture can save to `test-results/*.mp4`
 - Always clean old output before recording
+- **NEVER commit video files to git** — `test-results/` is already in `.gitignore`
 
 ## Running Tests
 ```bash
 cd src/electron-app
 npm install --save-dev playwright
 npx playwright test                  # run all specs
-node tests/record-fix-demo.js       # standalone script
-node tests/record-fix-demo-ffmpeg.js # ffmpeg screen capture
+node tests/my-demo-script.js         # standalone script (create as needed)
 ```
 
 ## See Also
