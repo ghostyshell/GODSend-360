@@ -16,6 +16,7 @@ docs/agents/skills/playwright-testing.md
 ```bash
 cd src/electron-app
 npx playwright test                  # run tests
+node tests/record-demo-video.js      # record demo video
 ```
 
 **Never commit video files.** `test-results/` is already in `.gitignore`.
