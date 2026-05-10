@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.0] — 2026-05-10
+
+### Added
+- **Library: DLC & Title Update manager** — new section in the game detail view lists installed DLC and Title Updates for the current title, scanned directly from the Xbox `Content/0000000000000000/{TitleID}/` directory over FTP. Also queries Xbox CDN for available content. Installed items show with a green badge; missing items have a Queue button that downloads the content file and FTPs it to the correct content folder. Title Updates support a Make Active toggle (queues the TU for install so it becomes the active update).
+
 ## [2.11.3] — 2026-05-10
 
 ### Added

@@ -3,6 +3,7 @@ import {
   ArrowLeft, Gamepad2, Loader2, WifiOff,
   Star, Disc3, RotateCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
   ArrowUpDown, Filter, HardDrive, ArrowRightLeft, Download,
+  Puzzle, PackageOpen,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -717,6 +718,278 @@ function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefr
   );
 }
 
+// ── Content / DLC / Title Update section ────────────────────────────────────
+
+interface ContentItem {
+  title_id: string;
+  content_type: string;
+  display_name: string;
+  file_name?: string;
+  size?: number;
+  version?: number;
+  source: string;
+  source_url?: string;
+  installed: boolean;
+  active: boolean;
+  offer_id?: string;
+}
+
+interface ContentSectionProps {
+  game: Game;
+}
+
+function ContentSection({ game }: ContentSectionProps) {
+  const [manifest, setManifest] = useState<{ dlcs: ContentItem[]; title_updates: ContentItem[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [queuing, setQueuing] = useState<Record<string, boolean>>({});
+  const [queueStatus, setQueueStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setManifest(null);
+    setError(null);
+    loadContent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.titleId]);
+
+  async function loadContent() {
+    setLoading(true);
+    try {
+      const r = await window.godsendApi.contentDiscover({ titleId: game.titleId, gameName: game.name });
+      if (r?.ok) {
+        setManifest({ dlcs: r.dlcs || [], title_updates: r.title_updates || [] });
+      } else {
+        setError(r?.error || "Failed to discover content");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to load content");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleQueue(item: ContentItem, source?: string) {
+    const key = `${item.content_type}-${item.display_name}`;
+    setQueuing((prev) => ({ ...prev, [key]: true }));
+    setQueueStatus(null);
+    try {
+      const payload = {
+        game_name: game.name,
+        title_id: game.titleId,
+        content_type: item.content_type,
+        display_name: item.display_name,
+        file_name: item.file_name || item.display_name,
+        source: source || item.source,
+        source_url: item.source_url,
+      };
+      const r = await window.godsendApi.contentQueue(payload);
+      if (r?.ok) {
+        setQueueStatus(`${item.display_name} queued for download.`);
+        setTimeout(() => setQueueStatus(null), 3000);
+      } else {
+        setQueueStatus(`Queue failed: ${r?.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setQueueStatus(`Queue error: ${err.message}`);
+    } finally {
+      setQueuing((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  function handleQueueWithSourcePicker(item: ContentItem) {
+    // If already installed, nothing to do
+    if (item.installed) return;
+    // If source has a direct URL, queue immediately
+    if (item.source_url) {
+      handleQueue(item);
+      return;
+    }
+    // Otherwise open a source picker (simplified inline flow)
+    (async () => {
+      const key = `${item.content_type}-${item.display_name}`;
+      setQueuing((prev) => ({ ...prev, [key]: true }));
+      try {
+        const s = await window.godsendApi.contentSources({ titleId: game.titleId, gameName: game.name });
+        if (s?.ok && Array.isArray(s.sources) && s.sources.length > 0) {
+          // For simplicity, queue the first source found
+          const src = s.sources[0];
+          await handleQueue(item, src.source);
+        } else {
+          setQueueStatus(`No download sources found for ${item.display_name}`);
+        }
+      } catch (err: any) {
+        setQueueStatus(`Source lookup failed: ${err.message}`);
+      } finally {
+        setQueuing((prev) => ({ ...prev, [key]: false }));
+      }
+    })();
+  }
+
+  const hasContent = manifest && (manifest.dlcs.length > 0 || manifest.title_updates.length > 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider">
+          DLC & Title Updates
+        </p>
+        <button
+          className="text-muted-foreground hover:text-foreground shrink-0"
+          onClick={loadContent}
+          disabled={loading}
+          title="Refresh content list"
+        >
+          <RotateCw className={cn("h-3 w-3", loading && "animate-spin")} />
+        </button>
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Scanning Xbox and online sources…
+        </div>
+      )}
+
+      {error && (
+        <p className="text-[10px] text-red-400">{error}</p>
+      )}
+
+      {queueStatus && (
+        <p className={cn(
+          "text-[10px] px-2 py-1 rounded",
+          queueStatus.startsWith("Queue failed") || queueStatus.startsWith("Queue error") || queueStatus.startsWith("No download sources")
+            ? "bg-destructive/20 text-destructive"
+            : "bg-emerald-500/15 text-emerald-300"
+        )}>
+          {queueStatus}
+        </p>
+      )}
+
+      {!loading && !error && !hasContent && (
+        <div className="rounded-md border border-border/40 bg-muted/10 px-3 py-3 text-center">
+          <p className="text-[11px] text-muted-foreground">
+            No DLC or Title Updates found for this title.
+          </p>
+        </div>
+      )}
+
+      {/* Title Updates */}
+      {manifest && manifest.title_updates.length > 0 && (
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <PackageOpen className="h-3 w-3 text-muted-foreground" />
+            <p className="text-[10px] font-semibold text-muted-foreground">Title Updates</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {manifest.title_updates.map((tu) => {
+              const key = `${tu.content_type}-${tu.display_name}`;
+              const isQueuing = queuing[key];
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    "flex items-center justify-between rounded border px-2 py-1.5",
+                    tu.installed ? "border-border/40 bg-background" : "border-border/60 bg-[#0d1117]"
+                  )}
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[11px] text-foreground truncate">{tu.display_name}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">
+                      {tu.installed ? (tu.active ? "Active" : "Installed") : "Not installed"}
+                      {tu.size ? ` · ${(tu.size / 1048576).toFixed(1)} MB` : ""}
+                      {tu.source ? ` · ${tu.source}` : ""}
+                    </span>
+                  </div>
+                  <div className="shrink-0 ml-2">
+                    {tu.installed ? (
+                      tu.active ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">Active</span>
+                      ) : (
+                        <button
+                          className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                          onClick={() => handleQueue(tu, "activate")}
+                          disabled={isQueuing}
+                        >
+                          Make Active
+                        </button>
+                      )
+                    ) : (
+                      <button
+                        className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors flex items-center gap-0.5"
+                        onClick={() => handleQueueWithSourcePicker(tu)}
+                        disabled={isQueuing}
+                      >
+                        {isQueuing ? (
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        ) : (
+                          <Download className="h-2.5 w-2.5" />
+                        )}
+                        Queue
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* DLCs */}
+      {manifest && manifest.dlcs.length > 0 && (
+        <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Puzzle className="h-3 w-3 text-muted-foreground" />
+            <p className="text-[10px] font-semibold text-muted-foreground">DLC</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {manifest.dlcs.map((dlc) => {
+              const key = `${dlc.content_type}-${dlc.display_name}`;
+              const isQueuing = queuing[key];
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    "flex items-center justify-between rounded border px-2 py-1.5",
+                    dlc.installed ? "border-border/40 bg-background" : "border-border/60 bg-[#0d1117]"
+                  )}
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[11px] text-foreground truncate">{dlc.display_name}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">
+                      {dlc.installed ? "Installed" : "Not installed"}
+                      {dlc.size ? ` · ${(dlc.size / 1048576).toFixed(1)} MB` : ""}
+                      {dlc.source ? ` · ${dlc.source}` : ""}
+                    </span>
+                  </div>
+                  <div className="shrink-0 ml-2">
+                    {dlc.installed ? (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">Installed</span>
+                    ) : (
+                      <button
+                        className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors flex items-center gap-0.5"
+                        onClick={() => handleQueueWithSourcePicker(dlc)}
+                        disabled={isQueuing}
+                      >
+                        {isQueuing ? (
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        ) : (
+                          <Download className="h-2.5 w-2.5" />
+                        )}
+                        Queue
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Disc face (shown on hover flip) ─────────────────────────────────────────
 
 function DiscFace() {
@@ -1242,6 +1515,11 @@ function GameDetail({
                 )}
               </div>
             </div>
+          )}
+
+  {/* ── Content / DLC / Title Update section ── */}
+          {game.titleId && (
+            <ContentSection game={game} />
           )}
 
           <p className="text-[9px] text-muted-foreground/40 font-mono">

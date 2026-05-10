@@ -27,6 +27,12 @@ func (d *Deps) NewRouter() *stdhttp.ServeMux {
 	mux.HandleFunc("/disc-info", d.wrap(d.handleDiscInfo))
 	mux.HandleFunc("/files/", d.wrap(d.handleFileServe))
 
+	// Content / DLC / Title Update endpoints
+	mux.HandleFunc("/content/discover", d.wrap(d.handleContentDiscover))
+	mux.HandleFunc("/content/installed", d.wrap(d.handleContentInstalled))
+	mux.HandleFunc("/content/queue", d.wrap(d.handleContentQueue))
+	mux.HandleFunc("/content/sources", d.wrap(d.handleContentSources))
+
 	// Data management
 	mux.HandleFunc("/data/status", d.wrap(d.handleDataStatus))
 	mux.HandleFunc("/data/clear", d.wrap(d.handleDataClear))

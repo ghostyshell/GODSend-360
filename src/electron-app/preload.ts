@@ -69,6 +69,11 @@ contextBridge.exposeInMainWorld("godsendApi", {
   browseQueueGame:          (payload: any) => ipcRenderer.invoke("browse:queue-game", payload),
   browseGetDiscInfo:        (game: string) => ipcRenderer.invoke("browse:get-disc-info", game),
 
+  contentDiscover:          (payload: any) => ipcRenderer.invoke("content:discover", payload),
+  contentInstalled:         (payload: any) => ipcRenderer.invoke("content:installed", payload),
+  contentQueue:             (payload: any) => ipcRenderer.invoke("content:queue", payload),
+  contentSources:           (payload: any) => ipcRenderer.invoke("content:sources", payload),
+
   decodeAsset:              (payload: any) => ipcRenderer.invoke("xbox:decode-asset", payload),
   encodeAsset:              (payload: any) => ipcRenderer.invoke("xbox:encode-asset", payload),
 
