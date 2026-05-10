@@ -9,6 +9,8 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.11.3] — 2026-05-10
+
 ### Added
 - **Settings: Export Aurora DBs for debugging** — new **Export Aurora DBs** button in the Xbox connection section. Downloads `content.db` and `settings.db` from the console via FTP into a user-selected folder so users can share them for debugging malformed-database issues.
 
