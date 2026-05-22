@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "2.12.1",
+  "version": "2.12.2",
   "description": "Full Electron UI for configuring, monitoring, and managing GODsend-360",
   "main": "main.js",
   "scripts": {
@@ -114,7 +114,8 @@
       }
     ],
     "portable": {
-      "artifactName": "godsend-Portable-${version}.${ext}"
+      "artifactName": "godsend-Portable-${version}.${ext}",
+      "unpackDirName": false
     },
     "win": {
       "target": [

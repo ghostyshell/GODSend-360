@@ -9,6 +9,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.2] — 2026-05-23
+
+### Added
+- **Settings: configurable App Data Directory** — new Settings section lets users relocate the entire app-data tree (config.json, logs, aurora-library-cache, runtime/Ready/Temp/Transfer) to any directory. Picking a new path migrates existing data and relaunches the app. Backed by a small marker file in the platform-default location (or next to the .exe in portable Windows builds) so the override is found on the next launch.
+- **Portable Windows build is self-contained by default** — when launched via the portable `.exe`, the app stores everything under `<exe-dir>/godsend-data/` instead of `%APPDATA%`, leaving no trace on the host. Override from Settings if you want it elsewhere.
+
+### Fixed
+- **DLC/TU queue from library page now works for already-installed titles** — `POST /content/queue` previously required a prior Xbox registration (only created via Browse Store) and returned HTTP 400 for library-page queues; the Electron IPC wrapper masked the error as success so the UI showed a green "queued" toast while no job was created. The backend now derives the Xbox connection from `xbox_ip` / `drive` in the request when there is no prior registration, the IPC wrapper propagates the real HTTP status, and the renderer passes the game's `sourceDrive`.
+- **Minerva DLC sources now download via torrent** — Minerva sources expose a torrent-path (`./No-Intro/.../foo.zip`), not an HTTP URL. The queue now routes Minerva content through `Torrent.DownloadViaTorrent` + extract + Xbox-header scan, matching the main pipeline's `ProcessMinervaDigital` flow.
+
 ## [2.12.1] — 2026-05-10
 
 ### Fixed

@@ -6,7 +6,14 @@
 import { app, BrowserWindow, dialog, IpcMain } from "electron";
 import http from "http";
 import path from "path";
+import fs from "fs";
 
+import {
+  getDefaultAppDataDir,
+  setAppDataDirOverride,
+  migrateAppData,
+  isPortable,
+} from "../services/appDataPath";
 import {
   getConfiguredStoragePath,
   getConfiguredTransferFolder,
@@ -80,6 +87,65 @@ export function register(ipcMain: IpcMain): void {
     });
     if (r.canceled || !r.filePaths[0]) return null;
     return r.filePaths[0];
+  });
+
+  // ── App data directory (config, logs, caches, runtime root) ───────────────
+  ipcMain.handle("config:get-app-data-dir", () => app.getPath("userData"));
+
+  ipcMain.handle("config:get-default-app-data-dir", () => getDefaultAppDataDir());
+
+  ipcMain.handle("config:is-portable", () => isPortable());
+
+  ipcMain.handle("config:choose-app-data-dir", async () => {
+    const win = BrowserWindow.getFocusedWindow() || getMainWindow();
+    const r = await dialog.showOpenDialog(win || undefined, {
+      title: "Choose GODsend data directory",
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    return r.filePaths[0];
+  });
+
+  /**
+   * Move app data to a new location and queue a restart so all path-resolvers
+   * pick up the new userData on the next launch. Pass an empty string to clear
+   * the override and revert to the default location.
+   */
+  ipcMain.handle("config:set-app-data-dir", async (_event, newPath: string) => {
+    const trimmed = typeof newPath === "string" ? newPath.trim() : "";
+    const target = trimmed ? path.resolve(trimmed) : getDefaultAppDataDir();
+    const current = app.getPath("userData");
+
+    if (path.resolve(target) === path.resolve(current)) {
+      setAppDataDirOverride(trimmed);
+      return { ok: true, restarted: false, target };
+    }
+
+    // Stop the Go backend so we don't migrate files it's actively writing to.
+    try {
+      const proc = getProcess();
+      if (proc) proc.kill();
+    } catch { /* ignore */ }
+
+    try { fs.mkdirSync(target, { recursive: true }); }
+    catch (err: any) { return { ok: false, error: `Cannot create ${target}: ${err.message || err}` }; }
+
+    const result = migrateAppData(current, target);
+    if (!result.ok) {
+      appendAppEvent("CONFIG", `appDataDir migrate FAILED ${current} → ${target}: ${result.error}`);
+      return { ok: false, error: result.error || "Migration failed" };
+    }
+
+    setAppDataDirOverride(trimmed);
+    appendAppEvent("CONFIG", `appDataDir set to ${target}; relaunching`);
+
+    // Relaunch so app.setPath("userData", …) runs fresh in main.ts.
+    setTimeout(() => {
+      app.relaunch();
+      app.exit(0);
+    }, 250);
+
+    return { ok: true, restarted: true, target };
   });
 
   // ── Transfer folder ─────────────────────────────────────────────────────────

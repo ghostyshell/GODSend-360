@@ -56,8 +56,17 @@ export function createMainWindow(): void {
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, "..", "renderer-dist", "index.html"));
+    mainWindow.loadFile(path.join(__dirname, "..", "renderer-dist", "index.html"), {
+      query: { nocache: String(Date.now()) },
+    });
   }
+
+  // Force clear renderer cache on every startup so vite-dist changes
+  // are always picked up (Electron keeps compiled JS in renderer caches).
+  mainWindow.webContents.on("did-finish-load", () => {
+    if (!mainWindow) return;
+    mainWindow.webContents.session.clearCache().catch(() => {});
+  });
 
   mainWindow.on("minimize", () => {
     mainWindow!.hide();

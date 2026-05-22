@@ -744,6 +744,39 @@ function ContentSection({ game }: ContentSectionProps) {
   const [error, setError] = useState<string | null>(null);
   const [queuing, setQueuing] = useState<Record<string, boolean>>({});
   const [queueStatus, setQueueStatus] = useState<string | null>(null);
+  const [queueStateMap, setQueueStateMap] = useState<Record<string, { state: string; message?: string }>>({});
+
+  // Poll backend queue so buttons reflect Downloading / Ready state
+  useEffect(() => {
+    if (!manifest) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r: any = await window.godsendApi.getQueue();
+        if (!r?.ok || !Array.isArray(r.jobs) || cancelled) return;
+        const map: Record<string, { state: string; message?: string }> = {};
+        for (const j of r.jobs) {
+          const key: string = j.game || "";
+          if (key) map[key] = { state: j.state, message: j.message };
+        }
+        setQueueStateMap(map);
+      } catch { /* ignore */ }
+    };
+    tick();
+    const id = setInterval(tick, 2000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [manifest, game.titleId]);
+
+  function itemQueueState(item: ContentItem) {
+    const displayKey = `${item.display_name}`;
+    const fileKey = item.file_name || "";
+    for (const [k, v] of Object.entries(queueStateMap)) {
+      if (k.includes(displayKey) || (fileKey && k.includes(fileKey))) {
+        return v.state;
+      }
+    }
+    return item.installed ? (item.active ? "Active" : "Installed") : null;
+  }
 
   useEffect(() => {
     setManifest(null);
@@ -781,6 +814,7 @@ function ContentSection({ game }: ContentSectionProps) {
         file_name: item.file_name || item.display_name,
         source: source || item.source,
         source_url: item.source_url,
+        drive: game.sourceDrive ? `${game.sourceDrive}:` : undefined,
       };
       const r = await window.godsendApi.contentQueue(payload);
       if (r?.ok) {
@@ -901,32 +935,49 @@ function ContentSection({ game }: ContentSectionProps) {
                     </span>
                   </div>
                   <div className="shrink-0 ml-2">
-                    {tu.installed ? (
-                      tu.active ? (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">Active</span>
-                      ) : (
+                    {(() => {
+                      const qs = itemQueueState(tu);
+                      if (tu.installed) {
+                        if (tu.active) {
+                          return (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">Active</span>
+                          );
+                        }
+                        return (
+                          <button
+                            className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                            onClick={() => handleQueue(tu, "activate")}
+                            disabled={isQueuing}
+                          >
+                            Make Active
+                          </button>
+                        );
+                      }
+                      if (qs === "Ready" || qs === "Error") {
+                        return (
+                          <span className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded",
+                            qs === "Error" ? "bg-destructive/20 text-destructive" : "bg-emerald-500/15 text-emerald-300"
+                          )}>
+                            {qs === "Error" ? "Error" : "Downloaded"}
+                          </span>
+                        );
+                      }
+                      return (
                         <button
-                          className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                          onClick={() => handleQueue(tu, "activate")}
-                          disabled={isQueuing}
+                          className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors flex items-center gap-0.5"
+                          onClick={() => handleQueueWithSourcePicker(tu)}
+                          disabled={isQueuing || qs === "Queued" || qs === "Processing"}
                         >
-                          Make Active
+                          {isQueuing || qs === "Queued" || qs === "Processing" ? (
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                          ) : (
+                            <Download className="h-2.5 w-2.5" />
+                          )}
+                          {qs === "Queued" || qs === "Processing" ? "Downloading…" : "Queue"}
                         </button>
-                      )
-                    ) : (
-                      <button
-                        className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors flex items-center gap-0.5"
-                        onClick={() => handleQueueWithSourcePicker(tu)}
-                        disabled={isQueuing}
-                      >
-                        {isQueuing ? (
-                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                        ) : (
-                          <Download className="h-2.5 w-2.5" />
-                        )}
-                        Queue
-                      </button>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -963,22 +1014,38 @@ function ContentSection({ game }: ContentSectionProps) {
                     </span>
                   </div>
                   <div className="shrink-0 ml-2">
-                    {dlc.installed ? (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">Installed</span>
-                    ) : (
-                      <button
-                        className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors flex items-center gap-0.5"
-                        onClick={() => handleQueueWithSourcePicker(dlc)}
-                        disabled={isQueuing}
-                      >
-                        {isQueuing ? (
-                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                        ) : (
-                          <Download className="h-2.5 w-2.5" />
-                        )}
-                        Queue
-                      </button>
-                    )}
+                    {(() => {
+                      const qs = itemQueueState(dlc);
+                      if (dlc.installed) {
+                        return (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">Installed</span>
+                        );
+                      }
+                      if (qs === "Ready" || qs === "Error") {
+                        return (
+                          <span className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded",
+                            qs === "Error" ? "bg-destructive/20 text-destructive" : "bg-emerald-500/15 text-emerald-300"
+                          )}>
+                            {qs === "Error" ? "Error" : "Downloaded"}
+                          </span>
+                        );
+                      }
+                      return (
+                        <button
+                          className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors flex items-center gap-0.5"
+                          onClick={() => handleQueueWithSourcePicker(dlc)}
+                          disabled={isQueuing || qs === "Queued" || qs === "Processing"}
+                        >
+                          {isQueuing || qs === "Queued" || qs === "Processing" ? (
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                          ) : (
+                            <Download className="h-2.5 w-2.5" />
+                          )}
+                          {qs === "Queued" || qs === "Processing" ? "Downloading…" : "Queue"}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               );

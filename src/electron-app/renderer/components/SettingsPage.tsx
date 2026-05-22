@@ -48,6 +48,11 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   const [startup, setStartup]                   = useState(false);
   const [storagePath, setStoragePath]           = useState("");
   const [defaultStoragePath, setDefaultStoragePath] = useState("");
+  const [appDataDir, setAppDataDir]             = useState("");
+  const [defaultAppDataDir, setDefaultAppDataDir] = useState("");
+  const [appDataPortable, setAppDataPortable]   = useState(false);
+  const [appDataStatus, setAppDataStatus]       = useState("");
+  const [appDataSaving, setAppDataSaving]       = useState(false);
   const [serverPort, setServerPort]             = useState("8080");
   const [xboxIp, setXboxIp]                     = useState("");
   const [ftpUser, setFtpUser]                   = useState("");
@@ -119,6 +124,9 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
       setStartup(await window.godsendApi.getStartupEnabled());
       setStoragePath((await window.godsendApi.getEffectiveStoragePath()) || "");
       setDefaultStoragePath((await window.godsendApi.getDefaultStoragePath()) || "");
+      setAppDataDir((await window.godsendApi.getAppDataDir()) || "");
+      setDefaultAppDataDir((await window.godsendApi.getDefaultAppDataDir()) || "");
+      setAppDataPortable(Boolean(await window.godsendApi.isPortable()));
       setTransferPath((await window.godsendApi.getEffectiveTransferFolder()) || "");
       setServerPort(String(await window.godsendApi.getServerPort()));
 
@@ -195,6 +203,38 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
     await window.godsendApi.setStoragePath("");
     setStoragePath((await window.godsendApi.getEffectiveStoragePath()) || "");
     onAppendLine("[INFO] Storage path reset to default; backend restarted.");
+  }
+
+  async function applyAppDataDir(target: string) {
+    setAppDataSaving(true);
+    setAppDataStatus("Moving app data…");
+    try {
+      const r: any = await window.godsendApi.setAppDataDir(target);
+      if (!r?.ok) {
+        setAppDataStatus(`Failed: ${r?.error || "Unknown error"}`);
+        setAppDataSaving(false);
+        return;
+      }
+      if (r.restarted) {
+        setAppDataStatus("App data moved — relaunching…");
+      } else {
+        setAppDataStatus("App data path unchanged.");
+        setAppDataSaving(false);
+      }
+    } catch (err: any) {
+      setAppDataStatus(`Failed: ${err.message || String(err)}`);
+      setAppDataSaving(false);
+    }
+  }
+
+  async function handleAppDataBrowse() {
+    const picked = await window.godsendApi.chooseAppDataDir();
+    if (!picked) return;
+    await applyAppDataDir(picked);
+  }
+
+  async function handleAppDataReset() {
+    await applyAppDataDir("");
   }
 
   async function handlePortSave() {
@@ -569,6 +609,31 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
             </label>
           </Section>
 
+          {/* ── App data directory ── */}
+          <Section title="App data directory">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Input
+                type="text"
+                readOnly
+                className="flex-1 min-w-[180px]"
+                placeholder={`Default: ${defaultAppDataDir}`}
+                value={appDataDir}
+              />
+              <Button onClick={handleAppDataBrowse} disabled={appDataSaving}>Browse&hellip;</Button>
+              <Button onClick={handleAppDataReset} disabled={appDataSaving}>Use default</Button>
+            </div>
+            {appDataStatus && (
+              <p className="text-[11px] text-muted-foreground mt-1">{appDataStatus}</p>
+            )}
+            <Hint>
+              Holds settings, logs, caches, and (by default) downloads. Changing
+              this moves existing data to the new location and relaunches the
+              app. {appDataPortable
+                ? "Portable build — defaults to a folder next to the .exe so the app stays self-contained."
+                : "Default is the OS application-data folder."}
+            </Hint>
+          </Section>
+
           {/* ── Local storage path ── */}
           <Section title="Local storage path">
             <div className="flex flex-wrap gap-2 items-center">
@@ -583,10 +648,10 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               <Button onClick={handleStorageReset}>Use default</Button>
             </div>
             <Hint>
-              Root directory for all GODsend data (caches, downloads, temp files,
-              ready files). Changing this restarts the backend. The Transfer
-              folder setting below can override just the ISO location
-              independently.
+              Root directory for downloads / temp / Ready staging. Defaults to
+              <code className="mx-1">runtime/</code> inside the app data
+              directory. Override this to put large download stages on a
+              different drive without moving the whole app data folder.
             </Hint>
           </Section>
 

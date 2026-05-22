@@ -579,18 +579,25 @@ export default function FTPManagerPage({}: FTPManagerPageProps) {
           )}
         </div>
 
-        {/* Upload queue panel */}
-        {uploads.length > 0 && (
+        {/* Upload queue panel — always visible */}
           <div className="w-[280px] shrink-0 border border-border rounded-lg overflow-auto">
             <div className="px-2 py-1.5 border-b border-border bg-surface">
               <span className="text-[11px] font-semibold text-foreground">Transfers</span>
               <span className="text-[10px] text-muted-foreground ml-1.5">{uploads.length}</span>
             </div>
-            {uploads.map(job => (
-              <UploadJobRow key={job.id} job={job} onRemove={handleRemoveUpload} />
-            ))}
+            {uploads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-24 gap-1">
+                <p className="text-[11px] text-muted-foreground">No active transfers.</p>
+                <p className="text-[9px] text-muted-foreground/60">
+                  Uploads will appear here.
+                </p>
+              </div>
+            ) : (
+              uploads.map(job => (
+                <UploadJobRow key={job.id} job={job} onRemove={handleRemoveUpload} />
+              ))
+            )}
           </div>
-        )}
       </div>
 
       {/* ── Context menu ────────────────────────────────────────────────── */}

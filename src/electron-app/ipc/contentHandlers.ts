@@ -46,7 +46,12 @@ export function register(ipcMain: IpcMain): void {
   ipcMain.handle("content:queue", async (_event, payload) => {
     try {
       const port = getConfiguredServerPort();
-      const body = JSON.stringify(payload);
+      const enriched = {
+        xbox_ip: getConfiguredXboxIP(),
+        drive: getConfiguredDefaultXboxDrive() || "Hdd1:",
+        ...payload,
+      };
+      const body = JSON.stringify(enriched);
       return new Promise((resolve) => {
         const req = http.request(
           {
@@ -63,8 +68,14 @@ export function register(ipcMain: IpcMain): void {
             let data = "";
             res.on("data", (chunk) => { data += chunk; });
             res.on("end", () => {
-              try { resolve({ ok: true, ...JSON.parse(data) }); }
-              catch { resolve({ ok: true, data }); }
+              const ok = (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300;
+              try {
+                const parsed = JSON.parse(data);
+                const error = ok ? undefined : (parsed?.message || parsed?.error || `HTTP ${res.statusCode}`);
+                resolve({ ok, ...parsed, ...(error ? { error } : {}) });
+              } catch {
+                resolve({ ok, data, ...(ok ? {} : { error: `HTTP ${res.statusCode}` }) });
+              }
             });
           }
         );

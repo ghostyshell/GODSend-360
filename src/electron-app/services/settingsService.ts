@@ -4,6 +4,7 @@ import fs from "fs";
 import { ensureDirectory } from "../infrastructure/fileSystem";
 
 export interface GodsendConfig {
+  appDataDir?: string;
   storagePath?: string;
   transferFolder?: string;
   iaCookie?: string;

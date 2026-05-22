@@ -3,6 +3,7 @@ package content
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"os"
@@ -14,15 +15,18 @@ import (
 	"godsend/app"
 	"godsend/infrastructure/ftp"
 	"godsend/infrastructure/helpers"
+	"godsend/infrastructure/torrent"
 	"godsend/models"
+	"godsend/utils"
 
 	goftp "github.com/jlaffaye/ftp"
 )
 
 // Service handles DLC/TU discovery, scanning, and queueing.
 type Service struct {
-	App *app.App
-	FTP *ftp.Service
+	App     *app.App
+	FTP     *ftp.Service
+	Torrent *torrent.Service
 }
 
 // ContentTypeNames maps Xbox content type hex to human-readable names.
@@ -437,11 +441,21 @@ func guessContentTypeFromName(name string) string {
 
 // QueueContentDownload prepares a content file for download & FTP.
 func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn *models.XboxConnection) error {
+	queueKey := req.GameName + " — " + req.DisplayName
 	safeName := helpers.SanitizeFilename(req.GameName + "_" + req.DisplayName)
 	gameDir := filepath.Join(s.App.ToolsDir, "Ready", safeName)
 	os.MkdirAll(gameDir, 0755)
 
+	// Minerva sources expose torrent paths (e.g. "./No-Intro/.../foo.zip"),
+	// not HTTP URLs — route them through the aria2 torrent + extract flow.
+	if strings.EqualFold(req.Source, "minerva") {
+		s.App.LogStatus(queueKey, "Queued", fmt.Sprintf("Queued %s", req.DisplayName))
+		s.App.Logf("CONTENT QUEUE (minerva): %s file=%s", req.DisplayName, req.FileName)
+		return s.queueViaTorrent(req, xboxConn, queueKey, safeName, gameDir)
+	}
+
 	if req.SourceURL != "" {
+		s.App.LogStatus(queueKey, "Queued", fmt.Sprintf("Queued %s", req.DisplayName))
 		s.App.Logf("CONTENT QUEUE: %s from %s", req.DisplayName, req.SourceURL)
 		fileName := filepath.Base(req.SourceURL)
 		if fileName == "" {
@@ -451,16 +465,19 @@ func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn 
 			fileName = req.DisplayName + ".bin"
 		}
 		localPath := filepath.Join(gameDir, fileName)
+		s.App.LogStatus(queueKey, "Processing", fmt.Sprintf("Downloading %s…", fileName))
 		if err := s.downloadURLToFile(req.SourceURL, localPath); err != nil {
-			s.App.LogStatus(req.GameName, "Error", fmt.Sprintf("Content download failed: %v", err))
+			s.App.LogStatus(queueKey, "Error", fmt.Sprintf("Download failed: %v", err))
 			return err
 		}
 
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			drive := strings.TrimSuffix(xboxConn.Drive, ":")
 			base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, strings.ToUpper(req.TitleID), strings.ToLower(req.ContentType))
+			s.App.LogStatus(queueKey, "Processing", fmt.Sprintf("FTP uploading to %s…", base))
 			fc, err := s.FTP.ConnectWithRetry(xboxConn.IP)
 			if err != nil {
+				s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP connect: %v", err))
 				return err
 			}
 			defer fc.Quit()
@@ -468,17 +485,107 @@ func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn 
 			info, _ := os.Stat(localPath)
 			var xfer int64
 			if err := s.FTP.UploadFile(fc, localPath, base+"/"+fileName, req.GameName, &xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
+				s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP upload: %v", err))
 				return err
 			}
 			os.RemoveAll(gameDir)
-			s.App.LogFTPComplete(req.GameName, req.TitleID, xboxConn.IP)
+			s.App.LogFTPComplete(queueKey, req.TitleID, xboxConn.IP)
 		} else {
 			relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", strings.ToUpper(req.TitleID), strings.ToLower(req.ContentType))
 			s.updateContentINI(gameDir, req.GameName, req.TitleID, fileName, relPath)
-			s.App.LogStatus(req.GameName, "Ready", "Ready to Install")
+			s.App.LogStatus(queueKey, "Ready", "Ready to Install")
 		}
 	} else {
 		s.App.Logf("CONTENT QUEUE: %s has no direct URL — needs manual trigger from browse store", req.DisplayName)
+	}
+	return nil
+}
+
+// queueViaTorrent downloads a Minerva DLC/TU via aria2 + torrent, extracts the
+// archive, locates the Xbox content file (LIVE/PIRS/CON header), and uploads it
+// to the Xbox under Content/0000000000000000/<TitleID>/<ContentType>/.
+func (s *Service) queueViaTorrent(req models.ContentQueueRequest, xboxConn *models.XboxConnection, queueKey, safeName, gameDir string) error {
+	if s.Torrent == nil {
+		s.App.LogStatus(queueKey, "Error", "Torrent service not configured")
+		return fmt.Errorf("torrent service not configured")
+	}
+	if req.FileName == "" {
+		s.App.LogStatus(queueKey, "Error", "Missing file_name for Minerva source")
+		return fmt.Errorf("missing file_name for minerva source")
+	}
+
+	torrentDir := filepath.Join(s.App.ToolsDir, "Temp", safeName+"_dlctorrent")
+	os.MkdirAll(torrentDir, 0755)
+	defer os.RemoveAll(torrentDir)
+
+	s.App.LogStatus(queueKey, "Processing", fmt.Sprintf("Torrenting %s…", req.FileName))
+	entry := models.MinervaEntry{FileName: req.FileName, PathParam: req.SourceURL}
+	archivePath, err := s.Torrent.DownloadViaTorrent("dlc", torrentDir, queueKey, entry)
+	if err != nil {
+		s.App.LogStatus(queueKey, "Error", fmt.Sprintf("Torrent: %v", err))
+		return err
+	}
+
+	s.App.LogStatus(queueKey, "Processing", "Extracting…")
+	extDir := filepath.Join(s.App.ToolsDir, "Temp", safeName+"_dlcext")
+	os.RemoveAll(extDir)
+	defer os.RemoveAll(extDir)
+	if err := utils.ExtractArchive(archivePath, extDir); err != nil {
+		s.App.LogStatus(queueKey, "Error", fmt.Sprintf("Extract: %v", err))
+		return err
+	}
+
+	var contentFile, titleID, typeDir string
+	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
+		if e != nil || i.IsDir() || i.Size() < 0x368 {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(p))
+		if ext == ".txt" || ext == ".nfo" || ext == ".jpg" {
+			return nil
+		}
+		tid, ct := helpers.ParseXboxHeader(p)
+		if tid != "" {
+			contentFile = p
+			titleID = tid
+			typeDir = fmt.Sprintf("%08X", ct)
+			return io.EOF
+		}
+		return nil
+	})
+	if contentFile == "" {
+		s.App.LogStatus(queueKey, "Error", "No valid Xbox content found in archive")
+		return fmt.Errorf("no content file in archive")
+	}
+
+	finalName := filepath.Base(contentFile)
+	if xboxConn != nil && xboxConn.Mode == "ftp" {
+		drive := strings.TrimSuffix(xboxConn.Drive, ":")
+		base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, typeDir)
+		s.App.LogStatus(queueKey, "Processing", fmt.Sprintf("FTP uploading to %s…", base))
+		fc, err := s.FTP.ConnectWithRetry(xboxConn.IP)
+		if err != nil {
+			s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP connect: %v", err))
+			return err
+		}
+		defer fc.Quit()
+		ftp.MkdirAll(fc, base)
+		info, _ := os.Stat(contentFile)
+		var xfer int64
+		if err := s.FTP.UploadFile(fc, contentFile, base+"/"+finalName, queueKey, &xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
+			s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP upload: %v", err))
+			return err
+		}
+		os.RemoveAll(gameDir)
+		s.App.LogFTPComplete(queueKey, titleID, xboxConn.IP)
+	} else {
+		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", titleID, typeDir)
+		if err := helpers.CopyFileBuffered(contentFile, filepath.Join(gameDir, finalName)); err != nil {
+			s.App.LogStatus(queueKey, "Error", fmt.Sprintf("Copy: %v", err))
+			return err
+		}
+		s.updateContentINI(gameDir, req.GameName, titleID, finalName, relPath)
+		s.App.LogStatus(queueKey, "Ready", "Ready to Install")
 	}
 	return nil
 }

@@ -41,4 +41,5 @@ type ContentQueueRequest struct {
 	Source      string `json:"source"`
 	SourceURL   string `json:"source_url,omitempty"`
 	Drive       string `json:"drive,omitempty"`
+	XboxIP      string `json:"xbox_ip,omitempty"`
 }

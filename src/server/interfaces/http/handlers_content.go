@@ -3,10 +3,11 @@ package http
 
 import (
 	"encoding/json"
-	"net/url"
 	stdhttp "net/http"
 	"strings"
+	"time"
 
+	"godsend/app"
 	"godsend/models"
 	"godsend/services/content"
 )
@@ -30,7 +31,7 @@ func (d *Deps) handleContentDiscover(w stdhttp.ResponseWriter, r *stdhttp.Reques
 		drive = "Hdd1:"
 	}
 
-	contentSvc := &content.Service{App: d.App, FTP: d.FTP}
+	contentSvc := &content.Service{App: d.App, FTP: d.FTP, Torrent: d.Pipeline.Torrent}
 	manifest, err := contentSvc.DiscoverContent(titleID, gameName, xboxIP, drive)
 	if err != nil {
 		d.App.Logf("CONTENT DISCOVER error for %s: %v", titleID, err)
@@ -64,7 +65,7 @@ func (d *Deps) handleContentInstalled(w stdhttp.ResponseWriter, r *stdhttp.Reque
 		drive = "Hdd1:"
 	}
 
-	contentSvc := &content.Service{App: d.App, FTP: d.FTP}
+	contentSvc := &content.Service{App: d.App, FTP: d.FTP, Torrent: d.Pipeline.Torrent}
 	report, err := contentSvc.ScanInstalledContent(xboxIP, drive, titleID)
 	if err != nil {
 		jsonError(w, 500, err.Error())
@@ -94,18 +95,33 @@ func (d *Deps) handleContentQueue(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 		return
 	}
 
-	// Resolve Xbox connection
+	// Resolve Xbox connection: prefer a prior registration, otherwise derive
+	// one from request fields so library-page DLC/TU queues work without first
+	// going through the Browse Store flow.
 	var xboxConn *models.XboxConnection
 	if c, ok := d.App.XboxConnections.Load(req.GameName); ok {
 		cc := c.(models.XboxConnection)
 		xboxConn = &cc
 	}
 	if xboxConn == nil {
-		jsonError(w, 400, "No Xbox registered for this game. Browse and queue the game first.")
-		return
+		ip := strings.TrimSpace(req.XboxIP)
+		drive := strings.TrimSpace(req.Drive)
+		if ip == "" {
+			jsonError(w, 400, "Missing xbox_ip and no Xbox registered for this game.")
+			return
+		}
+		if drive == "" {
+			drive = "Hdd1:"
+		}
+		derived := models.XboxConnection{
+			IP: ip, Drive: drive, GameName: req.GameName,
+			Platform: "xbox360", Mode: "ftp", Timestamp: time.Now(),
+		}
+		d.App.XboxConnections.Store(req.GameName, derived)
+		xboxConn = &derived
 	}
 
-	contentSvc := &content.Service{App: d.App, FTP: d.FTP}
+	contentSvc := &content.Service{App: d.App, FTP: d.FTP, Torrent: d.Pipeline.Torrent}
 	go func() {
 		if err := contentSvc.QueueContentDownload(req, xboxConn); err != nil {
 			d.App.Logf("CONTENT QUEUE error for %s: %v", req.DisplayName, err)
@@ -139,7 +155,7 @@ func (d *Deps) handleContentSources(w stdhttp.ResponseWriter, r *stdhttp.Request
 				sources = append(sources, map[string]string{
 					"source":   "ia",
 					"name":     g,
-					"url":      url.QueryEscape(entry.CollectionID + "/" + entry.FileName),
+					"url":      app.IADownloadBase + entry.CollectionID + "/" + entry.FileName,
 					"platform": "dlc",
 				})
 			}
@@ -151,7 +167,7 @@ func (d *Deps) handleContentSources(w stdhttp.ResponseWriter, r *stdhttp.Request
 				sources = append(sources, map[string]string{
 					"source":   "ia",
 					"name":     g,
-					"url":      url.QueryEscape(entry.CollectionID + "/" + entry.FileName),
+					"url":      app.IADownloadBase + entry.CollectionID + "/" + entry.FileName,
 					"platform": "xbla",
 				})
 			}
