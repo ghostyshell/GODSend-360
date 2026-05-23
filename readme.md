@@ -42,12 +42,12 @@ Download the build for your platform:
 
 | Platform | File |
 |---|---|
-| **Windows (x64, installer — tray app + backend)** | [`godsend.exe`](https://gofile.io/d/DhIzIh) |
-| **Windows (x64, portable — no install needed)** | [`godsend.exe`](https://gofile.io/d/DhIzIh) |
-| **macOS (Apple Silicon)** | [`godsend-2.12.2-arm64.dmg`](https://gofile.io/d/uaiDaA) |
-| **macOS (Intel)** | [`godsend-2.12.2-x64.dmg`](https://gofile.io/d/QAaLyL) |
-| **Linux (x64 / amd64)** | [`godsend-2.12.2-x86_64.AppImage`](https://gofile.io/d/av591h) |
-| **Linux (arm64)** | [`godsend-2.12.2-arm64.AppImage`](https://gofile.io/d/asoJZa) |
+| **Windows (x64, installer — tray app + backend)** | [`godsend.exe`](https://gofile.io/d/RMAfRS) |
+| **Windows (x64, portable — no install needed)** | [`godsend.exe`](https://gofile.io/d/RMAfRS) |
+| **macOS (Apple Silicon)** | [`godsend-2.12.2-arm64.dmg`](https://gofile.io/d/azBjWr) |
+| **macOS (Intel)** | [`godsend-2.12.2-x64.dmg`](https://gofile.io/d/I0Iy3H) |
+| **Linux (x64 / amd64)** | [`godsend-2.12.2-x86_64.AppImage`](https://gofile.io/d/pqSowm) |
+| **Linux (arm64)** | [`godsend-2.12.2-arm64.AppImage`](https://gofile.io/d/jT7eFP) |
 
 > **Windows:** use **`godsend-Setup-2.12.2.exe`** for the full installer, or **`godsend-Portable-2.12.2.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
@@ -102,12 +102,12 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 | Platform | Binary |
 |---|---|
-| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/DhIzIh) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/KCR0cV) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/9g7tzb) |
-| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/3XdRUR) |
-| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/2Xt8Fi) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/DIJKvp) |
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/RMAfRS) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/JmYr38) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/A0yfD3) |
+| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/nSfftq) |
+| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/625fnp) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/ZnxMuk) |
 
 **[Full headless setup guide (build, configure, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 
