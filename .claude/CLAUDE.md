@@ -10,6 +10,10 @@ The primary reference for this project is [`AGENTS.md`](AGENTS.md). Read it befo
 
 Pure-Go ISO→GOD and archive logic lives in **`src/server/utils/`** (`package utils`). Optional third-party binaries such as 7-Zip still belong in gitignored **`tools/`** at the repo root when needed; see `AGENTS.md`.
 
+## Agent rules
+
+- **Always version bump** — every non-trivial change must update the version string in all four places (`package.json`, `src/electron-app/package.json`, `src/server/main.go`, `aurora-scripts/main.lua`) and add a `CHANGELOG.md` entry under `[Unreleased]`. Do not commit without this.
+
 ## Additional references
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — version-bump checklist, changelog rules, PR conventions, and per-component change guidelines. Follow this when making any non-trivial change.

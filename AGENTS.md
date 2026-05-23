@@ -228,6 +228,8 @@ Also update all inline version references in `README.md` (filenames in prose, in
 
 ### Version bump, build & release workflow
 
+**Every non-trivial change must include a version bump.** Agents should never commit functional changes without also bumping the version string in all four places listed below and updating `CHANGELOG.md`. Do not wait for an explicit "bump version" request — it is part of the standard commit workflow.
+
 When asked to **bump the version**, **cut a release**, or **commit changes** that include a version bump, execute the full pipeline below. Do not skip steps.
 
 #### 1. Bump the version string in all four places
