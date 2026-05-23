@@ -2,6 +2,8 @@
 package content
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -27,6 +29,69 @@ type Service struct {
 	App     *app.App
 	FTP     *ftp.Service
 	Torrent *torrent.Service
+}
+
+// contentMarker is the JSON shape written to .godsend.json on the Xbox
+// so the scanner can map an installed file back to its source metadata.
+type contentMarker struct {
+	FileName     string `json:"file_name"`
+	DisplayName  string `json:"display_name"`
+	Source       string `json:"source"`
+	SourceURL    string `json:"source_url,omitempty"`
+	Size         int64  `json:"size"`
+	DownloadedAt string `json:"downloaded_at"`
+}
+
+const godsendMarkerName = ".godsend.json"
+
+// ftpReadFile downloads a small remote file via an open FTP connection.
+func (s *Service) ftpReadFile(conn *goftp.ServerConn, path string) ([]byte, error) {
+	r, err := conn.Retr(path)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return io.ReadAll(r)
+}
+
+// writeContentMarker creates or updates the .godsend.json marker in the
+// Xbox content directory so ScanInstalledContent can recover rich metadata.
+func (s *Service) writeContentMarker(conn *goftp.ServerConn, basePath string, item models.ContentItem) error {
+	markerPath := joinFtpPath(basePath, godsendMarkerName)
+	var existing []contentMarker
+	if data, err := s.ftpReadFile(conn, markerPath); err == nil {
+		_ = json.Unmarshal(data, &existing)
+	}
+
+	// Replace any existing entry for the same file_name + source, otherwise append.
+	found := false
+	for i := range existing {
+		if strings.EqualFold(existing[i].FileName, item.FileName) &&
+			strings.EqualFold(existing[i].Source, item.Source) {
+			existing[i].DisplayName = item.DisplayName
+			existing[i].SourceURL = item.SourceURL
+			existing[i].Size = item.Size
+			existing[i].DownloadedAt = time.Now().UTC().Format(time.RFC3339)
+			found = true
+			break
+		}
+	}
+	if !found {
+		existing = append(existing, contentMarker{
+			FileName:     item.FileName,
+			DisplayName:  item.DisplayName,
+			Source:       item.Source,
+			SourceURL:    item.SourceURL,
+			Size:         item.Size,
+			DownloadedAt: time.Now().UTC().Format(time.RFC3339),
+		})
+	}
+
+	data, err := json.Marshal(existing)
+	if err != nil {
+		return err
+	}
+	return conn.Stor(markerPath, bytes.NewReader(data))
 }
 
 // ContentTypeNames maps Xbox content type hex to human-readable names.
@@ -89,6 +154,10 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		var fileNames []string
 		for _, sf := range subFiles {
 			if sf.Type == goftp.EntryTypeFile {
+				// Skip GODsend marker files; Xbox ignores them.
+				if strings.HasPrefix(strings.ToLower(sf.Name), ".godsend") {
+					continue
+				}
 				size += int64(sf.Size)
 				fileNames = append(fileNames, sf.Name)
 			}
@@ -104,6 +173,23 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		if len(fileNames) > 0 {
 			item.FileName = fileNames[0]
 		}
+
+		// Read .godsend.json markers and overlay richer metadata.
+		markerPath := joinFtpPath(base, e.Name, godsendMarkerName)
+		if data, err := s.ftpReadFile(conn, markerPath); err == nil {
+			var markers []contentMarker
+			if json.Unmarshal(data, &markers) == nil {
+				for _, m := range markers {
+					if item.FileName != "" && strings.EqualFold(item.FileName, m.FileName) {
+						item.DisplayName = m.DisplayName
+						item.Source = m.Source
+						item.SourceURL = m.SourceURL
+						item.Size = m.Size
+					}
+				}
+			}
+		}
+
 		if ct == "00005000" || ct == "000b0000" {
 			item.DisplayName = s.resolveTUName(conn, base, ct)
 			item.Active = s.isTUActive(conn, base, ct)
@@ -516,6 +602,15 @@ func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn 
 				s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP upload: %v", err))
 				return err
 			}
+			_ = s.writeContentMarker(fc, base, models.ContentItem{
+				TitleID:     req.TitleID,
+				ContentType: req.ContentType,
+				FileName:    fileName,
+				DisplayName: req.DisplayName,
+				Source:      req.Source,
+				SourceURL:   req.SourceURL,
+				Size:        info.Size(),
+			})
 			os.RemoveAll(gameDir)
 			s.App.LogFTPComplete(queueKey, req.TitleID, xboxConn.IP)
 		} else {
@@ -604,6 +699,15 @@ func (s *Service) queueViaTorrent(req models.ContentQueueRequest, xboxConn *mode
 			s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP upload: %v", err))
 			return err
 		}
+		_ = s.writeContentMarker(fc, base, models.ContentItem{
+			TitleID:     titleID,
+			ContentType: typeDir,
+			FileName:    finalName,
+			DisplayName: req.DisplayName,
+			Source:      req.Source,
+			SourceURL:   req.SourceURL,
+			Size:        info.Size(),
+		})
 		os.RemoveAll(gameDir)
 		s.App.LogFTPComplete(queueKey, titleID, xboxConn.IP)
 	} else {

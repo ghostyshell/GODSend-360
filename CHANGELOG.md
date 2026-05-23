@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.4] — 2026-05-23
+
+### Added
+- **Xbox content markers (.godsend.json)** — after a DLC/TU is downloaded and transferred to the Xbox, the backend now writes a `.godsend.json` marker file into the content directory. The marker stores the source, display name, and file name so `ScanInstalledContent` can recover rich metadata even when the raw Xbox file name differs from the source's advertised name. This fixes cases where installed DLC still appeared as downloadable because the Xbox scan and online discovery used different file names. Multiple sources for the same physical file are tracked in the same marker.
+
 ## [2.12.3] — 2026-05-23
 
 ### Fixed
