@@ -3,7 +3,7 @@ import {
   ArrowLeft, Gamepad2, Loader2, WifiOff,
   Star, Disc3, RotateCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
   ArrowUpDown, Filter, HardDrive, ArrowRightLeft, Download,
-  Puzzle, PackageOpen,
+  Puzzle, PackageOpen, Trash2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -745,6 +745,12 @@ function ContentSection({ game }: ContentSectionProps) {
   const [queuing, setQueuing] = useState<Record<string, boolean>>({});
   const [queueStatus, setQueueStatus] = useState<string | null>(null);
   const [queueStateMap, setQueueStateMap] = useState<Record<string, { state: string; message?: string }>>({});
+  const refreshedForReady = useRef<Set<string>>(new Set());
+  const [drives, setDrives] = useState<string[]>([]);
+  const [defaultDrive, setDefaultDrive] = useState<string>("");
+  const [showMoveFor, setShowMoveFor] = useState<string | null>(null);
+  const [moving, setMoving] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
 
   // Poll backend queue so buttons reflect Downloading / Ready state
   useEffect(() => {
@@ -766,6 +772,37 @@ function ContentSection({ game }: ContentSectionProps) {
     const id = setInterval(tick, 2000);
     return () => { cancelled = true; clearInterval(id); };
   }, [manifest, game.titleId]);
+
+  // Auto-refresh installed content when a queued DLC/TU job reaches Ready
+  useEffect(() => {
+    if (!manifest) return;
+    let shouldRefresh = false;
+    for (const [k, v] of Object.entries(queueStateMap)) {
+      if (v.state === "Ready" && !refreshedForReady.current.has(k)) {
+        refreshedForReady.current.add(k);
+        shouldRefresh = true;
+      }
+    }
+    if (shouldRefresh) {
+      const t = setTimeout(() => loadContent(), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [queueStateMap, manifest]);
+
+  // Clear the Ready-tracking set when switching to a different game
+  useEffect(() => {
+    refreshedForReady.current.clear();
+  }, [game.titleId]);
+
+  // Fetch drives and default drive for move/delete operations
+  useEffect(() => {
+    window.godsendApi.getDefaultXboxDrive().then((r: any) => {
+      if (r?.drive) setDefaultDrive(r.drive.replace(/:$/, ""));
+    }).catch(() => {});
+    window.godsendApi.listXboxDrives().then((r: any) => {
+      if (r?.ok && Array.isArray(r.drives)) setDrives(r.drives.map((d: string) => d.replace(/:$/, "")));
+    }).catch(() => {});
+  }, []);
 
   function itemQueueState(item: ContentItem) {
     const displayKey = `${item.display_name}`;
@@ -798,6 +835,49 @@ function ContentSection({ game }: ContentSectionProps) {
       setError(err.message || "Failed to load content");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete(item: ContentItem) {
+    const key = `${item.content_type}-${item.display_name}`;
+    const drive = defaultDrive || game.sourceDrive;
+    if (!item.installed || !item.file_name || !drive) return;
+    setDeleting((prev) => ({ ...prev, [key]: true }));
+    try {
+      const remotePath = `/${drive}/Content/0000000000000000/${game.titleId}/${item.content_type}/${item.file_name}`;
+      const r = await window.godsendApi.toolsFtpDelete(remotePath);
+      if (r?.ok) {
+        loadContent();
+      } else {
+        setQueueStatus(`Delete failed: ${r?.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setQueueStatus(`Delete error: ${err.message}`);
+    } finally {
+      setDeleting((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  async function handleMove(item: ContentItem, targetDrive: string) {
+    const key = `${item.content_type}-${item.display_name}`;
+    const srcDrive = defaultDrive || game.sourceDrive;
+    if (!item.installed || !item.file_name || !srcDrive || targetDrive === srcDrive) return;
+    setMoving((prev) => ({ ...prev, [key]: true }));
+    try {
+      const from = `/${srcDrive}/Content/0000000000000000/${game.titleId}/${item.content_type}/${item.file_name}`;
+      const to = `/${targetDrive}/Content/0000000000000000/${game.titleId}/${item.content_type}/${item.file_name}`;
+      await window.godsendApi.toolsFtpMkdir(`/${targetDrive}/Content/0000000000000000/${game.titleId}/${item.content_type}`);
+      const r = await window.godsendApi.toolsFtpRename({ from, to });
+      if (r?.ok) {
+        setShowMoveFor(null);
+        loadContent();
+      } else {
+        setQueueStatus(`Move failed: ${r?.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setQueueStatus(`Move error: ${err.message}`);
+    } finally {
+      setMoving((prev) => ({ ...prev, [key]: false }));
     }
   }
 
@@ -938,19 +1018,55 @@ function ContentSection({ game }: ContentSectionProps) {
                     {(() => {
                       const qs = itemQueueState(tu);
                       if (tu.installed) {
-                        if (tu.active) {
-                          return (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">Active</span>
-                          );
-                        }
+                        const isDeleting = deleting[key];
+                        const isMoving = moving[key];
                         return (
-                          <button
-                            className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                            onClick={() => handleQueue(tu, "activate")}
-                            disabled={isQueuing}
-                          >
-                            Make Active
-                          </button>
+                          <div className="flex items-center gap-1">
+                            {tu.active ? (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">Active</span>
+                            ) : (
+                              <button
+                                className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                                onClick={() => handleQueue(tu, "activate")}
+                                disabled={isQueuing || isDeleting || isMoving}
+                              >
+                                Make Active
+                              </button>
+                            )}
+                            <button
+                              className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                              onClick={() => handleDelete(tu)}
+                              disabled={isDeleting || isMoving}
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                            {showMoveFor === key ? (
+                              <select
+                                className="text-[9px] bg-background border border-border rounded px-1 py-0.5"
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) handleMove(tu, e.target.value);
+                                  e.target.value = "";
+                                }}
+                                disabled={isMoving}
+                              >
+                                <option value="">To…</option>
+                                {drives.filter((d) => d !== (defaultDrive || game.sourceDrive)).map((d) => (
+                                  <option key={d} value={d}>{d}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <button
+                                className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                                onClick={() => setShowMoveFor(key)}
+                                disabled={isDeleting || isMoving}
+                                title="Move"
+                              >
+                                <ArrowRightLeft className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
                         );
                       }
                       if (qs === "Ready" || qs === "Error") {
@@ -1017,8 +1133,45 @@ function ContentSection({ game }: ContentSectionProps) {
                     {(() => {
                       const qs = itemQueueState(dlc);
                       if (dlc.installed) {
+                        const isDeleting = deleting[key];
+                        const isMoving = moving[key];
                         return (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">Installed</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">Installed</span>
+                            <button
+                              className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                              onClick={() => handleDelete(dlc)}
+                              disabled={isDeleting || isMoving}
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                            {showMoveFor === key ? (
+                              <select
+                                className="text-[9px] bg-background border border-border rounded px-1 py-0.5"
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) handleMove(dlc, e.target.value);
+                                  e.target.value = "";
+                                }}
+                                disabled={isMoving}
+                              >
+                                <option value="">To…</option>
+                                {drives.filter((d) => d !== (defaultDrive || game.sourceDrive)).map((d) => (
+                                  <option key={d} value={d}>{d}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <button
+                                className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                                onClick={() => setShowMoveFor(key)}
+                                disabled={isDeleting || isMoving}
+                                title="Move"
+                              >
+                                <ArrowRightLeft className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
                         );
                       }
                       if (qs === "Ready" || qs === "Error") {

@@ -86,9 +86,11 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		}
 		subFiles, _ := conn.List(joinFtpPath(base, e.Name))
 		var size int64
+		var fileNames []string
 		for _, sf := range subFiles {
 			if sf.Type == goftp.EntryTypeFile {
 				size += int64(sf.Size)
+				fileNames = append(fileNames, sf.Name)
 			}
 		}
 		item := models.ContentItem{
@@ -98,6 +100,9 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 			Size:        size,
 			Installed:   true,
 			Active:      false,
+		}
+		if len(fileNames) > 0 {
+			item.FileName = fileNames[0]
 		}
 		if ct == "00005000" || ct == "000b0000" {
 			item.DisplayName = s.resolveTUName(conn, base, ct)
@@ -192,11 +197,11 @@ func (s *Service) DiscoverContent(titleID, gameName string, xboxIP, drive string
 
 	for _, it := range candidates {
 		if isTitleUpdateEntry(it.DisplayName) {
-			if !s.containsTU(manifest.TitleUpdates, it.FileName) {
+			if !s.containsTU(manifest.TitleUpdates, it) {
 				manifest.TitleUpdates = append(manifest.TitleUpdates, it)
 			}
 		} else {
-			if !s.containsDLC(manifest.DLCs, it.FileName) {
+			if !s.containsDLC(manifest.DLCs, it) {
 				manifest.DLCs = append(manifest.DLCs, it)
 			}
 		}
@@ -212,18 +217,41 @@ func (s *Service) DiscoverContent(titleID, gameName string, xboxIP, drive string
 // Source helpers
 // ============================================================
 
-func (s *Service) containsTU(list []models.ContentItem, fileName string) bool {
+func (s *Service) containsTU(list []models.ContentItem, candidate models.ContentItem) bool {
 	for _, it := range list {
-		if strings.EqualFold(it.FileName, fileName) {
+		// Exact file-name match (works when both sides have a known filename).
+		if candidate.FileName != "" && strings.EqualFold(it.FileName, candidate.FileName) {
+			return true
+		}
+		// Display-name match (useful for TUs with versioned names).
+		if candidate.DisplayName != "" && strings.EqualFold(it.DisplayName, candidate.DisplayName) {
+			return true
+		}
+		// Weak dedup: if any TU of the same type is already installed for this
+		// TitleID, treat the discovered item as a likely duplicate.
+		if it.Installed && it.ContentType == candidate.ContentType && it.TitleID == candidate.TitleID {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *Service) containsDLC(list []models.ContentItem, fileName string) bool {
+func (s *Service) containsDLC(list []models.ContentItem, candidate models.ContentItem) bool {
 	for _, it := range list {
-		if strings.EqualFold(it.FileName, fileName) {
+		// Exact file-name match.
+		if candidate.FileName != "" && strings.EqualFold(it.FileName, candidate.FileName) {
+			return true
+		}
+		// Display-name match (rare for DLC because installed names are generic,
+		// but catches cases where a custom INI or previous scan set a real name).
+		if candidate.DisplayName != "" && strings.EqualFold(it.DisplayName, candidate.DisplayName) {
+			return true
+		}
+		// Weak dedup: any installed DLC of the same content type for the same
+		// TitleID is treated as a likely duplicate. Xbox 360 puts all DLC for a
+		// title into a single 00000002 folder, so we cannot distinguish individual
+		// DLCs once installed; prefer not offering a re-download.
+		if it.Installed && it.ContentType == candidate.ContentType && it.TitleID == candidate.TitleID {
 			return true
 		}
 	}

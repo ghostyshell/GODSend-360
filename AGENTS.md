@@ -157,14 +157,9 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 
 ### Build tooling
 
-- Root `package.json`: unified build entrypoint:
-  - `npm install` – installs root and Electron dependencies.
-  - `npm run build` – cross-compiles Go for Windows, Linux, and macOS; runs Electron for the **current OS** (Windows → **NSIS + portable**; Linux → **AppImage**; macOS → **AppImage** then **NSIS + portable** then **arm64 + x64 DMGs**). AppImage is not built on Windows hosts by default (electron-builder needs symlink creation; use Linux/macOS CI or Windows Developer Mode if you must build it there).
-  - `npm run build:win` – Windows-only (Go `godsend.exe` + NSIS), same as the former default full build.
-  - `npm run build:electron:win:portable` – Windows portable exe only (no installer, single self-contained `.exe`).
-  - `npm run build:server:all` – Go binaries only (all targets into `dist/`).
-  - `npm run build:server` / `npm run build:electron` – single-platform server or Electron step.
-- `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.).
+> **Builds are handled by `godsend-release-keeper`.** Do not run `npm run build`, `npm run build:*`, or packaging commands from this repo.
+
+- `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.) produced by `godsend-release-keeper`.
 - `tools/`: ignored directory for third-party executables (`7za.exe`, `7za.dll`, `7zxa.dll`) when needed outside the bundled Go pipeline.
 
 ### Release assets (GoFile upload + README links)
@@ -257,11 +252,7 @@ Search-and-replace the old version with the new one in all filenames and inline 
 
 #### 4. Build all targets
 
-```bash
-npm run build
-```
-
-This cross-compiles all Go backends and produces Electron installers/DMGs/AppImages for the current OS.
+Trigger `godsend-release-keeper` to cross-compile all Go backends and produce Electron installers/DMGs/AppImages. Do not run `npm run build` from this repo.
 
 #### 5. Upload all dist files to GoFile
 
@@ -315,38 +306,21 @@ git push -u github HEAD
 
 ## Build, run, and test commands
 
+> **Builds are handled by `godsend-release-keeper`.** Do not run `npm run build`, `npm run build:*`, or packaging commands from this repo. The helper manages cross-compilation, packaging, and artifact uploads.
+
 ### Electron + backend (Windows)
 
 - **Install dependencies (root + Electron)**:
   - `npm install`
-- **Full build — all Go backends + installer for this OS**:
-  - `npm run build` — cross-compiles **all Go backends**; **Windows**: NSIS + portable; **Linux**: AppImage; **macOS**: AppImage + NSIS + portable + arm64/x64 DMGs. (Linux AppImage from a Windows PC is skipped — build on Linux or macOS for that artifact.)
-- **Full build — Windows only (faster)**:
-  - `npm run build:win`
-- **Windows portable exe only**:
-  - `npm run build:electron:win:portable`
-- **Full build — macOS x64 (Go binary + DMG)**:
-  - `npm run build:mac` *(run on macOS)*
-- **Full build — macOS arm64 (Go binary + DMG)**:
-  - `npm run build:mac:arm` *(run on macOS)*
-- **Full build — Linux x64 (Go binary + AppImage)**:
-  - `npm run build:linux` *(run on Linux or macOS)*
-- **Backend-only builds**:
-  - All targets: `npm run build:server:all`
-  - Windows: `go build -C src/server -o ../../dist/godsend.exe .`
-  - macOS x64: `npm run build:server:mac`
-  - macOS arm64: `npm run build:server:mac:arm`
-  - Linux x64: `npm run build:server:linux`
 - **Run Electron app in dev mode**:
   - `npm start --prefix src/electron-app`
   - Dev binary resolved from `dist/godsend.exe` (Win), `dist/godsend-mac` (macOS), `dist/godsend-linux` (Linux).
 
 When making changes to Electron or the backend, prefer:
 
-- Run `npm run build` at least once after structural refactors.
 - Start the built app and verify:
   - Backend starts successfully.
-   - Settings page works (transfer folder, IA login).
+  - Settings page works (transfer folder, IA login).
   - Lua script can still talk to the backend using the API described in `README.md`.
 
 ### Aurora scripts
