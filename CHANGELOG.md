@@ -9,6 +9,15 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.3] — 2026-05-23
+
+### Fixed
+- **DLC/TU duplicate detection** — `ScanInstalledContent` now reads actual file names from Xbox FTP listings so deduplication works by `FileName` as intended. `containsDLC`/`containsTU` also fall back to `DisplayName` and `Installed` + `ContentType` + `TitleID` matching.
+- **DLC/TU manifest stale after transfer** — `ContentSection` now auto-refreshes the manifest when queue jobs reach `Ready` state.
+
+### Added
+- **Per-item delete and move for installed DLC/TU** — installed DLC and Title Update rows now show inline Delete (trash) and Move (drive picker) buttons. Delete removes the content file over FTP; Move renames it to another Xbox drive.
+
 ## [2.12.2] — 2026-05-23
 
 ### Added
