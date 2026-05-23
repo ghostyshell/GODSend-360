@@ -12,10 +12,10 @@ import { backendGet, backendPost } from "../infrastructure/backendHttp";
 export function register(ipcMain: IpcMain): void {
 
   // ── Discover all DLC and TUs for a TitleID ────────────────────────────────
-  ipcMain.handle("content:discover", async (_event, { titleId, gameName }) => {
+  ipcMain.handle("content:discover", async (_event, { titleId, gameName, drive: reqDrive }) => {
     try {
       const xboxIp = getConfiguredXboxIP();
-      const drive = getConfiguredDefaultXboxDrive() || "Hdd1:";
+      const drive = reqDrive || getConfiguredDefaultXboxDrive() || "Hdd1:";
       const ipParam = xboxIp ? `&xbox_ip=${encodeURIComponent(xboxIp)}` : "";
       const drvParam = `&drive=${encodeURIComponent(drive)}`;
       const data = await backendGet(
@@ -28,11 +28,11 @@ export function register(ipcMain: IpcMain): void {
   });
 
   // ── Scan Xbox Content directory for installed items ───────────────────
-  ipcMain.handle("content:installed", async (_event, { titleId }) => {
+  ipcMain.handle("content:installed", async (_event, { titleId, drive: reqDrive }) => {
     try {
       const xboxIp = getConfiguredXboxIP();
       if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
-      const drive = getConfiguredDefaultXboxDrive() || "Hdd1:";
+      const drive = reqDrive || getConfiguredDefaultXboxDrive() || "Hdd1:";
       const data = await backendGet(
         `/content/installed?title_id=${encodeURIComponent(titleId)}&xbox_ip=${encodeURIComponent(xboxIp)}&drive=${encodeURIComponent(drive)}`
       );

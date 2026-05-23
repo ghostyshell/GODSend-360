@@ -9,6 +9,12 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.5] — 2026-05-23
+
+### Fixed
+- **Content discovery now uses the game's actual drive** — `content:discover` and `content:installed` previously always scanned `Hdd1:`, missing DLC/TU installed on other drives (e.g. `Usb0`). The renderer now passes `game.sourceDrive` and the IPC handler forwards it to the backend.
+- **Installed DLC/TU no longer shows "Downloaded" after transfer** — `itemQueueState` was returning the stale queue job state ("Ready") even after the Xbox scan marked the item as `installed: true`. Installed items now always display "Installed" / "Active" regardless of queue state.
+
 ## [2.12.4] — 2026-05-23
 
 ### Added

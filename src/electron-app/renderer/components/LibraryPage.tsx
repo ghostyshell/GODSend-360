@@ -805,6 +805,11 @@ function ContentSection({ game }: ContentSectionProps) {
   }, []);
 
   function itemQueueState(item: ContentItem) {
+    // If already installed on Xbox, always show Installed/Active —
+    // do not let a stale "Ready" queue job render as "Downloaded".
+    if (item.installed) {
+      return item.active ? "Active" : "Installed";
+    }
     const displayKey = `${item.display_name}`;
     const fileKey = item.file_name || "";
     for (const [k, v] of Object.entries(queueStateMap)) {
@@ -812,7 +817,7 @@ function ContentSection({ game }: ContentSectionProps) {
         return v.state;
       }
     }
-    return item.installed ? (item.active ? "Active" : "Installed") : null;
+    return null;
   }
 
   useEffect(() => {
@@ -825,7 +830,7 @@ function ContentSection({ game }: ContentSectionProps) {
   async function loadContent() {
     setLoading(true);
     try {
-      const r = await window.godsendApi.contentDiscover({ titleId: game.titleId, gameName: game.name });
+      const r = await window.godsendApi.contentDiscover({ titleId: game.titleId, gameName: game.name, drive: game.sourceDrive });
       if (r?.ok) {
         setManifest({ dlcs: r.dlcs || [], title_updates: r.title_updates || [] });
       } else {
