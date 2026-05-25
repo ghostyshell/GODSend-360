@@ -4,15 +4,15 @@ The Go backend works as a standalone headless server — no Electron, no GUI, no
 
 ## 1. Get the server binary
 
-**Option A — Download a prebuilt binary** *(links updated when build assets are uploaded)*:
+**Option A — Download a prebuilt binary** *(GoFile is primary, file.kiwi is a backup mirror — pick whichever loads)*:
 
-| Platform | Binary |
-|----------|--------|
-| **Windows (x64)** | `godsend.exe` *(upload pending)* |
-| **Linux (x64 / amd64)** | `godsend-linux-x64` *(upload pending)* |
-| **Linux (arm64)** | `godsend-linux-arm64` *(upload pending)* |
-| **macOS (Apple Silicon)** | `godsend-darwin-arm64` *(upload pending)* |
-| **macOS (Intel)** | `godsend-darwin-amd64` *(upload pending)* |
+| Platform | GoFile | file.kiwi backup |
+|----------|--------|--------|
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/CBM39T) | [`godsend.exe`](https://file.kiwi/v/PENDING) |
+| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gofile.io/d/4KgNQh) | [`godsend-linux-x64`](https://file.kiwi/v/PENDING) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/NC9Y7c) | [`godsend-linux-arm64`](https://file.kiwi/v/PENDING) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/9gUUXD) | [`godsend-darwin-arm64`](https://file.kiwi/v/PENDING) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/sqVLSX) | [`godsend-darwin-amd64`](https://file.kiwi/v/PENDING) |
 
 For the **full desktop app** (tray UI + bundled backend), see the download table in the main [README](../readme.md#quick-installation).
 
