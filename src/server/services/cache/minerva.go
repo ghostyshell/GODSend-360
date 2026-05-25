@@ -34,6 +34,7 @@ func (s *MinervaService) cacheFilePath(platform string) string {
 
 func (s *MinervaService) SaveCacheToDisk(platform string, games []string, entries map[string]models.MinervaEntry) {
 	mc := models.MinervaPlatformCache{
+		Schema:    app.MinervaCacheSchema,
 		Games:     games,
 		Entries:   entries,
 		BuildTime: time.Now(),
@@ -60,6 +61,13 @@ func (s *MinervaService) LoadCacheFromDisk(platform string) bool {
 		return false
 	}
 	if len(mc.Games) == 0 {
+		return false
+	}
+	// Reject caches built with an older filter scheme so the next startup
+	// rebuilds them and surfaces previously-filtered entries (e.g. `(DLC)`
+	// tags in the No-Intro Digital collection).
+	if mc.Schema < app.MinervaCacheSchema {
+		s.App.Logf("MINERVA CACHE: %s schema=%d < %d — rebuilding", platform, mc.Schema, app.MinervaCacheSchema)
 		return false
 	}
 
@@ -111,8 +119,9 @@ func (s *MinervaService) SetBuildState(platform, state string, loaded, total int
 // ==========================================
 
 // ScrapeMinervaPage fetches one Minerva browse URL and returns file entries.
-// tagFilter, if non-empty, restricts results to filenames containing that substring.
-func (s *MinervaService) ScrapeMinervaPage(browseURL, tagFilter string) ([]models.MinervaEntry, error) {
+// tagFilters, if non-empty, restricts results to filenames containing AT LEAST
+// ONE of the listed substrings (any-match).
+func (s *MinervaService) ScrapeMinervaPage(browseURL string, tagFilters []string) ([]models.MinervaEntry, error) {
 	client := &http.Client{Timeout: 120 * time.Second}
 	req, err := http.NewRequest("GET", browseURL, nil)
 	if err != nil {
@@ -151,8 +160,17 @@ func (s *MinervaService) ScrapeMinervaPage(browseURL, tagFilter string) ([]model
 			continue
 		}
 		fileName := filepath.Base(decoded)
-		if tagFilter != "" && !strings.Contains(fileName, tagFilter) {
-			continue
+		if len(tagFilters) > 0 {
+			match := false
+			for _, t := range tagFilters {
+				if strings.Contains(fileName, t) {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
+			}
 		}
 		entries = append(entries, models.MinervaEntry{
 			FileName:  fileName,
@@ -182,12 +200,12 @@ func (s *MinervaService) Build(platform string) {
 	if !ok {
 		return
 	}
-	tagFilter := app.MinervaTagFilters[platform]
+	tagFilters := app.MinervaTagFilters[platform]
 
 	s.SetBuildState(platform, "building", 0, 1)
-	s.App.Logf("MINERVA CACHE: Building %s ...", platform)
+	s.App.Logf("MINERVA CACHE: Building %s (filters=%v) ...", platform, tagFilters)
 
-	entries, err := s.ScrapeMinervaPage(browseURL, tagFilter)
+	entries, err := s.ScrapeMinervaPage(browseURL, tagFilters)
 	if err != nil {
 		s.App.Logf("MINERVA CACHE ERROR [%s]: %v", platform, err)
 		s.SetBuildState(platform, "error", 0, 1)

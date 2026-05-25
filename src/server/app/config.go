@@ -141,12 +141,25 @@ var MinervaPageURLs = map[string]string{
 	"games":   MinervaBrowseBase + "No-Intro/Non-Redump%20-%20Microsoft%20-%20Xbox%20360/",
 }
 
-// MinervaTagFilters: if non-empty, only filenames containing this substring are kept.
-var MinervaTagFilters = map[string]string{
-	"xbla":  "(XBLA)",
-	"dlc":   "(Addon)",
-	"xblig": "(XBLIG)",
+// MinervaTagFilters: if non-empty, only filenames containing one of these
+// substrings are kept. No-Intro mixes Xbox 360 (Digital) titles together in
+// one collection; we partition them by filename tag.
+//
+// `dlc` accepts both `(Addon)` (the bulk No-Intro tag) and `(DLC)` (the
+// newer alternative) so DLCs published under the `(DLC)` convention — about
+// 4,690 entries as of the v0.3 dataset — show up in the Store's DLC tab.
+// `(Addon for XBLA)` is a rare variant for XBLA-bound add-ons.
+var MinervaTagFilters = map[string][]string{
+	"xbla":  {"(XBLA)"},
+	"dlc":   {"(Addon)", "(DLC)", "(Addon for XBLA)"},
+	"xblig": {"(XBLIG)"},
 }
+
+// MinervaCacheSchema is the cache-file schema version. Bump this whenever the
+// shape of MinervaPlatformCache changes or the filtering rules change in a
+// way that invalidates older caches — on-disk caches with a different schema
+// are rejected at load time and a rebuild is triggered.
+const MinervaCacheSchema = 2
 
 // MinervaTorrentURLs: the collection-level .torrent file for each platform.
 var MinervaTorrentURLs = map[string]string{
