@@ -120,7 +120,7 @@ func (m *Manager) List(ip, remotePath string) ([]DirEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	if remotePath != "" {
 		if err := c.ChangeDir(remotePath); err != nil {
@@ -148,7 +148,7 @@ func (m *Manager) Ping(ip string) error {
 	if err != nil {
 		return err
 	}
-	c.Quit()
+	m.FTP.QuitConn(c)
 	return nil
 }
 
@@ -158,7 +158,7 @@ func (m *Manager) Mkdir(ip, remotePath string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 	MkdirAll(c, remotePath)
 	return nil
 }
@@ -169,7 +169,7 @@ func (m *Manager) Delete(ip, remotePath string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	if err := c.Delete(remotePath); err != nil {
 		// Maybe it's a directory
@@ -211,7 +211,7 @@ func (m *Manager) Rename(ip, from, to string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 	return c.Rename(from, to)
 }
 
@@ -221,7 +221,7 @@ func (m *Manager) Size(ip, remotePath string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 	return c.FileSize(remotePath)
 }
 
@@ -231,7 +231,7 @@ func (m *Manager) DownloadFile(ip, remotePath, localPath string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	dir := filepath.Dir(localPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -257,7 +257,7 @@ func (m *Manager) UploadSingleFile(ip, localPath, remotePath string) error {
 	if err != nil {
 		return err
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	f, err := os.Open(localPath)
 	if err != nil {
@@ -273,7 +273,7 @@ func (m *Manager) ListDrives(ip string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	entries, err := c.List("/")
 	if err != nil {
@@ -322,7 +322,7 @@ func (m *Manager) Test(ip, user, password string) *TestResult {
 		logLine(fmt.Sprintf("[TEST] FAILED: %v", err))
 		return r
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	if err := c.Login(user, password); err != nil {
 		logLine(fmt.Sprintf("[TEST] Login FAILED: %v", err))
@@ -385,7 +385,7 @@ func (m *Manager) Batch(ip string, ops []BatchOp) []BatchResult {
 		}
 		return results
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	for i, op := range ops {
 		p := op.Path
@@ -561,7 +561,7 @@ func (m *Manager) doUpload(ip, localPath, remotePath string, j *ManagerJob) {
 		j.Error = err.Error()
 		return
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	info, err := os.Stat(localPath)
 	if err != nil {
@@ -687,7 +687,7 @@ func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 		j.Error = err.Error()
 		return
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	if isDir {
 		// Measure remote size for accurate progress
@@ -796,7 +796,7 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 		m.App.Logf("FTP MOVE %s: connect failed: %v", gameName, err)
 		return
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	// Ensure destination parent exists
 	dstParent := dstPath[:strings.LastIndex(dstPath, "/")]
@@ -846,7 +846,7 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 	m.App.Logf("FTP MOVE %s: uploading to %s", gameName, dstPath)
 
 	// Re-connect in case the download took a long time
-	c.Quit()
+	m.FTP.QuitConn(c)
 	c, err = m.connect(ip)
 	if err != nil {
 		j.State = JobError
@@ -904,7 +904,7 @@ func (m *Manager) doUploadScripts(ip, scriptsDir, remotePath, serverIP, serverPo
 		j.Error = err.Error()
 		return
 	}
-	defer c.Quit()
+	defer m.FTP.QuitConn(c)
 
 	MkdirAll(c, remotePath)
 

@@ -740,7 +740,9 @@ interface ContentSectionProps {
 
 function ContentSection({ game }: ContentSectionProps) {
   const [manifest, setManifest] = useState<{ dlcs: ContentItem[]; title_updates: ContentItem[] } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingDlc, setLoadingDlc] = useState(false);
+  const [loadingTu, setLoadingTu] = useState(false);
+  const loading = loadingDlc || loadingTu;
   const [error, setError] = useState<string | null>(null);
   const [queuing, setQueuing] = useState<Record<string, boolean>>({});
   const [queueStatus, setQueueStatus] = useState<string | null>(null);
@@ -827,19 +829,79 @@ function ContentSection({ game }: ContentSectionProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.titleId]);
 
+  // mergeTUs combines TU lists from /content/discover (installed) and
+  // /content/tu (XboxUnity candidates), with installed entries taking
+  // precedence. Without this merge the candidate list would mask a freshly
+  // uploaded TU and the row would stay "Not installed".
+  function mergeTUs(installed: ContentItem[], candidates: ContentItem[]): ContentItem[] {
+    const result = [...installed];
+    for (const c of candidates) {
+      const dup = result.some((i) =>
+        (!!i.file_name && !!c.file_name && i.file_name.toLowerCase() === c.file_name.toLowerCase()) ||
+        (!!i.version && !!c.version && i.version === c.version && i.title_id === c.title_id)
+      );
+      if (!dup) result.push(c);
+    }
+    return result;
+  }
+
   async function loadContent() {
-    setLoading(true);
+    setLoadingDlc(true);
+    setLoadingTu(true);
+    setError(null);
+    // Seed the manifest so each section can render independently as its
+    // endpoint resolves — otherwise a slow FTP scan blocks the TU list.
+    setManifest({ dlcs: [], title_updates: [] });
+
+    // Track each half so a late-arriving response can merge against the other.
+    let installedTus: ContentItem[] = [];
+    let candidateTus: ContentItem[] = [];
+
+    window.godsendApi
+      .contentDiscover({ titleId: game.titleId, gameName: game.name, drive: game.sourceDrive })
+      .then((dlcRes: any) => {
+        const dlcs = (dlcRes?.ok ? dlcRes.dlcs : []) || [];
+        installedTus = (dlcRes?.ok ? dlcRes.title_updates : []) || [];
+        setManifest({ dlcs, title_updates: mergeTUs(installedTus, candidateTus) });
+        if (!dlcRes?.ok && dlcRes?.error) setError(dlcRes.error);
+      })
+      .catch((err: any) => setError(err?.message || "Failed to load DLC"))
+      .finally(() => setLoadingDlc(false));
+
+    window.godsendApi
+      .contentTitleUpdates({ titleId: game.titleId })
+      .then((tuRes: any) => {
+        candidateTus = (tuRes?.ok ? tuRes.title_updates : []) || [];
+        setManifest((prev) => ({ dlcs: prev?.dlcs ?? [], title_updates: mergeTUs(installedTus, candidateTus) }));
+      })
+      .catch(() => { /* TU failures are non-fatal; DLC error already surfaces */ })
+      .finally(() => setLoadingTu(false));
+  }
+
+  const [togglingActive, setTogglingActive] = useState<Record<string, boolean>>({});
+
+  async function handleToggleActive(item: ContentItem, setActive: boolean) {
+    const key = `${item.content_type}-${item.display_name}-${item.file_name}`;
+    const drive = defaultDrive || game.sourceDrive;
+    if (!item.installed || !item.file_name || !drive) return;
+    setTogglingActive((prev) => ({ ...prev, [key]: true }));
     try {
-      const r = await window.godsendApi.contentDiscover({ titleId: game.titleId, gameName: game.name, drive: game.sourceDrive });
+      const r = await window.godsendApi.contentSetActive({
+        titleId: game.titleId,
+        contentType: item.content_type,
+        fileName: item.file_name,
+        drive: `${drive.replace(/:$/, "")}:`,
+        setActive,
+      });
       if (r?.ok) {
-        setManifest({ dlcs: r.dlcs || [], title_updates: r.title_updates || [] });
+        loadContent();
       } else {
-        setError(r?.error || "Failed to discover content");
+        setQueueStatus(`Activate failed: ${r?.error || "Unknown error"}`);
       }
     } catch (err: any) {
-      setError(err.message || "Failed to load content");
+      setQueueStatus(`Activate error: ${err.message}`);
     } finally {
-      setLoading(false);
+      setTogglingActive((prev) => ({ ...prev, [key]: false }));
     }
   }
 
@@ -962,13 +1024,6 @@ function ContentSection({ game }: ContentSectionProps) {
         </button>
       </div>
 
-      {loading && (
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Scanning Xbox and online sources…
-        </div>
-      )}
-
       {error && (
         <p className="text-[10px] text-red-400">{error}</p>
       )}
@@ -993,12 +1048,16 @@ function ContentSection({ game }: ContentSectionProps) {
       )}
 
       {/* Title Updates */}
-      {manifest && manifest.title_updates.length > 0 && (
+      {(loadingTu || (manifest && manifest.title_updates.length > 0)) && (
         <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 space-y-2">
           <div className="flex items-center gap-1.5">
             <PackageOpen className="h-3 w-3 text-muted-foreground" />
             <p className="text-[10px] font-semibold text-muted-foreground">Title Updates</p>
+            {loadingTu && <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" />}
           </div>
+          {loadingTu && (!manifest || manifest.title_updates.length === 0) && (
+            <p className="text-[10px] text-muted-foreground">Checking XboxUnity…</p>
+          )}
           <div className="flex flex-col gap-1.5">
             {manifest.title_updates.map((tu) => {
               const key = `${tu.content_type}-${tu.display_name}`;
@@ -1027,17 +1086,28 @@ function ContentSection({ game }: ContentSectionProps) {
                         const isMoving = moving[key];
                         return (
                           <div className="flex items-center gap-1">
-                            {tu.active ? (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">Active</span>
-                            ) : (
-                              <button
-                                className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                                onClick={() => handleQueue(tu, "activate")}
-                                disabled={isQueuing || isDeleting || isMoving}
-                              >
-                                Make Active
-                              </button>
-                            )}
+                            {(() => {
+                              const tKey = `${tu.content_type}-${tu.display_name}-${tu.file_name}`;
+                              const isToggling = togglingActive[tKey];
+                              return tu.active ? (
+                                <button
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                                  onClick={() => handleToggleActive(tu, false)}
+                                  disabled={isToggling || isDeleting || isMoving}
+                                  title="Click to deactivate"
+                                >
+                                  {isToggling ? "…" : "Active"}
+                                </button>
+                              ) : (
+                                <button
+                                  className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                                  onClick={() => handleToggleActive(tu, true)}
+                                  disabled={isToggling || isDeleting || isMoving}
+                                >
+                                  {isToggling ? "…" : "Make Active"}
+                                </button>
+                              );
+                            })()}
                             <button
                               className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
                               onClick={() => handleDelete(tu)}
@@ -1108,12 +1178,16 @@ function ContentSection({ game }: ContentSectionProps) {
       )}
 
       {/* DLCs */}
-      {manifest && manifest.dlcs.length > 0 && (
+      {(loadingDlc || (manifest && manifest.dlcs.length > 0)) && (
         <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 space-y-2">
           <div className="flex items-center gap-1.5">
             <Puzzle className="h-3 w-3 text-muted-foreground" />
             <p className="text-[10px] font-semibold text-muted-foreground">DLC</p>
+            {loadingDlc && <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" />}
           </div>
+          {loadingDlc && (!manifest || manifest.dlcs.length === 0) && (
+            <p className="text-[10px] text-muted-foreground">Scanning Xbox and Minerva/IA…</p>
+          )}
           <div className="flex flex-col gap-1.5">
             {manifest.dlcs.map((dlc) => {
               const key = `${dlc.content_type}-${dlc.display_name}`;
