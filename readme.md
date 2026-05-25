@@ -42,12 +42,12 @@ Download the build for your platform:
 
 | Platform | File |
 |---|---|
-| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.2.exe`](https://gofile.io/d/ACxcjl) |
-| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.2.exe`](https://gofile.io/d/TFypGT) |
+| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.11.exe`](https://gofile.io/d/bBPSf7) |
+| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.11.exe`](https://gofile.io/d/gr2vmr) |
 | **macOS (Apple Silicon)** | [`godsend-2.12.5-arm64.dmg`](https://gofile.io/d/TpAlDf) |
 | **macOS (Intel)** | [`godsend-2.12.5-x64.dmg`](https://gofile.io/d/chFs6f) |
-| **Linux (x64 / amd64)** | [`godsend-2.12.2-x86_64.AppImage`](https://gofile.io/d/pqSowm) |
-| **Linux (arm64)** | [`godsend-2.12.2-arm64.AppImage`](https://gofile.io/d/jT7eFP) |
+| **Linux (x64 / amd64)** | [`godsend-2.12.11-x86_64.AppImage`](https://gofile.io/d/ApShw7) |
+| **Linux (arm64)** | [`godsend-2.12.11-arm64.AppImage`](https://gofile.io/d/tyQqn1) |
 
 > **Windows:** use **`godsend-Setup-2.12.2.exe`** for the full installer, or **`godsend-Portable-2.12.2.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
