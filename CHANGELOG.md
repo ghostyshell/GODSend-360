@@ -9,6 +9,12 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.10] — 2026-05-26
+
+### Fixed
+- **Minerva Store DLC tab now surfaces `(DLC)`-tagged entries** — No-Intro's Xbox 360 (Digital) collection mixes DLC tagged `(Addon)` (~17 k entries, the bulk) with DLC tagged `(DLC)` (~4.7 k entries, a newer alternative) plus a handful of `(Addon for XBLA)` variants. The Minerva scraper used a single substring filter that only accepted `(Addon)`, so the `(DLC)`-tagged add-ons were silently dropped and could not be browsed in the Store's DLC tab or surfaced as candidates on a game's library page. `MinervaTagFilters` is now `map[string][]string` and the `dlc` platform accepts `(Addon)`, `(DLC)`, and `(Addon for XBLA)`. `ScrapeMinervaPage` does any-of matching across the list.
+- **Minerva platform caches auto-rebuild when filter rules change** — `MinervaPlatformCache` now carries a `Schema` field; `LoadCacheFromDisk` rejects caches built with an older schema and lets `Build` repopulate them. Bumping `MinervaCacheSchema` (currently `2`) is the documented hook for invalidating on-disk caches when filtering rules change in a way users would notice — like the DLC tag expansion above. The user's existing `cache/minerva_dlc.json` will be regenerated automatically on next startup.
+
 ## [2.12.9] — 2026-05-26
 
 ### Added

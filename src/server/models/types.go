@@ -31,6 +31,7 @@ type MinervaEntry struct {
 
 // MinervaPlatformCache is persisted to disk per Minerva platform.
 type MinervaPlatformCache struct {
+	Schema    int                     `json:"schema,omitempty"` // app.MinervaCacheSchema at build time; 0 == legacy pre-v2.12.10
 	Games     []string                `json:"games"`
 	Entries   map[string]MinervaEntry `json:"entries"` // lower(basename-no-ext) -> entry
 	BuildTime time.Time               `json:"build_time"`
