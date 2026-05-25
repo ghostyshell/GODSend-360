@@ -49,7 +49,7 @@ Download the build for your platform:
 | **Linux (x64 / amd64)** | [`godsend-2.12.11-x86_64.AppImage`](https://gofile.io/d/ApShw7) |
 | **Linux (arm64)** | [`godsend-2.12.11-arm64.AppImage`](https://gofile.io/d/tyQqn1) |
 
-> **Windows:** use **`godsend-Setup-2.12.2.exe`** for the full installer, or **`godsend-Portable-2.12.2.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
+> **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
