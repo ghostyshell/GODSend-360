@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"godsend/app"
@@ -17,6 +19,12 @@ import (
 
 	goftp "github.com/jlaffaye/ftp"
 )
+
+// FTPUploadStallTimeout aborts an upload whose data channel has produced no
+// bytes for this long. Aurora's FTP server occasionally drops the data conn
+// silently mid-transfer; without this watchdog, Go's STOR Write blocks
+// forever and holds the per-IP semaphore, freezing every other FTP op.
+const FTPUploadStallTimeout = 60 * time.Second
 
 // Service provides FTP transfer functionality.
 type Service struct {
@@ -47,6 +55,30 @@ func (s *Service) releaseIP(ip string) {
 	}
 }
 
+// tryAcquireIP attempts to grab the per-IP semaphore with a bounded wait.
+// Returns true on success. Background ops (Aurora library refresh, cover
+// prefetch) use this so a long-running upload doesn't make them spin
+// forever — they just skip the tick and try again later.
+func (s *Service) tryAcquireIP(ip string, wait time.Duration) bool {
+	sem := s.ipSem(ip)
+	if wait <= 0 {
+		select {
+		case sem <- struct{}{}:
+			return true
+		default:
+			return false
+		}
+	}
+	t := time.NewTimer(wait)
+	defer t.Stop()
+	select {
+	case sem <- struct{}{}:
+		return true
+	case <-t.C:
+		return false
+	}
+}
+
 // QuitConn closes an FTP connection issued by ConnectToXboxFTP/ConnectWithRetry
 // and releases the per-IP semaphore. Always pair with the connect call:
 //
@@ -65,13 +97,40 @@ func (s *Service) QuitConn(c *goftp.ServerConn) error {
 
 // ── Connection helpers ────────────────────────────────────────────────
 
+// keepAliveDialer dials with TCP keepalive enabled so a silently-dead Xbox
+// FTP control connection generates RST/EOF within ~75s rather than hanging
+// the goroutine forever.
+var keepAliveDialer = net.Dialer{
+	Timeout:   app.FTPTimeout,
+	KeepAlive: 30 * time.Second,
+}
+
 // ConnectToXboxFTP dials and logs into the Xbox Aurora FTP server.
 // Acquires a per-IP semaphore; release with QuitConn.
 func (s *Service) ConnectToXboxFTP(ip string) (*goftp.ServerConn, error) {
-	s.acquireIP(ip)
+	return s.connectToXboxFTPLocked(ip, true /* blocking acquire */, 0)
+}
+
+// TryConnectToXboxFTP is like ConnectToXboxFTP but gives up if the per-IP
+// semaphore can't be acquired within `lockWait`. Use for opportunistic
+// background ops (Aurora library refresh, periodic prefetch) that should
+// skip a tick rather than queue behind a multi-minute upload.
+func (s *Service) TryConnectToXboxFTP(ip string, lockWait time.Duration) (*goftp.ServerConn, error) {
+	return s.connectToXboxFTPLocked(ip, false /* bounded acquire */, lockWait)
+}
+
+func (s *Service) connectToXboxFTPLocked(ip string, blocking bool, lockWait time.Duration) (*goftp.ServerConn, error) {
+	if blocking {
+		s.acquireIP(ip)
+	} else if !s.tryAcquireIP(ip, lockWait) {
+		return nil, fmt.Errorf("FTP busy on %s (lock not acquired within %s)", ip, lockWait)
+	}
 	s.App.Logf("FTP: Connecting to %s:%d...", ip, app.FTPPort)
 	c, err := goftp.Dial(fmt.Sprintf("%s:%d", ip, app.FTPPort),
-		goftp.DialWithTimeout(app.FTPTimeout), goftp.DialWithDisabledEPSV(true), goftp.DialWithDisabledUTF8(true))
+		goftp.DialWithTimeout(app.FTPTimeout),
+		goftp.DialWithDialer(keepAliveDialer),
+		goftp.DialWithDisabledEPSV(true),
+		goftp.DialWithDisabledUTF8(true))
 	if err != nil {
 		s.releaseIP(ip)
 		return nil, fmt.Errorf("FTP connect to %s failed: %v", ip, err)
@@ -146,6 +205,14 @@ func (s *Service) UploadFile(conn *goftp.ServerConn, localPath, remotePath, game
 		hwm:          hwm,
 		app:          s.App,
 	}
+	// Stall watchdog: if the data channel stops producing bytes for
+	// FTPUploadStallTimeout, abort the upload by closing the FTP control
+	// connection. Stor() will then return with an error and the caller
+	// (UploadWithRetry / the queue worker) can decide what to do next.
+	stop := make(chan struct{})
+	go s.watchUploadStall(conn, rdr, filepath.Base(localPath), stop)
+	defer close(stop)
+
 	if err = conn.Stor(remotePath, rdr); err != nil {
 		return fmt.Errorf("STOR %s: %v", filepath.Base(localPath), err)
 	}
@@ -194,15 +261,15 @@ type ftpProgressReader struct {
 
 func (r *ftpProgressReader) Read(p []byte) (int, error) {
 	n, err := r.reader.Read(p)
-	r.written += int64(n)
+	written := atomic.AddInt64(&r.written, int64(n))
 
 	if time.Since(r.lastLog) > 2*time.Second {
-		rawFilePct := float64(r.written) / float64(r.total) * 100
+		rawFilePct := float64(written) / float64(r.total) * 100
 		if rawFilePct > r.maxFilePct {
 			r.maxFilePct = rawFilePct
 		}
 
-		overallDone := *r.transferred + r.written
+		overallDone := *r.transferred + written
 		rawOverallPct := float64(overallDone) / float64(r.totalSize) * 100
 		if rawOverallPct > *r.hwm {
 			*r.hwm = rawOverallPct
@@ -216,7 +283,7 @@ func (r *ftpProgressReader) Read(p []byte) (int, error) {
 		if fileElapsed < 0.001 {
 			fileElapsed = 0.001
 		}
-		speedMBs := float64(r.written) / fileElapsed / 1048576
+		speedMBs := float64(written) / fileElapsed / 1048576
 
 		overallElapsed := time.Since(r.overallStart).Seconds()
 		if overallElapsed < 0.001 {
@@ -248,6 +315,39 @@ func (r *ftpProgressReader) Read(p []byte) (int, error) {
 		r.lastLog = time.Now()
 	}
 	return n, err
+}
+
+// watchUploadStall is launched in a goroutine for the duration of one upload.
+// It polls the progress counter and, if no bytes have moved for
+// FTPUploadStallTimeout, force-closes the FTP control connection so the
+// blocked Stor call returns with an error.
+func (s *Service) watchUploadStall(conn *goftp.ServerConn, rdr *ftpProgressReader, fileName string, stop <-chan struct{}) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	lastBytes := atomic.LoadInt64(&rdr.written)
+	lastChange := time.Now()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			cur := atomic.LoadInt64(&rdr.written)
+			if cur != lastBytes {
+				lastBytes = cur
+				lastChange = time.Now()
+				continue
+			}
+			if time.Since(lastChange) >= FTPUploadStallTimeout {
+				s.App.Logf("FTP STALL: no progress on %s for %s — closing conn to abort", fileName, FTPUploadStallTimeout)
+				// Quit closes the underlying TCP socket. The blocked Stor
+				// goroutine will see EOF / write-on-closed and return an
+				// error; the per-IP semaphore is released by QuitConn at
+				// the caller's defer.
+				_ = conn.Quit()
+				return
+			}
+		}
+	}
 }
 
 // ── GOD Transfer ──────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import (
 	stdhttp "net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"godsend/infrastructure/ftp"
 )
@@ -195,14 +196,31 @@ func (d *Deps) handleFTPDrives(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "drives": drives})
 }
 
-// POST /ftp/batch  { "ip": "...", "ops": [...] }
+// POST /ftp/batch  { "ip": "...", "ops": [...], "lock_wait_ms": 5000 }
+//
+// lock_wait_ms (optional): if set, the per-IP FTP semaphore is acquired with
+// this bounded wait. Callers like the Aurora library background poll pass a
+// short timeout so a multi-minute upload doesn't make the poll spin forever;
+// when the lock isn't available within the deadline the response carries
+// `ok=false` and the caller serves cached data.
 func (d *Deps) handleFTPBatch(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	var req struct {
-		IP  string        `json:"ip"`
-		Ops []ftp.BatchOp `json:"ops"`
+		IP         string        `json:"ip"`
+		Ops        []ftp.BatchOp `json:"ops"`
+		LockWaitMs int           `json:"lock_wait_ms"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.IP == "" {
 		jsonError(w, 400, "ip and ops required")
+		return
+	}
+	if req.LockWaitMs > 0 {
+		results, err := d.FTPMgr.BatchTry(req.IP, req.Ops, time.Duration(req.LockWaitMs)*time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": err.Error(), "busy": true})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "results": results})
 		return
 	}
 	results := d.FTPMgr.Batch(req.IP, req.Ops)

@@ -63,11 +63,29 @@ export function register(ipcMain: IpcMain): void {
     try {
       addOutputLine(`[INFO] Aurora library: ${force ? "refresh (forced)" : "loading"} — FTP ${xboxIp}…`);
 
-      // Check DB sizes via Go backend batch (1 FTP connection)
+      // Check DB sizes via Go backend batch (1 FTP connection).
+      // For the background (unforced) poll, give up quickly if the FTP
+      // lock is busy — a long-running upload shouldn't make the poll
+      // hang for tens of seconds. Forced refresh waits as long as needed.
+      const lockWaitMs = force ? 0 : 5000;
       let batchRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
         { op: "size", path: `${dbDir}/content.db` },
         { op: "size", path: `${dbDir}/settings.db` },
-      ]});
+      ], lock_wait_ms: lockWaitMs });
+      if (batchRes && batchRes.busy) {
+        addOutputLine(`[INFO] Aurora library: Xbox FTP busy — serving last known state.`);
+        const cachedMeta = readMeta(cacheRoot);
+        if (cachedMeta && fs.existsSync(contentDbPath(cacheRoot)) && fs.existsSync(settingsDbPath(cacheRoot))) {
+          const contentBuf  = fs.readFileSync(contentDbPath(cacheRoot));
+          const settingsBuf = fs.readFileSync(settingsDbPath(cacheRoot));
+          const scanDriveMap = new Map<number, string>(
+            Object.entries(cachedMeta.scanDriveMap || {}).map(([k, v]) => [Number(k), String(v)])
+          );
+          const games = await buildAuroraGamesFromDbBuffers(contentBuf, settingsBuf, scanDriveMap);
+          return { ok: true, games, connectedTo: xboxIp, auroraRoot, libraryUnchanged: true, fromCache: true, ftpBusy: true };
+        }
+        return { ok: false, error: "Xbox FTP busy and no cached Aurora library available." };
+      }
       let results = batchRes.results || [];
       let contentSz  = results[0] && results[0].ok ? Number(results[0].data) : -1;
       let settingsSz = results[1] && results[1].ok ? Number(results[1].data) : -1;
