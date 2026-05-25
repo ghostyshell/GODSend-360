@@ -9,6 +9,38 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.9] — 2026-05-26
+
+### Added
+- **Activate / deactivate Title Updates from the library page** — each installed TU row now has a toggle button that flips the file between active (`<file>`) and inactive (`<file>.disabled`) via FTP RENAME. Activating one TU automatically renames every other non-`.disabled` TU file in the same content-type folder to `.disabled`, so only a single TU is active per folder at a time. Backend endpoint: `POST /content/set-active`.
+
+### Fixed
+- **Title Updates installed via the queue no longer stay "Not installed" in the UI** — `/content/discover` returns the installed TU manifest (including freshly uploaded files), but the renderer's split-endpoint loader was *overwriting* that list with `/content/tu`'s candidate list and discarding the installed entries. The renderer now keeps both halves and merges them, with installed taking precedence (deduped by filename and version).
+- **`ScanInstalledContent` recovers from Aurora FTP's "second-PASV stall"** — Aurora's FTP server deterministically hangs the `List` call on the second consecutive subfolder within one session (observed on BioShock's `00005000` TU folder). The scan now wraps each subfolder `List` in an 8-second timeout, and on timeout drops the poisoned connection and reconnects — the first `List` on a fresh connection always succeeds. A 150 ms breather between subfolder iterations also nudges Aurora to release its previous data port.
+- **Each TU file is now its own row in the UI** — previously the scan picked a single representative file per content-type folder, so a folder containing both an active TU and a `.disabled` sibling collapsed into one row. The scan now emits one `ContentItem` per TU file with its own `Active` flag, enabling per-file activation controls.
+
+### Fixed
+- **DLC & Title Updates no longer load indefinitely** — the renderer awaited a single `Promise.all` of both the DLC scan (`/content/discover`) and the TU scan (`/content/tu`), so the entire section stayed on "Scanning Xbox and online sources…" until the slowest of the two finished. The two requests are now issued independently with their own loading state, so the TU list appears as soon as XboxUnity responds, and the DLC list appears as soon as the FTP scan returns.
+- **`ScanInstalledContent` no longer issues a `RETR` per subfolder for missing markers** — the scan was calling `ftpReadFile(".godsend.json")` for every content subfolder regardless of whether the marker existed, paying one FTP roundtrip per folder for nothing. It now only attempts the read when the directory listing actually contains the marker file.
+- **Per-IP FTP semaphore in `ftp.Service`** — clicking a game fired up to four concurrent FTP sessions to the same console (content scan + RXEA asset batch + drive list + Aurora library refresh). Aurora's FTP server mishandles concurrent PASV data channels and one of the sessions would stall on `List`/`RETR`. The service now serialises all FTP sessions per IP via a one-permit semaphore acquired in `ConnectToXboxFTP`/`ConnectWithRetry` and released in a new `QuitConn`. Every `defer c.Quit()` callsite was updated to `defer …QuitConn(c)`. `UploadWithRetry`'s in-flight reconnect releases the broken conn first to avoid self-deadlock.
+- **TU folder data now reused from the parent FTP listing** — `ScanInstalledContent` already calls `List ""` on each content subfolder, so doing a second `ChangeDir` + `List` on the TU folder (the previous `scanTUFolder` / `resolveTUName` + `isTUActive` pair) was redundant and triggered a stall in Aurora's FTP server on consecutive data-channel opens. The display name and active flag are now derived from the entries the parent loop already fetched via a pure `tuMetaFromFiles` helper — zero extra FTP roundtrips per TU.
+
+### Added
+- **XboxUnity Title Update source** — `DiscoverContent` now queries XboxUnity's `TitleUpdateInfo.php` endpoint to fetch available title updates for a TitleID. Each TU is listed with its version, size, and a direct download link via `TitleUpdate.php?tuid=<ID>`. This provides an additional source alongside Minerva and Internet Archive.
+
+### Fixed
+- **TU deduplication now version-specific** — `containsTU` was treating ALL title updates as duplicates when any TU was already installed for the same TitleID. It now only deduplicates the same version, so users can see and download different TU versions (e.g. v3, v4) even when v1 is already installed.
+- **TU content types `00005000` and `000b0000` treated as equivalent** — installed TUs scanned from the Xbox may have content type `000b0000` (from the file header) while candidates are guessed as `00005000`. `isTUContentType` and `containsTU` now treat both as the same type for matching purposes.
+
+## [2.12.6] — 2026-05-23
+
+### Fixed
+- **Xbox FTP content scan now navigates before listing** — `ScanInstalledContent` previously used `conn.List(base)` with an absolute path, but the Xbox FTP server returned the root directory instead of the target folder. It now `ChangeDir`s into the path first, then `List`s the current directory. Same fix applied to `resolveTUName` and `isTUActive`.
+- **Non-standard content type `0x9000` recognized as DLC** — some Minerva/No-Intro DLC archives have a file header content type of `0x9000` instead of the standard `0x00000002`. The scan now reads the file header for unknown folder types and classifies `00009000` as DLC. `ContentTypeNames` updated accordingly.
+- **Deduplication now matches by `SourceURL`** — `containsDLC` and `containsTU` now match candidates against installed items via `SourceURL` in addition to file name, display name, and content type. This prevents duplicate entries when the installed file's content type differs from the candidate's guessed type.
+- **Installed display name preserved after header parsing** — the scan was overwriting the marker-enriched `DisplayName` with a generic content-type label after reading the file header. It now only sets the generic name when no marker metadata is present.
+- **Torrent content uploads now use request TitleID** — `queueViaTorrent` was uploading extracted content to the TitleID read from the file header, which could differ from the game the user was browsing (e.g. BioShock Infinite TU uploaded to `5454085D` while user viewed BioShock `545407D8`). It now uploads to `req.TitleID` so the scan on the game's page finds the installed content. The Xbox still reads the correct TitleID from the file header.
+
 ## [2.12.5] — 2026-05-23
 
 ### Fixed

@@ -301,7 +301,7 @@ func (s *Service) ProcessDigital(gameName, platform string) {
 			s.App.LogStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
 			return
 		}
-		defer fc.Quit()
+		defer s.FTP.QuitConn(fc)
 		ftp.MkdirAll(fc, base)
 		info, _ := os.Stat(contentFile)
 		var xfer int64

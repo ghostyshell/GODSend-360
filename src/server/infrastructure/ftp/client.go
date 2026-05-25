@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"godsend/app"
@@ -20,27 +21,73 @@ import (
 // Service provides FTP transfer functionality.
 type Service struct {
 	App *app.App
+
+	// Per-IP semaphores serializing all FTP sessions to one console at a time.
+	// Aurora's FTP server is known to mishandle multiple concurrent data
+	// channels (PASV port collisions); without this gate, parallel ops to the
+	// same console can stall indefinitely on List/Retr.
+	ipSems    sync.Map // map[string]chan struct{} (1-buffered = mutex)
+	connOwner sync.Map // map[*goftp.ServerConn]string — IP that owns each issued conn
+}
+
+func (s *Service) ipSem(ip string) chan struct{} {
+	if v, ok := s.ipSems.Load(ip); ok {
+		return v.(chan struct{})
+	}
+	ch := make(chan struct{}, 1)
+	actual, _ := s.ipSems.LoadOrStore(ip, ch)
+	return actual.(chan struct{})
+}
+
+func (s *Service) acquireIP(ip string) { s.ipSem(ip) <- struct{}{} }
+func (s *Service) releaseIP(ip string) {
+	select {
+	case <-s.ipSem(ip):
+	default:
+	}
+}
+
+// QuitConn closes an FTP connection issued by ConnectToXboxFTP/ConnectWithRetry
+// and releases the per-IP semaphore. Always pair with the connect call:
+//
+//	c, err := s.FTP.ConnectWithRetry(ip)
+//	if err != nil { ... }
+//	defer s.FTP.QuitConn(c)
+func (s *Service) QuitConn(c *goftp.ServerConn) error {
+	if c == nil {
+		return nil
+	}
+	if v, ok := s.connOwner.LoadAndDelete(c); ok {
+		s.releaseIP(v.(string))
+	}
+	return c.Quit()
 }
 
 // ── Connection helpers ────────────────────────────────────────────────
 
 // ConnectToXboxFTP dials and logs into the Xbox Aurora FTP server.
+// Acquires a per-IP semaphore; release with QuitConn.
 func (s *Service) ConnectToXboxFTP(ip string) (*goftp.ServerConn, error) {
+	s.acquireIP(ip)
 	s.App.Logf("FTP: Connecting to %s:%d...", ip, app.FTPPort)
 	c, err := goftp.Dial(fmt.Sprintf("%s:%d", ip, app.FTPPort),
 		goftp.DialWithTimeout(app.FTPTimeout), goftp.DialWithDisabledEPSV(true), goftp.DialWithDisabledUTF8(true))
 	if err != nil {
+		s.releaseIP(ip)
 		return nil, fmt.Errorf("FTP connect to %s failed: %v", ip, err)
 	}
 	if err = c.Login(s.App.FTPUsername, s.App.FTPPassword); err != nil {
 		c.Quit()
+		s.releaseIP(ip)
 		return nil, fmt.Errorf("FTP login failed: %v", err)
 	}
+	s.connOwner.Store(c, ip)
 	s.App.Logf("FTP: Connected to %s", ip)
 	return c, nil
 }
 
 // ConnectWithRetry tries to connect up to FTPMaxRetries times.
+// Acquires a per-IP semaphore; release with QuitConn.
 func (s *Service) ConnectWithRetry(ip string) (*goftp.ServerConn, error) {
 	var last error
 	for i := 1; i <= app.FTPMaxRetries; i++ {
@@ -115,11 +162,15 @@ func (s *Service) UploadWithRetry(conn *goftp.ServerConn, xboxIP, localPath, rem
 		return nil
 	}
 	s.App.Logf("FTP [%d/%d] Upload failed — reconnecting and retrying: %s", fileNum, totalFiles, filepath.Base(localPath))
+	// Release the broken conn's per-IP lock before reconnecting; otherwise
+	// ConnectToXboxFTP would deadlock waiting for the lock we still hold.
+	// The caller's outer `defer QuitConn(conn)` becomes a safe no-op.
+	s.QuitConn(conn)
 	nc, err := s.ConnectToXboxFTP(xboxIP)
 	if err != nil {
 		return fmt.Errorf("reconnect failed: %v", err)
 	}
-	defer nc.Quit()
+	defer s.QuitConn(nc)
 	return s.UploadFile(nc, localPath, remotePath, gameName, transferred, totalSize, fileNum, totalFiles, overallStart, &hwm)
 }
 
@@ -207,7 +258,7 @@ func (s *Service) TransferGame(godDir string, conn *models.XboxConnection, gameN
 	if err != nil {
 		return err
 	}
-	defer fc.Quit()
+	defer s.QuitConn(fc)
 
 	folderID := resolvedName
 	if folderID == "" {
@@ -270,7 +321,7 @@ func (s *Service) TransferContent(contentDir string, conn *models.XboxConnection
 	if err != nil {
 		return err
 	}
-	defer fc.Quit()
+	defer s.QuitConn(fc)
 
 	drive := strings.TrimSuffix(conn.Drive, ":")
 	base := fmt.Sprintf("/%s/Content/0000000000000000/%s/00000002", drive, titleID)
@@ -312,7 +363,7 @@ func (s *Service) TransferXEX(xexFolder, folderName string, conn *models.XboxCon
 	if err != nil {
 		return err
 	}
-	defer fc.Quit()
+	defer s.QuitConn(fc)
 
 	drive := strings.TrimSuffix(conn.Drive, ":")
 

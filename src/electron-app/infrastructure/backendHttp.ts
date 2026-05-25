@@ -14,7 +14,7 @@ export function backendGet(urlPath: string): Promise<string> {
       res.on("end",  () => resolve(data));
     });
     req.on("error", reject);
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error("Timeout")); });
+    req.setTimeout(120000, () => { req.destroy(); reject(new Error("Timeout")); });
   });
 }
 

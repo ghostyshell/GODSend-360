@@ -11,7 +11,7 @@ import { backendGet, backendPost } from "../infrastructure/backendHttp";
 
 export function register(ipcMain: IpcMain): void {
 
-  // ── Discover all DLC and TUs for a TitleID ────────────────────────────────
+  // ── Discover DLC for a TitleID (Minerva + IA only, fast) ───────────────────
   ipcMain.handle("content:discover", async (_event, { titleId, gameName, drive: reqDrive }) => {
     try {
       const xboxIp = getConfiguredXboxIP();
@@ -21,6 +21,16 @@ export function register(ipcMain: IpcMain): void {
       const data = await backendGet(
         `/content/discover?title_id=${encodeURIComponent(titleId)}&game_name=${encodeURIComponent(gameName || "")}${ipParam}${drvParam}`
       );
+      return { ok: true, ...JSON.parse(data) };
+    } catch (err: any) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // ── Discover Title Updates for a TitleID (XboxUnity, separate endpoint) ───
+  ipcMain.handle("content:title-updates", async (_event, { titleId }) => {
+    try {
+      const data = await backendGet(`/content/tu?title_id=${encodeURIComponent(titleId)}`);
       return { ok: true, ...JSON.parse(data) };
     } catch (err: any) {
       return { ok: false, error: err.message };
@@ -75,6 +85,48 @@ export function register(ipcMain: IpcMain): void {
                 resolve({ ok, ...parsed, ...(error ? { error } : {}) });
               } catch {
                 resolve({ ok, data, ...(ok ? {} : { error: `HTTP ${res.statusCode}` }) });
+              }
+            });
+          }
+        );
+        req.on("error", (err: Error) => resolve({ ok: false, error: err.message }));
+        req.write(body);
+        req.end();
+      });
+    } catch (err: any) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // ── Activate / deactivate a Title Update file on the Xbox ────────────
+  ipcMain.handle("content:set-active", async (_event, { titleId, contentType, fileName, drive, setActive }) => {
+    try {
+      const xboxIp = getConfiguredXboxIP();
+      if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
+      const resolvedDrive = drive || getConfiguredDefaultXboxDrive() || "Hdd1:";
+      const body = JSON.stringify({
+        title_id: titleId,
+        content_type: contentType,
+        file_name: fileName,
+        drive: resolvedDrive,
+        xbox_ip: xboxIp,
+        set_active: !!setActive,
+      });
+      const port = getConfiguredServerPort();
+      return await new Promise((resolve) => {
+        const req = http.request(
+          { hostname: "localhost", port, path: "/content/set-active", method: "POST",
+            headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } },
+          (res) => {
+            let data = "";
+            res.on("data", (chunk) => { data += chunk; });
+            res.on("end", () => {
+              const ok = (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300;
+              try {
+                const parsed = JSON.parse(data);
+                resolve({ ok, ...parsed, ...(ok ? {} : { error: parsed?.message || parsed?.error || `HTTP ${res.statusCode}` }) });
+              } catch {
+                resolve({ ok, ...(ok ? {} : { error: `HTTP ${res.statusCode}` }) });
               }
             });
           }

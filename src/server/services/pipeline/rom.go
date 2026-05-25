@@ -94,7 +94,7 @@ func (s *Service) ProcessROM(gameName, sysid string) {
 			s.App.LogStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
 			return
 		}
-		defer fc.Quit()
+		defer s.FTP.QuitConn(fc)
 		ftppkg.MkdirAll(fc, strings.TrimSuffix(remotePath, "/"))
 
 		info, _ := os.Stat(romFile)

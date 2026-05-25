@@ -12,8 +12,9 @@ import (
 	"godsend/services/content"
 )
 
-// handleContentDiscover returns all known DLC and TUs for a given TitleID,
-// merging installed items from the Xbox with available items from CDN.
+// handleContentDiscover returns all known DLC for a given TitleID,
+// merging installed items from the Xbox with available items from Minerva/IA.
+// Title Updates are loaded separately via /content/tu to avoid blocking DLC.
 func (d *Deps) handleContentDiscover(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	titleID := strings.TrimSpace(r.URL.Query().Get("title_id"))
 	gameName := strings.TrimSpace(r.URL.Query().Get("game_name"))
@@ -32,7 +33,7 @@ func (d *Deps) handleContentDiscover(w stdhttp.ResponseWriter, r *stdhttp.Reques
 	}
 
 	contentSvc := &content.Service{App: d.App, FTP: d.FTP, Torrent: d.Pipeline.Torrent}
-	manifest, err := contentSvc.DiscoverContent(titleID, gameName, xboxIP, drive)
+	manifest, err := contentSvc.DiscoverDLC(titleID, gameName, xboxIP, drive)
 	if err != nil {
 		d.App.Logf("CONTENT DISCOVER error for %s: %v", titleID, err)
 		jsonError(w, 500, err.Error())
@@ -41,6 +42,26 @@ func (d *Deps) handleContentDiscover(w stdhttp.ResponseWriter, r *stdhttp.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(manifest)
+}
+
+// handleContentTitleUpdates returns all known Title Updates for a given TitleID
+// from XboxUnity (and Minerva/IA if they have TU entries).
+func (d *Deps) handleContentTitleUpdates(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	titleID := strings.TrimSpace(r.URL.Query().Get("title_id"))
+
+	if titleID == "" {
+		jsonError(w, 400, "Missing title_id parameter")
+		return
+	}
+
+	contentSvc := &content.Service{App: d.App}
+	tus := contentSvc.DiscoverTitleUpdates(titleID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"title_id":      titleID,
+		"title_updates": tus,
+	})
 }
 
 // handleContentInstalled scans the Xbox Content directory and returns
@@ -129,6 +150,46 @@ func (d *Deps) handleContentQueue(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 	}()
 
 	jsonSuccess(w, map[string]string{"status": "queued", "item": req.DisplayName})
+}
+
+// handleContentSetActive activates or deactivates an installed Title Update by
+// renaming its file on the Xbox FTP server. Activating one TU automatically
+// deactivates other TUs in the same content-type folder (single-active model).
+func (d *Deps) handleContentSetActive(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	if r.Method != stdhttp.MethodPost {
+		jsonError(w, 405, "Use POST")
+		return
+	}
+	var req struct {
+		TitleID     string `json:"title_id"`
+		Drive       string `json:"drive"`
+		ContentType string `json:"content_type"`
+		FileName    string `json:"file_name"`
+		XboxIP      string `json:"xbox_ip"`
+		SetActive   bool   `json:"set_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, 400, "Invalid JSON body")
+		return
+	}
+	if req.TitleID == "" || req.FileName == "" || req.ContentType == "" || req.XboxIP == "" {
+		jsonError(w, 400, "Missing title_id, content_type, file_name, or xbox_ip")
+		return
+	}
+	if req.Drive == "" {
+		req.Drive = d.App.DefaultXboxDrive
+	}
+	if req.Drive == "" {
+		req.Drive = "Hdd1:"
+	}
+
+	contentSvc := &content.Service{App: d.App, FTP: d.FTP}
+	if err := contentSvc.SetTUActive(req.XboxIP, req.Drive, req.TitleID, req.ContentType, req.FileName, req.SetActive); err != nil {
+		d.App.Logf("CONTENT SET-ACTIVE error for %s: %v", req.FileName, err)
+		jsonError(w, 500, err.Error())
+		return
+	}
+	jsonSuccess(w, map[string]string{"status": "ok"})
 }
 
 // handleContentSources returns available download sources for a content item.
