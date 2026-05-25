@@ -40,14 +40,14 @@ Download priority for online libraries: **Local Transfer folder → Minerva Arch
 
 Download the build for your platform:
 
-| Platform | File |
-|---|---|
-| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.11.exe`](https://gofile.io/d/bBPSf7) |
-| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.11.exe`](https://gofile.io/d/gr2vmr) |
-| **macOS (Apple Silicon)** | [`godsend-2.12.11-arm64.dmg`](https://gofile.io/d/f0myVq) |
-| **macOS (Intel)** | [`godsend-2.12.11-x64.dmg`](https://gofile.io/d/0sTNpG) |
-| **Linux (x64 / amd64)** | [`godsend-2.12.11-x86_64.AppImage`](https://gofile.io/d/ApShw7) |
-| **Linux (arm64)** | [`godsend-2.12.11-arm64.AppImage`](https://gofile.io/d/tyQqn1) |
+| Platform | GoFile | file.kiwi backup |
+|---|---|---|
+| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.11.exe`](https://gofile.io/d/bBPSf7) | [`godsend-Setup-2.12.11.exe`](https://file.kiwi/v/PENDING) |
+| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.11.exe`](https://gofile.io/d/gr2vmr) | [`godsend-Portable-2.12.11.exe`](https://file.kiwi/v/PENDING) |
+| **macOS (Apple Silicon)** | [`godsend-2.12.11-arm64.dmg`](https://gofile.io/d/f0myVq) | [`godsend-2.12.11-arm64.dmg`](https://file.kiwi/v/PENDING) |
+| **macOS (Intel)** | [`godsend-2.12.11-x64.dmg`](https://gofile.io/d/0sTNpG) | [`godsend-2.12.11-x64.dmg`](https://file.kiwi/v/PENDING) |
+| **Linux (x64 / amd64)** | [`godsend-2.12.11-x86_64.AppImage`](https://gofile.io/d/ApShw7) | [`godsend-2.12.11-x86_64.AppImage`](https://file.kiwi/v/PENDING) |
+| **Linux (arm64)** | [`godsend-2.12.11-arm64.AppImage`](https://gofile.io/d/tyQqn1) | [`godsend-2.12.11-arm64.AppImage`](https://file.kiwi/v/PENDING) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
@@ -100,14 +100,14 @@ The Go backend works as a standalone headless server — no Electron, no GUI, no
 
 Download a **platform-matched backend binary** from the table below (or a desktop AppImage/DMG if you prefer the full app), or build from source with Go 1.21+. Configure via environment variables, run the binary, and point your Xbox at it.
 
-| Platform | Binary |
-|---|---|
-| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/CBM39T) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/9gUUXD) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/sqVLSX) |
-| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/Lo9Xmc) |
-| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/4KgNQh) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/NC9Y7c) |
+| Platform | GoFile | file.kiwi backup |
+|---|---|---|
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/CBM39T) | [`godsend.exe`](https://file.kiwi/v/PENDING) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/9gUUXD) | [`godsend-darwin-arm64`](https://file.kiwi/v/PENDING) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/sqVLSX) | [`godsend-darwin-amd64`](https://file.kiwi/v/PENDING) |
+| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/Lo9Xmc) | [`godsend-mac`](https://file.kiwi/v/PENDING) |
+| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/4KgNQh) | [`godsend-linux-x64`](https://file.kiwi/v/PENDING) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/NC9Y7c) | [`godsend-linux-arm64`](https://file.kiwi/v/PENDING) |
 
 **[Full headless setup guide (build, configure, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 
