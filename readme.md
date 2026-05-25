@@ -44,8 +44,8 @@ Download the build for your platform:
 |---|---|
 | **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.11.exe`](https://gofile.io/d/bBPSf7) |
 | **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.11.exe`](https://gofile.io/d/gr2vmr) |
-| **macOS (Apple Silicon)** | [`godsend-2.12.5-arm64.dmg`](https://gofile.io/d/TpAlDf) |
-| **macOS (Intel)** | [`godsend-2.12.5-x64.dmg`](https://gofile.io/d/chFs6f) |
+| **macOS (Apple Silicon)** | [`godsend-2.12.11-arm64.dmg`](https://gofile.io/d/f0myVq) |
+| **macOS (Intel)** | [`godsend-2.12.11-x64.dmg`](https://gofile.io/d/0sTNpG) |
 | **Linux (x64 / amd64)** | [`godsend-2.12.11-x86_64.AppImage`](https://gofile.io/d/ApShw7) |
 | **Linux (arm64)** | [`godsend-2.12.11-arm64.AppImage`](https://gofile.io/d/tyQqn1) |
 
