@@ -374,6 +374,19 @@ type BatchResult struct {
 	Data  interface{} `json:"data,omitempty"`
 }
 
+// BatchTry is like Batch but gives up if the per-IP FTP semaphore isn't
+// available within lockWait. Used for background polls (Aurora library
+// fingerprint check, prefetch) so they don't queue forever behind a
+// long-running upload.
+func (m *Manager) BatchTry(ip string, ops []BatchOp, lockWait time.Duration) ([]BatchResult, error) {
+	c, err := m.FTP.TryConnectToXboxFTP(ip, lockWait)
+	if err != nil {
+		return nil, err
+	}
+	defer m.FTP.QuitConn(c)
+	return m.runBatchOps(c, ops), nil
+}
+
 // Batch executes multiple FTP operations over a single connection.
 func (m *Manager) Batch(ip string, ops []BatchOp) []BatchResult {
 	results := make([]BatchResult, len(ops))
@@ -386,7 +399,12 @@ func (m *Manager) Batch(ip string, ops []BatchOp) []BatchResult {
 		return results
 	}
 	defer m.FTP.QuitConn(c)
+	return m.runBatchOps(c, ops)
+}
 
+// runBatchOps executes ops on an already-acquired FTP connection.
+func (m *Manager) runBatchOps(c *goftp.ServerConn, ops []BatchOp) []BatchResult {
+	results := make([]BatchResult, len(ops))
 	for i, op := range ops {
 		p := op.Path
 		if p == "" {

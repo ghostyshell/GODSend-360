@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "2.12.10",
+  "version": "2.12.11",
   "description": "Full Electron UI for configuring, monitoring, and managing GODsend-360",
   "main": "main.js",
   "scripts": {

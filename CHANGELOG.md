@@ -9,7 +9,15 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [2.12.10] — 2026-05-26
+## [2.12.11] — 2026-05-26
+
+### Fixed
+- **Silently-dead FTP upload no longer freezes the app** — Aurora's FTP server occasionally drops the data connection mid-transfer without sending FIN/RST. The Go `STOR` call's `Write` to the half-open TCP socket then blocked indefinitely, the upload goroutine never released the per-IP FTP semaphore, and every other FTP op (Aurora library refresh, opening a game's DLC page, cover prefetch) queued behind it forever. `UploadFile` now runs a stall watchdog: if no bytes have moved for 60 s the watchdog closes the FTP control connection, `STOR` returns with an error, and the semaphore is released so the rest of the app keeps working.
+- **TCP keepalive on FTP control connections** — `ConnectToXboxFTP` now dials via a `net.Dialer` with `KeepAlive: 30s`. A dead Xbox FTP control socket is now detected by the kernel within ~75 s (default OS keepalive parameters) rather than hanging the goroutine forever.
+
+### Added
+- **`/ftp/batch` accepts an optional `lock_wait_ms`** — passes through to a new `FTPMgr.BatchTry`, which acquires the per-IP semaphore with a bounded wait via `Service.TryConnectToXboxFTP`. If the lock isn't available within the deadline the response is `{ok: false, busy: true}` so callers can fall back to cached data.
+- **Aurora library background poll falls back to cache when FTP is busy** — the unforced `xbox:list-aurora-library` poll now passes `lock_wait_ms: 5000`. On `busy=true`, the renderer serves the previously-cached `content.db` / `settings.db` and notes "Xbox FTP busy — serving last known state" in the log instead of spinning on a backend that's holding the lock for a multi-minute upload. Forced (user-initiated) refresh still waits.
 
 ### Fixed
 - **Minerva Store DLC tab now surfaces `(DLC)`-tagged entries** — No-Intro's Xbox 360 (Digital) collection mixes DLC tagged `(Addon)` (~17 k entries, the bulk) with DLC tagged `(DLC)` (~4.7 k entries, a newer alternative) plus a handful of `(Addon for XBLA)` variants. The Minerva scraper used a single substring filter that only accepted `(Addon)`, so the `(DLC)`-tagged add-ons were silently dropped and could not be browsed in the Store's DLC tab or surfaced as candidates on a game's library page. `MinervaTagFilters` is now `map[string][]string` and the `dlc` platform accepts `(Addon)`, `(DLC)`, and `(Addon for XBLA)`. `ScrapeMinervaPage` does any-of matching across the list.
