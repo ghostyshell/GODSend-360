@@ -9,6 +9,13 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.13] — 2026-05-26
+
+### Fixed
+- **"Delete failed: Unknown error" now surfaces the real reason** — the Go backend returns `{state:"Error", message:"..."}` on FTP failures, but the Electron IPC handlers (`tools:ftp-delete`, `tools:ftp-mkdir`, `tools:ftp-rename`, `tools:ftp-copy`) passed the body through unchanged. The renderer checked `r.ok` (undefined → falsy) and `r.error` (the backend uses `message`), so every FTP-side failure surfaced as a generic "Unknown error" — masking real causes like 550-permission or wrong-path errors. The IPC handlers now normalise to `{ok, error}`, mapping `state==="ok"` → `ok:true` and lifting `message` into `error`.
+- **Half-uploaded DLC / TU is now dedup'd against its Minerva / IA source** — the `.godsend.json` marker was written *after* a successful upload, so an aborted transfer left the partial file on the Xbox with no source metadata. The scan then saw a hash-named file it couldn't match to the original Minerva catalog entry, and the same DLC appeared in the UI twice (an "Installed" hash row plus an unrelated "Not installed" Minerva row). Both queue paths (`queueViaTorrent` for Minerva, the direct-URL path for XboxUnity TUs / IA) now write the marker **before** the upload starts so a stalled or failed transfer still leaves a breadcrumb tying the partial file back to its catalog entry.
+- **Per-file marker enrichment in the scan** — `ScanInstalledContent` previously matched markers only against `fileNames[0]`, then copied that single enriched item into every per-file row. A folder with multiple DLC / TU files would have all rows share the first file's display name and source URL. The scan now indexes markers by filename and applies each per-file row's own marker entry.
+
 ## [2.12.12] — 2026-05-26
 
 ### Fixed

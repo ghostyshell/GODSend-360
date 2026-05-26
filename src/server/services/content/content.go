@@ -266,18 +266,20 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		// Read .godsend.json markers only when the directory listing showed
 		// the marker file — otherwise we'd pay an FTP RETR roundtrip per
 		// subfolder just to learn the file is missing.
+		markersByFile := map[string]contentMarker{}
 		if hasMarker {
 			markerPath := joinFtpPath(".", godsendMarkerName)
 			if data, err := s.ftpReadFile(conn, markerPath); err == nil {
 				var markers []contentMarker
 				if json.Unmarshal(data, &markers) == nil {
 					for _, m := range markers {
-						if item.FileName != "" && strings.EqualFold(item.FileName, m.FileName) {
-							item.DisplayName = m.DisplayName
-							item.Source = m.Source
-							item.SourceURL = m.SourceURL
-							item.Size = m.Size
-						}
+						markersByFile[strings.ToLower(m.FileName)] = m
+					}
+					if m, ok := markersByFile[strings.ToLower(item.FileName)]; ok && item.FileName != "" {
+						item.DisplayName = m.DisplayName
+						item.Source = m.Source
+						item.SourceURL = m.SourceURL
+						item.Size = m.Size
 					}
 				}
 			}
@@ -341,9 +343,19 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 					Size:        int64(sf.Size),
 					Installed:   true,
 					Active:      active,
-					Source:      item.Source,
-					SourceURL:   item.SourceURL,
 					Drive:       driveClean,
+				}
+				// Per-file marker enrichment (match by bare name so a
+				// `.disabled` rename doesn't break the link to its source).
+				if m, ok := markersByFile[strings.ToLower(bare)]; ok {
+					if m.DisplayName != "" {
+						tuItem.DisplayName = m.DisplayName
+					}
+					tuItem.Source = m.Source
+					tuItem.SourceURL = m.SourceURL
+					if m.Size > 0 {
+						tuItem.Size = m.Size
+					}
 				}
 				tus = append(tus, tuItem)
 				s.App.Logf("CONTENT SCAN: added TU %s (%s, active=%v, file=%s)", tuItem.DisplayName, tuItem.ContentType, tuItem.Active, tuItem.FileName)
@@ -364,21 +376,29 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 					strings.HasPrefix(strings.ToLower(sf.Name), ".godsend") {
 					continue
 				}
-				// Start from the folder-level item (so marker-enriched
-				// display name / source survive) but override per-file
-				// fields. If marker-enrichment didn't fire, fall back to
-				// the generic content-type label.
-				dlcItem := item
-				dlcItem.ContentType = trueCT
-				dlcItem.FileName = sf.Name
-				dlcItem.Size = int64(sf.Size)
-				dlcItem.Active = false
-				dlcItem.Drive = driveClean
-				// If the marker provided a per-file display name, prefer it;
-				// otherwise show the filename so multiple bundled DLCs are
-				// distinguishable.
-				if dlcItem.DisplayName == contentTypeName(ct) || dlcItem.DisplayName == "" {
-					dlcItem.DisplayName = sf.Name
+				dlcItem := models.ContentItem{
+					TitleID:     strings.ToUpper(titleID),
+					ContentType: trueCT,
+					FileName:    sf.Name,
+					Size:        int64(sf.Size),
+					Installed:   true,
+					Active:      false,
+					Drive:       driveClean,
+					DisplayName: sf.Name,
+				}
+				// Per-file marker enrichment so each bundled DLC keeps its
+				// own display name / source / source-url. Without this, the
+				// previous code reused fileNames[0]'s marker data for every
+				// file in the folder.
+				if m, ok := markersByFile[strings.ToLower(sf.Name)]; ok {
+					if m.DisplayName != "" {
+						dlcItem.DisplayName = m.DisplayName
+					}
+					dlcItem.Source = m.Source
+					dlcItem.SourceURL = m.SourceURL
+					if m.Size > 0 {
+						dlcItem.Size = m.Size
+					}
 				}
 				dlcs = append(dlcs, dlcItem)
 				s.App.Logf("CONTENT SCAN: added DLC %s (%s, file=%s)", dlcItem.DisplayName, dlcItem.ContentType, dlcItem.FileName)
@@ -1026,11 +1046,8 @@ func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn 
 			defer s.FTP.QuitConn(fc)
 			ftp.MkdirAll(fc, base)
 			info, _ := os.Stat(localPath)
-			var xfer int64
-			if err := s.FTP.UploadFile(fc, localPath, base+"/"+fileName, req.GameName, &xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
-				s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP upload: %v", err))
-				return err
-			}
+			// Pre-upload marker (see queueViaTorrent for rationale): leaves a
+			// dedup breadcrumb if the upload stalls partway.
 			_ = s.writeContentMarker(fc, base, models.ContentItem{
 				TitleID:     req.TitleID,
 				ContentType: req.ContentType,
@@ -1040,6 +1057,11 @@ func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn 
 				SourceURL:   req.SourceURL,
 				Size:        info.Size(),
 			})
+			var xfer int64
+			if err := s.FTP.UploadFile(fc, localPath, base+"/"+fileName, req.GameName, &xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
+				s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP upload: %v", err))
+				return err
+			}
 			os.RemoveAll(gameDir)
 			s.App.LogFTPComplete(queueKey, req.TitleID, xboxConn.IP)
 		} else {
@@ -1130,6 +1152,21 @@ func (s *Service) queueViaTorrent(req models.ContentQueueRequest, xboxConn *mode
 		defer s.FTP.QuitConn(fc)
 		ftp.MkdirAll(fc, base)
 		info, _ := os.Stat(contentFile)
+		// Pre-upload marker — written BEFORE the bytes go up so a stalled or
+		// aborted upload still leaves a breadcrumb tying the partial file on
+		// the Xbox to its Minerva source. Without it, a half-installed DLC
+		// shows on the library page as a hash-named row that can't be
+		// matched to its catalog entry. Size will be overwritten with the
+		// real value once the upload completes.
+		_ = s.writeContentMarker(fc, base, models.ContentItem{
+			TitleID:     destTitleID,
+			ContentType: typeDir,
+			FileName:    finalName,
+			DisplayName: req.DisplayName,
+			Source:      req.Source,
+			SourceURL:   req.SourceURL,
+			Size:        info.Size(),
+		})
 		var xfer int64
 		if err := s.FTP.UploadFile(fc, contentFile, base+"/"+finalName, queueKey, &xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
 			s.App.LogStatus(queueKey, "Error", fmt.Sprintf("FTP upload: %v", err))
