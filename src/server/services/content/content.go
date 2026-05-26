@@ -434,19 +434,21 @@ func (s *Service) SetTUActive(xboxIP, drive, titleID, contentType, fileName stri
 
 	bare := strings.TrimSuffix(fileName, ".disabled")
 	disabled := bare + ".disabled"
-	bareRemote := folder + "/" + bare
-	disabledRemote := folder + "/" + disabled
+
+	// Aurora's FTP server replies "550 No such directory" to commands with
+	// absolute paths in some configurations; CD into the folder first and
+	// operate on bare filenames.
+	if err := conn.ChangeDir(folder); err != nil {
+		s.App.Logf("CONTENT SET-ACTIVE: ChangeDir %s: %v", folder, err)
+		return err
+	}
 
 	if setActive {
 		// Rename the target back to bare if it's currently disabled.
 		// (Ignore "550" / file-not-found — the user may have clicked twice.)
-		_ = conn.Rename(disabledRemote, bareRemote)
+		_ = conn.Rename(disabled, bare)
 
 		// Deactivate every other active TU file in this folder.
-		if err := conn.ChangeDir(folder); err != nil {
-			s.App.Logf("CONTENT SET-ACTIVE: ChangeDir %s: %v", folder, err)
-			return err
-		}
 		entries, err := listWithTimeout(conn, 8*time.Second)
 		if err != nil {
 			s.App.Logf("CONTENT SET-ACTIVE: list failed (%v) — reconnecting", err)
@@ -475,9 +477,7 @@ func (s *Service) SetTUActive(xboxIP, drive, titleID, contentType, fileName stri
 			if strings.HasSuffix(lower, ".disabled") || strings.HasPrefix(lower, ".godsend") {
 				continue
 			}
-			from := folder + "/" + e.Name
-			to := folder + "/" + e.Name + ".disabled"
-			if rerr := conn.Rename(from, to); rerr != nil {
+			if rerr := conn.Rename(e.Name, e.Name+".disabled"); rerr != nil {
 				s.App.Logf("CONTENT SET-ACTIVE: failed to disable sibling %s: %v", e.Name, rerr)
 			} else {
 				s.App.Logf("CONTENT SET-ACTIVE: disabled sibling %s", e.Name)
@@ -488,7 +488,7 @@ func (s *Service) SetTUActive(xboxIP, drive, titleID, contentType, fileName stri
 	}
 
 	// Deactivating: rename bare → .disabled.
-	if err := conn.Rename(bareRemote, disabledRemote); err != nil {
+	if err := conn.Rename(bare, disabled); err != nil {
 		return fmt.Errorf("rename to disabled failed: %v", err)
 	}
 	s.App.Logf("CONTENT SET-ACTIVE: deactivated %s in %s", bare, folder)

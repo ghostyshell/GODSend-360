@@ -164,6 +164,10 @@ func (m *Manager) Mkdir(ip, remotePath string) error {
 }
 
 // Delete removes a remote file or directory (tries file first, then dir).
+//
+// Aurora's FTP server replies "550 No such directory" to absolute-path
+// DELE / RMD, so we CWD to the parent first and delete the leaf relatively
+// — same workaround the LIST / RETR paths in ScanInstalledContent use.
 func (m *Manager) Delete(ip, remotePath string) error {
 	c, err := m.connect(ip)
 	if err != nil {
@@ -171,11 +175,37 @@ func (m *Manager) Delete(ip, remotePath string) error {
 	}
 	defer m.FTP.QuitConn(c)
 
-	if err := c.Delete(remotePath); err != nil {
-		// Maybe it's a directory
+	parent, leaf := splitFTPPath(remotePath)
+	if parent != "" {
+		if err := c.ChangeDir(parent); err != nil {
+			m.App.Logf("FTP DELETE: CWD %s failed: %v — falling back to absolute DELE", parent, err)
+		}
+	}
+	target := leaf
+	if target == "" {
+		target = remotePath
+	}
+	if err := c.Delete(target); err != nil {
+		m.App.Logf("FTP DELETE: DELE %s failed (%v) — trying as directory", target, err)
+		// Maybe it's a directory; recursion still uses absolute path for safety.
 		return m.removeDirRecursive(c, remotePath)
 	}
 	return nil
+}
+
+// splitFTPPath splits an absolute FTP path "/a/b/c" into ("/a/b", "c").
+// Returns ("", path) when the path has no slash separator.
+func splitFTPPath(p string) (parent, leaf string) {
+	idx := strings.LastIndex(p, "/")
+	if idx < 0 {
+		return "", p
+	}
+	parent = p[:idx]
+	if parent == "" {
+		parent = "/"
+	}
+	leaf = p[idx+1:]
+	return parent, leaf
 }
 
 // removeDirRecursive removes a directory and all its contents recursively.
@@ -206,13 +236,33 @@ func (m *Manager) removeDirRecursive(c *goftp.ServerConn, remotePath string) err
 }
 
 // Rename renames (or moves) a remote file or directory.
+// Same Aurora-FTP absolute-path quirk as Delete — CWD to the source's parent
+// then rename leaf → (relative or absolute) target.
 func (m *Manager) Rename(ip, from, to string) error {
 	c, err := m.connect(ip)
 	if err != nil {
 		return err
 	}
 	defer m.FTP.QuitConn(c)
-	return c.Rename(from, to)
+	fromParent, fromLeaf := splitFTPPath(from)
+	if fromParent != "" {
+		if err := c.ChangeDir(fromParent); err != nil {
+			m.App.Logf("FTP RENAME: CWD %s failed: %v — falling back to absolute RNFR", fromParent, err)
+			return c.Rename(from, to)
+		}
+	}
+	// If src and dst share a parent, rename to bare leaf; otherwise pass
+	// absolute target (Aurora handles RNTO with an absolute path).
+	toParent, toLeaf := splitFTPPath(to)
+	target := to
+	if fromParent == toParent && toLeaf != "" {
+		target = toLeaf
+	}
+	src := fromLeaf
+	if src == "" {
+		src = from
+	}
+	return c.Rename(src, target)
 }
 
 // Size returns the size of a remote file.
