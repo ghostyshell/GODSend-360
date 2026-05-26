@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.22] — 2026-05-27
+
+### Fixed
+- **Root cause of the Windows install crash from 2.12.21: `build:server` wasn't cross-compiling.** The root `package.json` script ran `go build -C src/server -o ../../dist/godsend.exe .` **without** setting `GOOS=windows GOARCH=amd64`. Run on a macOS dev box, that produced a **Mach-O** binary named `godsend.exe`, which electron-builder happily packaged as `godsend-backend.exe` in the Windows installer. Windows refused to load it with `ERROR_BAD_EXE_FORMAT` ("The specified executable is not a valid application for this OS platform"), which Node surfaces as the synchronous `spawn UNKNOWN` we saw on the user's installer. The 2.12.21 try/catch is still correct defence-in-depth, but the actual fix is here. `build:server` now sets `GOOS=windows GOARCH=amd64 CGO_ENABLED=0` explicitly. The same pattern (with the right target) is applied to `build:server:mac`, `build:server:linux`, and their per-arch variants. Every one of those scripts now calls `scripts/verify-go-binaries.js` after build to fail loudly if the output binary's magic bytes don't match the target OS — so this can't ship again unnoticed. `scripts/build-go-all.js` runs the verifier across all five targets at the end of its cross-build.
+
 ## [2.12.21] — 2026-05-27
 
 ### Fixed
