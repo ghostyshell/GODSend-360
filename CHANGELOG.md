@@ -9,7 +9,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [2.12.13] — 2026-05-26
+## [2.12.14] — 2026-05-26
+
+### Fixed
+- **`tools:ftp-delete` no longer returns "550 No such directory"** — Aurora's FTP server rejects absolute paths in `DELE` / `RNFR` (same quirk we hit earlier with `LIST`). `FTPMgr.Delete` now `ChangeDir`s into the file's parent folder first and then runs `DELE <leaf>` relatively. `FTPMgr.Rename` got the same treatment, as did `content.SetTUActive`'s sibling-disable renames.
 
 ### Fixed
 - **"Delete failed: Unknown error" now surfaces the real reason** — the Go backend returns `{state:"Error", message:"..."}` on FTP failures, but the Electron IPC handlers (`tools:ftp-delete`, `tools:ftp-mkdir`, `tools:ftp-rename`, `tools:ftp-copy`) passed the body through unchanged. The renderer checked `r.ok` (undefined → falsy) and `r.error` (the backend uses `message`), so every FTP-side failure surfaced as a generic "Unknown error" — masking real causes like 550-permission or wrong-path errors. The IPC handlers now normalise to `{ok, error}`, mapping `state==="ok"` → `ok:true` and lifting `message` into `error`.
