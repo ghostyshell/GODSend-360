@@ -9,6 +9,17 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.21] — 2026-05-27
+
+### Fixed
+- **"A JavaScript error occurred in the main process" on Windows install** — `spawn UNKNOWN` is thrown *synchronously* by Node when antivirus (Defender, Avast, Norton, etc.) quarantines or blocks the unsigned Go backend executable. The previous code called `spawn(godsendExePath, ...)` without a try/catch and only registered `.on("error", ...)` *after* the spawn, so the synchronous throw bypassed that handler and propagated to the uncaughtException dialog, killing the app on first launch. `services/backendClient.ts` now:
+  1. `fs.existsSync` checks the binary path first and surfaces "Backend binary not found" if missing.
+  2. Wraps the `spawn(...)` call in try/catch.
+  3. On `spawn UNKNOWN` / `EACCES` (Windows), shows an actionable message: "antivirus quarantined or blocked the backend executable. Whitelist `<path>` and restart GODsend."
+  4. Logs the failure to the daily log and ends the backend session cleanly so the UI stays usable instead of crashing.
+
+  Stack reported by user: `Error: spawn UNKNOWN at ChildProcess.spawn (...) at startGodsend (...backendClient.js:85:48)`.
+
 ## [2.12.20] — 2026-05-27
 
 ### Fixed
