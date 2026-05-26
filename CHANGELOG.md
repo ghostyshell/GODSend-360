@@ -9,7 +9,15 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [2.12.19] — 2026-05-26
+## [2.12.20] — 2026-05-27
+
+### Fixed
+- **Save game "Copy to…" dropdown now shows gamertags, not XUIDs** — two bugs combined to make every entry render as a raw 16-hex XUID. (1) The backend's `DiscoverSaves` populated `ProfileID` and `SaveCount` but left `ProfileName` empty (only `ListAllProfiles` was filling it in). It now calls `ResolveProfileName` for each discovered profile, same as `ListAllProfiles`. (2) The renderer's copy-target `<option>` was using `displayName(p.profile_id)` (looks at user-set labels then falls back to the XUID) instead of `displayNameForProfile(p)` (labels → resolved gamertag → XUID). The dropdown now matches the profile rows above it.
+
+### Added
+- **Main-process crash logging** — `process.on("uncaughtException")` and `process.on("unhandledRejection")` handlers in `app/bootstrap.ts` write the full stack to the daily log file (`logs/godsend-server-YYYY-MM-DD.log`) and pop a dialog that points the user at the log path. Previously a fatal error in the main process showed only Electron's generic "A JavaScript error occurred…" dialog with no way to recover the stack after the fact, making Windows install crash reports impossible to triage.
+
+
 
 ### Added
 - **Large-volume FAT32 formatting for BadAvatar USB** — Windows uses bundled Ridgecrop `fat32format.exe` (via `scripts/download-fat32format.js` → `dist/tools/`); macOS uses `newfs_msdos` / `diskutil`; Linux uses `mkfs.vfat` / `mkfs.fat`. Removes the prior 32 GB Windows limit. USB picker now lists external/USB drives on any filesystem.

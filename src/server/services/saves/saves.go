@@ -171,6 +171,7 @@ func (s *Service) DiscoverSaves(ip, drive, titleID string) ([]ProfileSaves, erro
 		if saveCount > 0 {
 			profiles = append(profiles, ProfileSaves{
 				ProfileID:    entry.Name,
+				ProfileName:  s.ResolveProfileName(ip, cleanDrive, entry.Name),
 				SaveCount:    saveCount,
 				LastModified: "",
 			})
