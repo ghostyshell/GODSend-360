@@ -21,6 +21,11 @@
       <stop offset="0%" stop-color="#22C55E" stop-opacity="0.45"/>
       <stop offset="100%" stop-color="#22C55E" stop-opacity="0"/>
     </radialGradient>
+    <radialGradient id="iconSheen" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#7BE39C"/>
+      <stop offset="55%" stop-color="#22C55E"/>
+      <stop offset="100%" stop-color="#15803D"/>
+    </radialGradient>
   </defs>
 
   <rect width="1200" height="630" fill="url(#bg)"/>
@@ -28,16 +33,15 @@
   <rect width="1200" height="630" fill="url(#glowA)"/>
   <rect width="1200" height="630" fill="url(#glowB)"/>
 
-  <!-- Logo chip -->
-  <g transform="translate(80,80)">
-    <rect width="72" height="72" rx="14" fill="url(#sweep)"/>
-    <text x="36" y="50" text-anchor="middle"
-          font-family="'Russo One', 'Arial Black', sans-serif"
-          font-size="32" font-weight="900" fill="#020617">G3</text>
+  <!-- GODsend logo: green orb with white V -->
+  <g transform="translate(116,116)">
+    <circle r="44" fill="url(#iconSheen)"/>
+    <circle r="44" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+    <path d="M-24 -19 L0 21 L24 -19" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text x="172" y="135"
+  <text x="180" y="135"
         font-family="'Russo One', 'Arial Black', sans-serif"
-        font-size="34" fill="#E2E8F0" letter-spacing="2">GODsend
+        font-size="40" fill="#E2E8F0" letter-spacing="2">GODsend
     <tspan fill="#22C55E"> 360</tspan>
   </text>
 
