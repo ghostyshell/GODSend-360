@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "2.12.14",
+  "version": "2.12.19",
   "description": "Full Electron UI for configuring, monitoring, and managing GODsend-360",
   "main": "main.js",
   "scripts": {
@@ -132,6 +132,10 @@
         {
           "from": "../../dist/tools/aria2c.exe",
           "to": "aria2c.exe"
+        },
+        {
+          "from": "../../dist/tools/fat32format.exe",
+          "to": "fat32format.exe"
         }
       ]
     },

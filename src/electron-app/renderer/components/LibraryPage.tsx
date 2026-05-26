@@ -2,12 +2,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Gamepad2, Loader2, WifiOff,
   Star, Disc3, RotateCw, Upload, Search, X, Check, ChevronLeft, ChevronRight,
-  ArrowUpDown, Filter, HardDrive, ArrowRightLeft, Download,
-  Puzzle, PackageOpen, Trash2,
+  ChevronDown, ArrowUpDown, Filter, HardDrive, ArrowRightLeft, Download,
+  Puzzle, PackageOpen, Trash2, Save, Copy, Pencil, FolderDown, FolderOpen, Database, Image,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "./ui/collapsible";
 import { cn } from "../lib/utils";
 import XboxBoxCover from "./XboxBoxCover";
 import MainNav from "./MainNav";
@@ -158,6 +159,65 @@ function ImageLightbox({ images, startIndex, onClose }: ImageLightboxProps) {
         onClick={(e) => e.stopPropagation()}
       />
     </div>
+  );
+}
+
+// ── Reusable collapsible detail section ────────────────────────────────────────
+
+interface DetailSectionProps {
+  title: string;
+  icon?: React.ReactNode;
+  defaultOpen?: boolean;
+  loading?: boolean;
+  loadingLabel?: string;
+  badge?: string;
+  children: React.ReactNode;
+  onOpen?: () => void;
+}
+
+function DetailSection({ title, icon, defaultOpen = false, loading, loadingLabel, badge, children, onOpen }: DetailSectionProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [hasOpened, setHasOpened] = useState(defaultOpen);
+
+  function handleOpenChange(isOpen: boolean) {
+    setOpen(isOpen);
+    if (isOpen && !hasOpened) {
+      setHasOpened(true);
+      onOpen?.();
+    }
+  }
+
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={handleOpenChange}
+      className="border border-border/60 rounded-lg overflow-hidden card-surface animate-fade-in"
+    >
+      <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2.5 text-left hover:bg-accent/10 transition-colors duration-200 select-none cursor-pointer group">
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200",
+            open && "rotate-180"
+          )}
+        />
+        {icon && <span className="text-muted-foreground shrink-0">{icon}</span>}
+        <span className="section-header flex-1">{title}</span>
+        {badge && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-accent/20 text-accent font-medium font-mono">
+            {badge}
+          </span>
+        )}
+        {loading && (
+          <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            {loadingLabel || "Loading…"}
+          </span>
+        )}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-3 pb-3 pt-0 data-[state=open]:animate-slide-down data-[state=closed]:animate-slide-up">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -435,9 +495,10 @@ interface AssetEditorSectionProps {
   rxeaSlots?: Record<string, AssetSlot> | null;
   rxeaLoading?: boolean;
   onRefresh?: () => void;
+  visible?: boolean;
 }
 
-function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefresh }: AssetEditorSectionProps) {
+function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefresh, visible = true }: AssetEditorSectionProps) {
   const [pending, setPending]       = useState<Record<string, any>>({});
   const [searchSlot, setSearchSlot] = useState<string | null>(null);
   const [saving, setSaving]         = useState(false);
@@ -737,9 +798,10 @@ interface ContentItem {
 
 interface ContentSectionProps {
   game: Game;
+  visible?: boolean;
 }
 
-function ContentSection({ game }: ContentSectionProps) {
+function ContentSection({ game, visible = true }: ContentSectionProps) {
   const [manifest, setManifest] = useState<{ dlcs: ContentItem[]; title_updates: ContentItem[] } | null>(null);
   const [loadingDlc, setLoadingDlc] = useState(false);
   const [loadingTu, setLoadingTu] = useState(false);
@@ -824,11 +886,12 @@ function ContentSection({ game }: ContentSectionProps) {
   }
 
   useEffect(() => {
+    if (!visible) return;
     setManifest(null);
     setError(null);
     loadContent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.titleId]);
+  }, [game.titleId, visible]);
 
   // mergeTUs combines TU lists from /content/discover (installed) and
   // /content/tu (XboxUnity candidates), with installed entries taking
@@ -1096,7 +1159,7 @@ function ContentSection({ game }: ContentSectionProps) {
                               const isToggling = togglingActive[tKey];
                               return tu.active ? (
                                 <button
-                                  className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-accent/20 text-accent hover:bg-accent/30 transition-colors"
                                   onClick={() => handleToggleActive(tu, false)}
                                   disabled={isToggling || isDeleting || isMoving}
                                   title="Click to deactivate"
@@ -1294,6 +1357,374 @@ function ContentSection({ game }: ContentSectionProps) {
   );
 }
 
+// ── Save Games section ───────────────────────────────────────────────────────
+
+interface ProfileSaves {
+  profile_id: string;
+  profile_name: string;
+  save_count: number;
+  last_modified: string;
+}
+
+interface SaveGamesSectionProps {
+  game: Game;
+  visible?: boolean;
+}
+
+function SaveGamesSection({ game, visible = true }: SaveGamesSectionProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [profiles, setProfiles] = useState<ProfileSaves[]>([]);
+  const [allConsoleProfiles, setAllConsoleProfiles] = useState<ProfileSaves[]>([]);
+  const [expandedProfile, setExpandedProfile] = useState<string | null>(null);
+  const [saves, setSaves] = useState<any[]>([]);
+  const [savesLoading, setSavesLoading] = useState(false);
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
+  const [downloading, setDownloading] = useState<Record<string, boolean>>({});
+  const [copying, setCopying] = useState<Record<string, boolean>>({});
+  const [copyTarget, setCopyTarget] = useState<Record<string, string>>({});
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [statusKind, setStatusKind] = useState<"ok" | "error">("ok");
+  const [profileLabels, setProfileLabels] = useState<Record<string, string>>({});
+  const [editingLabel, setEditingLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setProfiles([]);
+    setExpandedProfile(null);
+    setSaves([]);
+    setError(null);
+    loadProfiles();
+    loadAllProfiles();
+    window.godsendApi.getProfileLabels().then((labels: Record<string, string>) => setProfileLabels(labels || {}));
+  }, [game.titleId, visible]);
+
+  function displayName(pid: string): string {
+    return profileLabels[pid] || pid;
+  }
+  function displayNameForProfile(p: ProfileSaves): string {
+    return profileLabels[p.profile_id] || p.profile_name || p.profile_id;
+  }
+
+  async function loadAllProfiles() {
+    try {
+      const r = await window.godsendApi.savesDiscover(undefined);
+      if (r?.ok && Array.isArray(r.profiles)) {
+        setAllConsoleProfiles(r.profiles);
+      }
+    } catch { /* non-critical */ }
+  }
+
+  async function loadProfiles() {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await window.godsendApi.savesDiscover(game.titleId);
+      if (r?.ok && Array.isArray(r.profiles)) {
+        setProfiles(r.profiles);
+      } else if (r?.error) {
+        setError(r.error);
+      } else {
+        setError("Failed to discover save games.");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadSaves(profileId: string) {
+    setExpandedProfile(profileId);
+    setSavesLoading(true);
+    setSaves([]);
+    try {
+      const r = await window.godsendApi.savesList({
+        titleId: game.titleId,
+        profileId,
+      });
+      if (r?.ok && Array.isArray(r.entries)) {
+        setSaves(r.entries);
+      } else if (r?.error) {
+        setError(r.error);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Unknown error");
+    } finally {
+      setSavesLoading(false);
+    }
+  }
+
+  async function handleDownload(profileId: string) {
+    setDownloading((prev) => ({ ...prev, [profileId]: true }));
+    setStatusMsg(null);
+    try {
+      const r = await window.godsendApi.savesDownload({
+        titleId: game.titleId,
+        profileId,
+        gameName: game.name,
+      });
+      if (r?.ok) {
+        setStatusMsg(`Save data for ${profileId} downloaded successfully.`);
+        setStatusKind("ok");
+        setTimeout(() => setStatusMsg(null), 4000);
+      } else {
+        setStatusMsg(r?.error || "Download failed.");
+        setStatusKind("error");
+      }
+    } catch (err: any) {
+      setStatusMsg(err?.message || "Download error");
+      setStatusKind("error");
+    } finally {
+      setDownloading((prev) => ({ ...prev, [profileId]: false }));
+    }
+  }
+
+  async function handleDelete(profileId: string) {
+    setDeleting((prev) => ({ ...prev, [profileId]: true }));
+    setStatusMsg(null);
+    try {
+      const r = await window.godsendApi.savesDelete({
+        titleId: game.titleId,
+        profileId,
+      });
+      if (r?.ok) {
+        setStatusMsg(`Save data for ${profileId} deleted.`);
+        setStatusKind("ok");
+        setProfiles((prev) => prev.filter((p) => p.profile_id !== profileId));
+        if (expandedProfile === profileId) {
+          setExpandedProfile(null);
+          setSaves([]);
+        }
+        setTimeout(() => setStatusMsg(null), 4000);
+      } else {
+        setStatusMsg(r?.error || "Delete failed.");
+        setStatusKind("error");
+      }
+    } catch (err: any) {
+      setStatusMsg(err?.message || "Delete error");
+      setStatusKind("error");
+    } finally {
+      setDeleting((prev) => ({ ...prev, [profileId]: false }));
+    }
+  }
+
+  async function handleCopy(srcProfile: string) {
+    const dst = copyTarget[srcProfile];
+    if (!dst) return;
+    setCopying((prev) => ({ ...prev, [srcProfile]: true }));
+    setStatusMsg(null);
+    try {
+      const r = await window.godsendApi.savesCopy({
+        titleId: game.titleId,
+        srcProfile,
+        dstProfile: dst,
+      });
+      if (r?.ok) {
+        const res = r.result;
+        setStatusMsg(
+          `Copied ${res.files_copied} file(s) to ${dst}` +
+          (res.resigned ? " (re-signed)" : " (raw copy)")
+        );
+        setStatusKind("ok");
+        // Refresh profiles after copy
+        loadProfiles();
+        setTimeout(() => setStatusMsg(null), 4000);
+      } else {
+        setStatusMsg(r?.error || "Copy failed.");
+        setStatusKind("error");
+      }
+    } catch (err: any) {
+      setStatusMsg(err?.message || "Copy error");
+      setStatusKind("error");
+    } finally {
+      setCopying((prev) => ({ ...prev, [srcProfile]: false }));
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {statusMsg && (
+        <p className={cn(
+          "text-[10px] px-2 py-1.5 rounded",
+          statusKind === "error"
+            ? "bg-destructive/20 text-destructive"
+            : "bg-emerald-500/15 text-emerald-300",
+        )}>
+          {statusMsg}
+        </p>
+      )}
+
+      {loading && (
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Scanning Xbox for save data…
+        </div>
+      )}
+
+      {error && (
+        <p className="text-[10px] text-destructive">{error}</p>
+      )}
+
+      {!loading && !error && profiles.length === 0 && (
+        <div className="rounded-md border border-border/40 bg-muted/10 px-3 py-3 text-center">
+          <p className="text-[11px] text-muted-foreground">
+            No save games found on the Xbox for this title.
+          </p>
+          <p className="text-[9px] text-muted-foreground/60 mt-1">
+            Save data is stored per-profile at /Content/{'{ProfileID}'}/{game.titleId}/00000001/ on the console.
+          </p>
+        </div>
+      )}
+
+      {profiles.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {profiles.map((profile) => {
+            const isExpanded = expandedProfile === profile.profile_id;
+            const isDeleting = deleting[profile.profile_id];
+            const isDownloading = downloading[profile.profile_id];
+            const isCopying = copying[profile.profile_id];
+            return (
+              <div
+                key={profile.profile_id}
+                className="rounded-md border border-border/60 bg-background overflow-hidden"
+              >
+                {/* Profile header row */}
+                <div className="flex items-center justify-between px-2.5 py-2">
+                  <button
+                    className="flex items-center gap-1.5 flex-1 min-w-0 text-left hover:text-foreground transition-colors"
+                    onClick={() => isExpanded ? setExpandedProfile(null) : loadSaves(profile.profile_id)}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "h-3 w-3 text-muted-foreground shrink-0 transition-transform duration-200",
+                        isExpanded && "rotate-180"
+                      )}
+                    />
+                    <Save className="h-3 w-3 text-muted-foreground shrink-0" />
+                    {editingLabel === profile.profile_id ? (
+                      <input
+                        className="text-[10px] bg-background border border-accent rounded px-1 py-0 w-24 outline-none"
+                        placeholder="Name…"
+                        defaultValue={profileLabels[profile.profile_id] || ""}
+                        onBlur={(e) => setEditingLabel(null)}
+                        onKeyDown={async (e) => {
+                          if (e.key === "Enter") {
+                            const v = (e.target as HTMLInputElement).value.trim();
+                            const labels = await window.godsendApi.setProfileLabel(profile.profile_id, v);
+                            setProfileLabels(labels || {});
+                            setEditingLabel(null);
+                          } else if (e.key === "Escape") {
+                            setEditingLabel(null);
+                          }
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <>
+                        <span className="text-[11px] text-foreground truncate">{displayNameForProfile(profile)}</span>
+                        <button
+                          className="text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0"
+                          onClick={(e) => { e.stopPropagation(); setEditingLabel(profile.profile_id); }}
+                          title="Label this profile"
+                        >
+                          <Pencil className="h-2.5 w-2.5" />
+                        </button>
+                      </>
+                    )}
+                    <span className="text-[9px] text-muted-foreground shrink-0">
+                      {profile.save_count} file{profile.save_count !== 1 ? "s" : ""}
+                    </span>
+                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors flex items-center gap-1 disabled:opacity-50"
+                      onClick={() => handleDownload(profile.profile_id)}
+                      disabled={isDownloading || isDeleting}
+                      title="Download save to local backup"
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      ) : (
+                        <Download className="h-2.5 w-2.5" />
+                      )}
+                      Backup
+                    </button>
+                    <button
+                      className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40 p-0.5"
+                      onClick={() => handleDelete(profile.profile_id)}
+                      disabled={isDeleting || isDownloading}
+                      title="Delete save from Xbox"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                    <select
+                      className="text-[8px] bg-transparent border border-border/40 rounded px-1 py-0.5 text-muted-foreground max-w-[80px]"
+                      value={copyTarget[profile.profile_id] || ""}
+                      onChange={(e) => setCopyTarget((prev) => ({ ...prev, [profile.profile_id]: e.target.value }))}
+                      title="Target profile"
+                    >
+                      <option value="">Copy to…</option>
+                      {allConsoleProfiles.filter(p => p.profile_id !== profile.profile_id).map(p => (
+                        <option key={p.profile_id} value={p.profile_id}>{displayName(p.profile_id)}</option>
+                      ))}
+                    </select>
+                    <button
+                      className="text-[9px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors flex items-center gap-1 disabled:opacity-50"
+                      onClick={() => handleCopy(profile.profile_id)}
+                      disabled={isCopying || isDeleting || isDownloading || !copyTarget[profile.profile_id]}
+                      title="Copy save to selected profile with re-signing"
+                    >
+                      {isCopying ? (
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      ) : (
+                        <Copy className="h-2.5 w-2.5" />
+                      )}
+                      Copy
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expanded file list */}
+                {isExpanded && (
+                  <div className="border-t border-border/40 px-2.5 py-2">
+                    {savesLoading ? (
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        Listing save files…
+                      </div>
+                    ) : saves.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground">No save files found.</p>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {saves.map((entry: any) => (
+                          <div
+                            key={entry.name}
+                            className="flex items-center justify-between text-[10px]"
+                          >
+                            <span className="text-foreground font-mono truncate">{entry.name}</span>
+                            <span className="text-muted-foreground shrink-0 ml-2">
+                              {entry.type === "d" ? "dir" : entry.size != null
+                                ? entry.size >= 1048576
+                                  ? `${(entry.size / 1048576).toFixed(1)} MB`
+                                  : `${(entry.size / 1024).toFixed(0)} KB`
+                                : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Disc face (shown on hover flip) ─────────────────────────────────────────
 
 function DiscFace() {
@@ -1388,7 +1819,21 @@ function GameDetail({
 }: GameDetailProps) {
   const [rxeaSlots, setRxeaSlots]     = useState<Record<string, AssetSlot> | null>(null);
   const [rxeaLoading, setRxeaLoading] = useState(false);
+  const [rxeaLoaded, setRxeaLoaded]   = useState(false);
   const [coverFlipped, setCoverFlipped] = useState(false);
+
+  // ── Lazy-load tracking for collapsible sections ────────────────────────
+  const [loadedSections, setLoadedSections] = useState<Record<string, boolean>>({
+    assets: false,
+    move: false,
+    content: false,
+    saves: false,
+  });
+
+  function loadSection(key: string) {
+    if (loadedSections[key]) return;
+    setLoadedSections((prev) => ({ ...prev, [key]: true }));
+  }
 
   // ── Move to Drive state ─────────────────────────────────────────────────
   const [drives, setDrives]               = useState<string[]>([]);
@@ -1433,8 +1878,9 @@ function GameDetail({
       })
       .catch(() => {});
 
-    // On-demand RXEA decode
-    if (!game.gameDataDir) return;
+    // Only decode RXEA when the asset section is first opened.
+    if (!loadedSections.assets) return;
+    if (!game.gameDataDir || rxeaLoaded) return;
     setRxeaSlots(null);
     setRxeaLoading(true);
     window.godsendApi
@@ -1446,15 +1892,17 @@ function GameDetail({
             map[s.key] = { src: s.dataUrl, ext: ".png" };
           }
           setRxeaSlots(map);
+          setRxeaLoaded(true);
           const coverSlot = r.slots.find((s: any) => s.key === "cover");
           if (coverSlot?.dataUrl) onRxeaCover?.(game.gameDataDir, game.titleId, coverSlot.dataUrl);
         } else {
           setRxeaSlots({});
+          setRxeaLoaded(true);
         }
       })
-      .catch(() => setRxeaSlots({}))
+      .catch(() => { setRxeaSlots({}); setRxeaLoaded(true); })
       .finally(() => setRxeaLoading(false));
-  }, [game.titleId, game.gameDataDir]);
+  }, [game.titleId, game.gameDataDir, loadedSections.assets]);
 
   // ── Restore in-progress move job from backend on mount ──────────────────
   useEffect(() => {
@@ -1493,8 +1941,9 @@ function GameDetail({
     }).catch(() => {});
   }, [game.name]);
 
-  // ── Load available Xbox drives ────────────────────────────────────────
+  // ── Load available Xbox drives (lazy: only when Move section is first opened)
   useEffect(() => {
+    if (!loadedSections.move) return;
     setDrivesLoading(true);
     window.godsendApi.listXboxDrives()
       .then((r: any) => {
@@ -1504,7 +1953,7 @@ function GameDetail({
       })
       .catch(() => {})
       .finally(() => setDrivesLoading(false));
-  }, []);
+  }, [loadedSections.move]);
 
   async function handleMoveGame() {
     if (!moveTarget || moveStatus === "moving") return;
@@ -1671,18 +2120,15 @@ function GameDetail({
           </div>
 
           {/* Library database fields */}
-          <div>
-            <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-              Library database
-            </p>
-            <div className="flex flex-col gap-1 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+          <DetailSection title="Library Database" icon={<Database className="h-3.5 w-3.5" />} defaultOpen={false}>
+            <div className="flex flex-col gap-1">
               <MetaRow label="Scan path ID" value={game.scanPathId != null ? String(game.scanPathId) : undefined} />
               <MetaRow label="Media ID"     value={game.mediaId    != null ? String(game.mediaId)    : undefined} />
               <MetaRow label="File type"    value={game.fileType   != null ? String(game.fileType)   : undefined} />
               <MetaRow label="Content type" value={game.contentType != null ? String(game.contentType) : undefined} />
               <MetaRow label="Directory"    value={game.directory  || undefined} />
             </div>
-          </div>
+          </DetailSection>
 
           {game.description && (
             <div>
@@ -1696,21 +2142,33 @@ function GameDetail({
           )}
 
           {/* ── Asset editor ── */}
-          <AssetEditorSection
-            game={game}
-            titleVisuals={titleVisuals}
-            rxeaSlots={rxeaSlots}
-            rxeaLoading={rxeaLoading}
-            onRefresh={onRefresh}
-          />
+          <DetailSection
+            title="Aurora Assets"
+            icon={<Image className="h-3.5 w-3.5" />}
+            loading={rxeaLoading}
+            loadingLabel="Decoding…"
+            onOpen={() => loadSection("assets")}
+          >
+            <AssetEditorSection
+              game={game}
+              titleVisuals={titleVisuals}
+              rxeaSlots={rxeaSlots}
+              rxeaLoading={rxeaLoading}
+              onRefresh={onRefresh}
+              visible={loadedSections.assets}
+            />
+          </DetailSection>
 
           {/* ── Move to Drive ── */}
           {game.sourceDrive && game.directory && (
-            <div>
-              <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                Move to Drive
-              </p>
-              <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
+            <DetailSection
+              title="Move to Drive"
+              icon={<HardDrive className="h-3.5 w-3.5" />}
+              loading={drivesLoading}
+              loadingLabel="Loading drives…"
+              onOpen={() => loadSection("move")}
+            >
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <HardDrive className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-[11px] text-muted-foreground">
@@ -1735,8 +2193,8 @@ function GameDetail({
                             size="sm"
                             variant={isSelected ? "default" : "outline"}
                             className={cn(
-                              "h-7 text-[11px] px-2.5",
-                              isSelected && "ring-1 ring-primary"
+                              "h-7 text-[11px] px-2.5 transition-all duration-200",
+                              isSelected && "ring-1 ring-accent"
                             )}
                             onClick={() => {
                               setMoveTarget(isSelected ? null : d);
@@ -1759,7 +2217,7 @@ function GameDetail({
                 {!moveTarget && moveStatus === "moving" && (
                   <div className="flex flex-col gap-0.5 mt-0.5">
                     <div className="flex items-center gap-2">
-                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      <Loader2 className="h-3 w-3 animate-spin text-accent" />
                       <span className="text-[11px] text-foreground font-medium">
                         {moveProgress > 0 ? `Moving… ${moveProgress}%` : "Moving…"}
                         {moveSpeed ? ` — ${moveSpeed}` : ""}
@@ -1779,7 +2237,7 @@ function GameDetail({
                         size="sm"
                         onClick={handleMoveGame}
                         disabled={moveStatus === "moving" || moveStatus === "done"}
-                        className="gap-1"
+                        className="gap-1 transition-all duration-200"
                       >
                         {moveStatus === "moving" ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -1812,21 +2270,38 @@ function GameDetail({
                   </div>
                 )}
                 {moveStatus === "done" && moveMessage && (
-                  <p className="text-[11px] text-green-400">{moveMessage}</p>
+                  <p className="text-[11px] text-emerald-400">{moveMessage}</p>
                 )}
                 {moveStatus === "error" && moveError && (
-                  <p className="text-[11px] text-red-400">{moveError}</p>
+                  <p className="text-[11px] text-destructive">{moveError}</p>
                 )}
               </div>
-            </div>
+            </DetailSection>
           )}
 
-  {/* ── Content / DLC / Title Update section ── */}
+          {/* ── Content / DLC / Title Update section ── */}
           {game.titleId && (
-            <ContentSection game={game} />
+            <DetailSection
+              title="DLC & Title Updates"
+              icon={<Puzzle className="h-3.5 w-3.5" />}
+              onOpen={() => loadSection("content")}
+            >
+              <ContentSection game={game} visible={loadedSections.content} />
+            </DetailSection>
           )}
 
-          <p className="text-[9px] text-muted-foreground/40 font-mono">
+          {/* ── Save Games section ── */}
+          {game.titleId && (
+            <DetailSection
+              title="Save Games"
+              icon={<Save className="h-3.5 w-3.5" />}
+              onOpen={() => loadSection("saves")}
+            >
+              <SaveGamesSection game={game} visible={loadedSections.saves} />
+            </DetailSection>
+          )}
+
+          <p className="text-[9px] text-muted-foreground/40 font-mono pt-1">
             TitleID: {game.titleId}
             {game.contentId ? `  ·  ContentID: ${game.contentId}` : ""}
           </p>
@@ -2021,6 +2496,7 @@ interface LibraryPageProps {
   onNavigateIso2God: () => void;
   onNavigateIso2Xex: () => void;
   onNavigateFtpManager: () => void;
+  onNavigateBadAvatarUsb: () => void;
 }
 
 export default function LibraryPage({
@@ -2042,6 +2518,7 @@ export default function LibraryPage({
   onNavigateIso2God,
   onNavigateIso2Xex,
   onNavigateFtpManager,
+  onNavigateBadAvatarUsb,
 }: LibraryPageProps) {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [rxeaCovers, setRxeaCovers] = useState<Record<string, string>>({});
@@ -2198,6 +2675,7 @@ export default function LibraryPage({
               onNavigateIso2God={onNavigateIso2God}
               onNavigateIso2Xex={onNavigateIso2Xex}
               onNavigateFtpManager={onNavigateFtpManager}
+              onNavigateBadAvatarUsb={onNavigateBadAvatarUsb}
             />
           </div>
         </div>

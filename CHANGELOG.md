@@ -9,6 +9,41 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.19] — 2026-05-26
+
+### Added
+- **Large-volume FAT32 formatting for BadAvatar USB** — Windows uses bundled Ridgecrop `fat32format.exe` (via `scripts/download-fat32format.js` → `dist/tools/`); macOS uses `newfs_msdos` / `diskutil`; Linux uses `mkfs.vfat` / `mkfs.fat`. Removes the prior 32 GB Windows limit. USB picker now lists external/USB drives on any filesystem.
+
+### Changed
+- **Windows release builds** — `build:server`, `build-go-all.js`, and godsend-release-keeper `build-win.sh` fetch `fat32format.exe` before packaging so BadAvatar USB works in shipped installers.
+
+## [2.12.18] — 2026-05-26
+
+### Added
+- **BadAvatar USB tool** — new Toolbox entry that formats a FAT32 USB (optional, on by default) and installs BadUpdate BadAvatar payload files from [BadStick](https://github.com/LxcyDr0p/BadStick) release packages. Optional Proto, FreestyleDash, and Aurora (XeUnshackle build) are included by default; overwrite-existing and skip-format toggles are also on by default. Backed by `badAvatarUsbService`, `tools:badavatar-*` IPC channels, and `BadAvatarUsbPage` in the renderer.
+
+## [2.12.17] — 2026-05-26
+
+### Added
+- **Back up all profiles and saves** — new Settings → Save Game Backup button bulk-pulls every profile package (`/Content/<XUID>/FFFE07D1/00010000/<XUID>`) and every per-game save (content type `00000001`) from the connected Xbox into the local backup folder. Backed by new `saves.BackupAllProfiles` service, `POST /saves/backup-all` HTTP route, and `saves:backup-all` IPC channel. Per-title game names are resolved via the existing `services.LookupTitleName` chain (XboxUnity → XboxDB → embedded iso2god-rs list); failures are collected per profile/title rather than aborting the whole run.
+
+### Changed
+- **Save backup folder layout is now profile-first** — downloads are written to `<localDir>/Saves/<gamertag> (<XUID>)/<gameName> - <titleID>/<files>` (was `<localDir>/Saves/<gameName> - <titleID>/<XUID>/<files>`). One folder per gamertag means the bulk-backup flow groups all of a profile's saves together, and matches how users actually think about save data. The profile STFS package itself lands at `<localDir>/Saves/<gamertag> (<XUID>)/Profile/<XUID>`. Profile names with filesystem-unsafe characters (`/\:*?"<>|`) are sanitised.
+
+## [2.12.16] — 2026-05-26
+
+### Changed
+- **Profile gamertag extraction is now authoritative** — `saves.ResolveProfileName` previously scanned the account STFS package for the first plausible-looking ASCII run, which misidentified or missed gamertags on many real profiles. (On a real test profile the old heuristic returned `m|5=pb6` — actually three SHA-1 hash bytes that happened to land in the printable ASCII range.) The new path walks the STFS file table (with header rounded up to the next 0x1000 boundary, accounting for L1/L2 hash tables), locates the embedded `Account` blob, derives an RC4 key via `HMAC-SHA1(RETAIL_KEY, file[0:0x10])`, decrypts the 0x184 payload, skips the 8-byte confounder + 8-byte flags, and reads the UTF-16BE gamertag at decrypted offset `0x10` (length 0x20). Matches the algorithm used by Velocity (`hetelek/Velocity`) and py360 (`arkem/py360`). Both retail and devkit keys are tried; the ASCII-scan heuristic is kept as a last-resort fallback, and `CON ` magic is now accepted alongside `PIRS`/`LIVE`. Verified end-to-end against a live Xbox profile — gamertag resolves correctly.
+
+## [2.12.15] — 2026-05-26
+
+### Added
+- **Save games management** — new backend service (`saves.Service`), HTTP routes (`/saves/discover`, `/saves/list`, `/saves/download`, `/saves/delete`), and frontend `SaveGamesSection` component. Users can now list, download (backup to local), and delete per-game save files from the Xbox console, grouped by profile ID.
+
+### Changed
+- **Collapsible game detail sections** — Library Database, Asset Editor, Move to Drive, and DLC & Title Updates sections now use a reusable `DetailSection` wrapper with Radix UI Collapsible. Each section lazy-loads its content on first expand, reducing initial page weight.
+- **UI design overhaul** — applied OLED dark theme (`#020617` background, `#22C55E` green accent), Orbitron headings and JetBrains Mono body font via Google Fonts, smooth CSS transition tokens, and improved interaction states (cursor-pointer, focus-visible rings, hover transitions) across the app. MainNav now highlights the active page with a green accent ring.
+
 ## [2.12.14] — 2026-05-26
 
 ### Fixed

@@ -39,6 +39,15 @@ func (d *Deps) NewRouter() *stdhttp.ServeMux {
 	mux.HandleFunc("/data/status", d.wrap(d.handleDataStatus))
 	mux.HandleFunc("/data/clear", d.wrap(d.handleDataClear))
 
+	// Save game endpoints
+	mux.HandleFunc("/saves/discover", d.wrap(d.handleSavesDiscover))
+	mux.HandleFunc("/saves/list", d.wrap(d.handleSavesList))
+	mux.HandleFunc("/saves/download", d.wrap(d.handleSavesDownload))
+	mux.HandleFunc("/saves/delete", d.wrap(d.handleSavesDelete))
+	mux.HandleFunc("/saves/copy", d.wrap(d.handleSavesCopy))
+	mux.HandleFunc("/saves/backup-all", d.wrap(d.handleSavesBackupAll))
+	mux.HandleFunc("/saves/keyvault-status", d.wrap(d.handleSavesKeyvaultStatus))
+
 	// Server config
 	mux.HandleFunc("/config", d.wrap(d.handleServerConfig))
 

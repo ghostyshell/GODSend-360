@@ -290,6 +290,16 @@ func (a *App) SetupPaths() error {
 	if err := os.MkdirAll(a.TransferDir, 0755); err != nil {
 		return err
 	}
+
+	a.SaveBackupDir = a.TransferDir // default: same as transfer folder
+	if v := strings.TrimSpace(os.Getenv("GODSEND_SAVE_BACKUP")); v != "" {
+		abs, err := filepath.Abs(v)
+		if err != nil {
+			return fmt.Errorf("GODSEND_SAVE_BACKUP: %w", err)
+		}
+		a.SaveBackupDir = abs
+		a.Logf("[INFO] Save backup folder (GODSEND_SAVE_BACKUP): %s", a.SaveBackupDir)
+	}
 	a.ServerPort = Port
 	if v := strings.TrimSpace(os.Getenv("GODSEND_PORT")); v != "" {
 		n, err := strconv.Atoi(v)
