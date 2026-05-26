@@ -42,12 +42,12 @@ Download the build for your platform:
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.19.exe`](https://gofile.io/d/BprWtJ) | [`godsend-Setup-2.12.19.exe`](https://file.kiwi/fda5a410#F6FNU8JBl56Yvd2EtVmMRQ) |
-| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.19.exe`](https://gofile.io/d/bGnt7I) | [`godsend-Portable-2.12.19.exe`](https://file.kiwi/4d280d07#4BK_olrsC9GVOlDjjzLD1Q) |
+| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.22.exe`](https://gofile.io/d/0pbDI9) | [`godsend-Setup-2.12.22.exe`](https://file.kiwi/9c1aa92b#yVqU5SikKHXH3VOPoaV_2w) |
+| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.22.exe`](https://gofile.io/d/ZNxKge) | [`godsend-Portable-2.12.22.exe`](https://file.kiwi/baf798e8#MhNcvkWJIbm8SyhYZVfnFw) |
 | **macOS (Apple Silicon)** | [`godsend-2.12.19-arm64.dmg`](https://gofile.io/d/sPHoOP) | [`godsend-2.12.19-arm64.dmg`](https://file.kiwi/8341880e#riZeZVtPKNFd1DYVhozqmQ) |
 | **macOS (Intel)** | [`godsend-2.12.19-x64.dmg`](https://gofile.io/d/Kw24ID) | [`godsend-2.12.19-x64.dmg`](https://file.kiwi/d3630c2f#CmuUA4TP3PFVz_4gANN1Jw) |
-| **Linux (x64 / amd64)** | [`godsend-2.12.19-x86_64.AppImage`](https://gofile.io/d/Qj7Ooy) | [`godsend-2.12.19-x86_64.AppImage`](https://file.kiwi/f7544c1e#_9pwG0ce3SSwjMbsIUpznA) |
-| **Linux (arm64)** | [`godsend-2.12.19-arm64.AppImage`](https://gofile.io/d/nHpxte) | [`godsend-2.12.19-arm64.AppImage`](https://file.kiwi/d180a061#3Md8wKlcE3K4wgSGFYXMTQ) |
+| **Linux (x64 / amd64)** | [`godsend-2.12.22-x86_64.AppImage`](https://gofile.io/d/jzRbhx) | [`godsend-2.12.22-x86_64.AppImage`](https://file.kiwi/7c024762#HBnvhHfPWWM1x9mMybgElQ) |
+| **Linux (arm64)** | [`godsend-2.12.22-arm64.AppImage`](https://gofile.io/d/19WuY1) | [`godsend-2.12.22-arm64.AppImage`](https://file.kiwi/ca571a33#mGVJhK-h-Ax91lKAsK3Mlw) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
