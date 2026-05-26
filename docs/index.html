@@ -49,32 +49,34 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
 
-  <!-- Tailwind CDN (Play CDN, single-file deploy) -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms,typography" defer></script>
+  <!-- Tailwind Play CDN — config MUST be set before the CDN script loads.
+       (Tailwind reads `window.tailwind.config` when its script executes.) -->
   <script>
-    window.tailwind = window.tailwind || {};
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            ink:    { 950: '#020617', 900: '#0B1120', 800: '#0F172A', 700: '#1E293B' },
-            line:   '#1F2937',
-            neon:   { green: '#22C55E', magenta: '#A855F7', cyan: '#22D3EE', red: '#F43F5E' },
-          },
-          fontFamily: {
-            display: ['"Russo One"', 'system-ui', 'sans-serif'],
-            body:    ['"Chakra Petch"', 'system-ui', 'sans-serif'],
-            mono:    ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-          },
-          boxShadow: {
-            'neon-green':   '0 0 0 1px rgba(34,197,94,0.35), 0 0 24px rgba(34,197,94,0.25)',
-            'neon-magenta': '0 0 0 1px rgba(168,85,247,0.35), 0 0 28px rgba(168,85,247,0.25)',
+    window.tailwind = {
+      config: {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              ink:  { 950: '#020617', 900: '#0B1120', 800: '#0F172A', 700: '#1E293B' },
+              line: '#1F2937',
+              neon: { green: '#22C55E', magenta: '#A855F7', cyan: '#22D3EE', red: '#F43F5E' },
+            },
+            fontFamily: {
+              display: ['"Russo One"', 'system-ui', 'sans-serif'],
+              body:    ['"Chakra Petch"', 'system-ui', 'sans-serif'],
+              mono:    ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+            },
+            boxShadow: {
+              'neon-green':   '0 0 0 1px rgba(34,197,94,0.35), 0 0 24px rgba(34,197,94,0.25)',
+              'neon-magenta': '0 0 0 1px rgba(168,85,247,0.35), 0 0 28px rgba(168,85,247,0.25)',
+            },
           },
         },
       },
     };
   </script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
 
   <!-- JSON-LD: SoftwareApplication -->
   <script type="application/ld+json">
@@ -227,7 +229,7 @@
   <header class="sticky top-0 z-40 backdrop-blur bg-ink-950/70 border-b border-white/5">
     <nav aria-label="Primary" class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
       <a href="#" class="flex items-center gap-3 group">
-        <span aria-hidden="true" class="inline-flex w-9 h-9 rounded-md bg-gradient-to-br from-neon-green to-neon-magenta items-center justify-center font-display text-ink-950 text-sm">G3</span>
+        <img src="/GODSend-360/site/icon.png" alt="" width="36" height="36" class="w-9 h-9" decoding="async" />
         <span class="font-display tracking-wider text-lg">GODsend <span class="neon-green">360</span></span>
       </a>
       <ul class="hidden md:flex items-center gap-7 text-sm">
@@ -696,7 +698,7 @@
     <div class="max-w-7xl mx-auto px-5 md:px-8 py-12 grid md:grid-cols-4 gap-8 text-sm">
       <div class="md:col-span-2">
         <div class="flex items-center gap-3">
-          <span aria-hidden="true" class="inline-flex w-9 h-9 rounded-md bg-gradient-to-br from-neon-green to-neon-magenta items-center justify-center font-display text-ink-950 text-sm">G3</span>
+          <img src="/GODSend-360/site/icon.png" alt="" width="36" height="36" class="w-9 h-9" loading="lazy" decoding="async" />
           <span class="font-display tracking-wider text-lg">GODsend <span class="neon-green">360</span></span>
         </div>
         <p class="mt-3 text-slate-400 max-w-md">Open-source Xbox 360 game manager for Aurora. Convert, install, patch, and back up — from one window, on the OS you actually use.</p>
