@@ -300,35 +300,21 @@
             </dl>
           </div>
 
-          <!-- Mock screenshot frame -->
+          <!-- Hero screenshot: real Browse & Download view -->
           <div class="lg:col-span-5">
             <figure class="relative mock-frame rounded-xl border border-white/10 shadow-2xl shadow-neon-magenta/10 overflow-hidden" aria-labelledby="hero-mock-cap">
               <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
                 <span class="mock-dot bg-rose-500/80"></span>
                 <span class="mock-dot bg-amber-400/80"></span>
                 <span class="mock-dot bg-emerald-400/80"></span>
-                <span class="ml-3 font-mono text-xs text-slate-400">godsend://library</span>
+                <span class="ml-3 font-mono text-xs text-slate-400">godsend://browse · Minerva · 4,446 titles</span>
               </div>
-              <div class="p-5 space-y-3 text-xs font-mono">
-                <div class="flex justify-between text-slate-400">
-                  <span>Aurora · Hdd1</span>
-                  <span class="text-neon-green">● Connected · 192.168.1.42</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-emerald-700/40 to-emerald-900/60 border border-emerald-500/20"></div>
-                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-fuchsia-700/40 to-purple-900/60 border border-fuchsia-500/20"></div>
-                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-sky-700/40 to-indigo-900/60 border border-sky-500/20"></div>
-                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-amber-700/40 to-orange-900/60 border border-amber-500/20"></div>
-                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-rose-700/40 to-red-900/60 border border-rose-500/20"></div>
-                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-teal-700/40 to-cyan-900/60 border border-teal-500/20"></div>
-                </div>
-                <div class="pt-3 border-t border-white/5 space-y-1">
-                  <div class="flex justify-between"><span class="text-slate-400">Halo 3</span><span class="text-neon-green">GOD · ready</span></div>
-                  <div class="flex justify-between"><span class="text-slate-400">Skyrim — TU 9</span><span class="text-neon-magenta">FTP 64%</span></div>
-                  <div class="flex justify-between"><span class="text-slate-400">RDR — Undead Nightmare</span><span class="text-slate-500">queued</span></div>
-                </div>
-              </div>
-              <figcaption id="hero-mock-cap" class="sr-only">Library view showing connected console, cover-art grid, and queue status.</figcaption>
+              <img src="/GODSend-360/site/screens/03-browse-store.png"
+                   alt="GODsend 360 Browse & Download view — Minerva Archive selected, Xbox 360 platform filter active, list of 4,446 titles ready to install"
+                   width="1440" height="900"
+                   class="w-full h-auto"
+                   loading="eager" decoding="async" fetchpriority="high" />
+              <figcaption id="hero-mock-cap" class="sr-only">Browse &amp; Download page showing the Minerva Archive Xbox 360 library — 4,446 titles, filter bar, and library tabs.</figcaption>
             </figure>
           </div>
         </div>
@@ -479,95 +465,68 @@
       <header class="max-w-3xl">
         <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80">Inside the app</p>
         <h2 id="shots-title" class="font-display text-3xl md:text-5xl mt-3">Built for people who already know what FTP is.</h2>
-        <p class="mt-4 text-slate-300">Five surfaces, all on the same backend. Tools open as overlay panels so you never lose your place in the Library.</p>
+        <p class="mt-4 text-slate-300">Real screenshots, captured straight out of the app via Playwright — no mockups, no marketing renders.</p>
       </header>
 
       <div class="mt-12 grid lg:grid-cols-2 gap-5">
-        <!-- Shot 1: Library -->
+        <!-- Shot 1: Browse & Download -->
         <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
           <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
             <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
-            <span class="ml-3 font-mono text-xs text-slate-400">Library · 248 games · Hdd1 + Usb0</span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Browse &amp; Download · Minerva · Xbox 360</span>
           </div>
-          <div class="p-5">
-            <div class="grid grid-cols-6 gap-2">
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-emerald-700/40 to-emerald-900/60 border border-emerald-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-fuchsia-700/40 to-purple-900/60 border border-fuchsia-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-sky-700/40 to-indigo-900/60 border border-sky-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-amber-700/40 to-orange-900/60 border border-amber-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-rose-700/40 to-red-900/60 border border-rose-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-teal-700/40 to-cyan-900/60 border border-teal-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-lime-700/40 to-emerald-900/60 border border-lime-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-violet-700/40 to-fuchsia-900/60 border border-violet-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-cyan-700/40 to-blue-900/60 border border-cyan-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-orange-700/40 to-rose-900/60 border border-orange-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-pink-700/40 to-red-900/60 border border-pink-500/20"></div>
-              <div class="aspect-[3/4] rounded bg-gradient-to-br from-green-700/40 to-teal-900/60 border border-green-500/20"></div>
-            </div>
-          </div>
-          <figcaption class="px-5 pb-5 text-sm text-slate-400"><strong class="font-display text-slate-100">Xbox Library</strong> — live cover-art grid; sort by name, rating, last played, drive, or favourites.</figcaption>
+          <img src="/GODSend-360/site/screens/03-browse-store.png"
+               alt="Browse & Download view: Minerva Archive selected, library tabs (Xbox 360, Original Xbox, XBLA, Digital, DLC, Indie, Games Archive), filter bar above 4,446 listed titles."
+               width="1440" height="900"
+               class="w-full h-auto block"
+               loading="lazy" decoding="async" />
+          <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">Browse &amp; install</strong> — Minerva first, Internet Archive as a fallback, local ISOs auto-detected.</figcaption>
         </figure>
-        <!-- Shot 2: Queue / pipeline -->
+
+        <!-- Shot 2: BadAvatar USB -->
         <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
           <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
             <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
-            <span class="ml-3 font-mono text-xs text-slate-400">Job Queue · 3 active</span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Toolbox · BadAvatar USB</span>
           </div>
-          <div class="p-5 space-y-3 text-sm">
-            <div class="border border-white/10 rounded-md p-3">
-              <div class="flex justify-between text-xs font-mono text-slate-400 mb-1"><span>Skyrim — Title Update 9</span><span class="text-neon-magenta">FTP · 64%</span></div>
-              <div class="h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-neon-magenta" style="width:64%"></div></div>
-              <p class="text-xs text-slate-500 mt-2 font-mono">14.2 MB/s · TU9.bin → Hdd1:\Content\…\000B0000\</p>
-            </div>
-            <div class="border border-white/10 rounded-md p-3">
-              <div class="flex justify-between text-xs font-mono text-slate-400 mb-1"><span>Red Dead Redemption — Undead Nightmare</span><span class="text-neon-green">Convert · 92%</span></div>
-              <div class="h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-neon-green" style="width:92%"></div></div>
-              <p class="text-xs text-slate-500 mt-2 font-mono">ISO → GOD · finalising header</p>
-            </div>
-            <div class="border border-white/10 rounded-md p-3">
-              <div class="flex justify-between text-xs font-mono text-slate-400 mb-1"><span>Halo 3</span><span class="text-slate-400">Queued</span></div>
-              <div class="h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-white/30" style="width:8%"></div></div>
-            </div>
-          </div>
-          <figcaption class="px-5 pb-5 text-sm text-slate-400"><strong class="font-display text-slate-100">Unified Job Queue</strong> — backend pipeline + FTP jobs merged into one view.</figcaption>
+          <img src="/GODSend-360/site/screens/06-badavatar-usb.png"
+               alt="BadAvatar USB tool: FAT32 USB drive picker, setup options (Format USB, Overwrite existing files), optional packages (Proto, FreestyleDash, Aurora XeUnshackle), and Create BadAvatar USB button."
+               width="1440" height="900"
+               class="w-full h-auto block"
+               loading="lazy" decoding="async" />
+          <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">BadAvatar USB</strong> — format the drive (including large volumes) and stage the BadStick payload in one flow.</figcaption>
         </figure>
-        <!-- Shot 3: DLC / TU -->
+
+        <!-- Shot 3: ISO to GOD -->
         <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
           <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
             <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
-            <span class="ml-3 font-mono text-xs text-slate-400">Borderlands 2 · DLC &amp; Title Updates</span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Toolbox · ISO to GOD</span>
           </div>
-          <div class="p-5 text-sm space-y-2">
-            <div class="flex justify-between p-2 rounded bg-emerald-500/5 border border-emerald-500/20"><span>TU9 <span class="text-xs text-slate-500 font-mono">active</span></span><span class="text-neon-green font-mono">installed</span></div>
-            <div class="flex justify-between p-2 rounded border border-white/10"><span>TU8</span><span class="text-slate-500 font-mono">.disabled</span></div>
-            <div class="flex justify-between p-2 rounded border border-white/10"><span>Captain Scarlett DLC</span><span class="font-mono text-neon-magenta">XboxUnity</span></div>
-            <div class="flex justify-between p-2 rounded border border-white/10"><span>Mr. Torgue's Campaign</span><span class="font-mono" style="color:#22D3EE">Minerva</span></div>
-            <div class="flex justify-between p-2 rounded border border-white/10"><span>Tiny Tina's Assault</span><span class="font-mono text-slate-400">Internet Archive</span></div>
-          </div>
-          <figcaption class="px-5 pb-5 text-sm text-slate-400"><strong class="font-display text-slate-100">DLC &amp; Title Updates</strong> — Minerva, IA, and XboxUnity merged with what's already on disk.</figcaption>
+          <img src="/GODSend-360/site/screens/04-iso-to-god.png"
+               alt="ISO to GOD converter: Add ISOs and Output Folder pickers, empty state prompting the user to choose Xbox 360 disc images, and the Convert action ready to fire."
+               width="1440" height="900"
+               class="w-full h-auto block"
+               loading="lazy" decoding="async" />
+          <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">ISO → GOD</strong> — pure-Go converter, no external tools. Title names and IDs resolve automatically.</figcaption>
         </figure>
-        <!-- Shot 4: Saves -->
+
+        <!-- Shot 4: FTP Manager -->
         <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
           <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
             <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
-            <span class="ml-3 font-mono text-xs text-slate-400">Settings · Save Game Backup</span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Toolbox · FTP Manager</span>
           </div>
-          <div class="p-5 text-sm space-y-3">
-            <div class="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3">
-              <p class="font-display text-neon-green">Backing up 4 profiles · 312 saves</p>
-              <div class="h-1.5 rounded-full bg-white/10 overflow-hidden mt-3"><div class="h-full bg-neon-green" style="width:78%"></div></div>
-              <p class="text-xs text-slate-400 mt-2 font-mono">GhostlyShell (E0001CFA…) · Halo 3 · Save0001 → /Saves/GhostlyShell (E…)/Halo 3 — 4D5307E6/</p>
-            </div>
-            <ul class="text-xs font-mono text-slate-400 space-y-1">
-              <li>● GhostlyShell · 109 saves · 412 MB</li>
-              <li>● PlayerTwo · 78 saves · 287 MB</li>
-              <li>● smol_gamer · 64 saves · 198 MB</li>
-              <li>● dev_acct · 61 saves · 174 MB</li>
-            </ul>
-          </div>
-          <figcaption class="px-5 pb-5 text-sm text-slate-400"><strong class="font-display text-slate-100">Save Game Backup</strong> — every profile, every save, organised by gamertag.</figcaption>
+          <img src="/GODSend-360/site/screens/07-ftp-manager.png"
+               alt="FTP Manager: file browser with Upload Files, Upload Folder, New Folder, Cut, Copy, and Paste actions, plus a live Transfers panel on the right."
+               width="1440" height="900"
+               class="w-full h-auto block"
+               loading="lazy" decoding="async" />
+          <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">FTP Manager</strong> — browse, cut/copy/paste, upload, rename. No external FTP client needed.</figcaption>
         </figure>
       </div>
+
+      <p class="mt-8 text-xs text-slate-500 font-mono text-center">Library, DLC &amp; Title Updates, Job Queue, and Save Backup views require a connected Xbox to capture meaningfully — see the <a href="#features" class="text-neon-green hover:underline">feature list</a> for details.</p>
     </section>
 
     <!-- DOWNLOADS -->
@@ -718,6 +677,7 @@
           <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/docs/api-reference.md">HTTP API</a></li>
           <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/docs/headless-setup.md">Headless setup</a></li>
           <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/docs/reference/aurora.md">Aurora Lua API</a></li>
+          <li><a class="hover:text-neon-green transition" href="/GODSend-360/privacy.html">Privacy Policy</a></li>
           <li><a class="hover:text-neon-green transition" rel="noopener" href="https://ko-fi.com/ghosty99">Support on Ko-fi</a></li>
         </ul>
       </div>
@@ -725,7 +685,7 @@
     <div class="border-t border-white/5">
       <div class="max-w-7xl mx-auto px-5 md:px-8 py-6 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
         <p>© <span id="year">2026</span> ghosty99. GODsend 360 is community software with no affiliation to Microsoft, Aurora, Minerva Archive, or Internet Archive.</p>
-        <p class="font-mono">v2.12.19 · static · zero telemetry</p>
+        <p class="font-mono"><a href="/GODSend-360/privacy.html" class="hover:text-neon-green transition">Privacy</a> · v2.12.19 · static · zero telemetry</p>
       </div>
     </div>
   </footer>
