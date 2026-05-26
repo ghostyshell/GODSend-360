@@ -67,3 +67,14 @@ if (process.platform !== "win32") {
 }
 console.log("\n[build-go-all] dist/godsend-mac <- darwin/arm64 (use build:server:mac for Intel default)");
 
+// Magic-byte verification: catch the "wrong GOOS" class of bug at build
+// time instead of at user install time (spawn UNKNOWN on Windows).
+{
+  const verify = path.join(__dirname, "verify-go-binaries.js");
+  const r = spawnSync(process.execPath, [verify, "all"], { stdio: "inherit", cwd: root, env: process.env });
+  if (r.status !== 0) {
+    console.error("[build-go-all] binary verification FAILED — refusing to ship a build with wrong-OS executables");
+    process.exit(r.status ?? 1);
+  }
+}
+
