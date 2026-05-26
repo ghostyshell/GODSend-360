@@ -22,23 +22,33 @@ Single-file static landing page for [GODsend-360](https://github.com/ghostyshell
 - Skip-link `Skip to content` for keyboard users.
 - `aria-label`s on icon-only SVGs; `aria-hidden` on decorative ones.
 
+## Layout
+- `docs/index.html` — landing page (GitHub Pages serves this at the root URL).
+- `docs/site/` — all supporting assets:
+  - `favicon.svg`, `og-image.svg`
+  - `robots.txt`, `sitemap.xml`
+  - `site.webmanifest`
+  - this `README.md`
+
+The split exists because GitHub Pages can only deploy from `/` or `/docs`. Putting the page at `docs/index.html` is what makes Pages publish it; keeping the assets inside `docs/site/` keeps the marketing files isolated from the technical reference docs (`docs/features.md`, `docs/api-reference.md`, etc.).
+
 ## Local preview
 ```bash
-cd site
+cd docs
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
 ## Deploy (GitHub Pages)
-- **Settings → Pages → Source: Deploy from a branch**, branch `main`, folder `/site`.
-- The site will publish to `https://ghostyshell.github.io/GODSend-360/`.
-- All canonical / OG / sitemap URLs in `index.html` already point there.
-- To switch to a custom domain, search-and-replace `ghostyshell.github.io/GODSend-360` → your domain.
+- **Settings → Pages → Source: Deploy from a branch**, branch `main`, folder `/docs`.
+- The site publishes to `https://ghostyshell.github.io/GODSend-360/`.
+- All canonical / OG / sitemap / manifest URLs in `index.html` already point there.
+- To switch to a custom domain, search-and-replace `ghostyshell.github.io/GODSend-360` → your domain in `index.html` and `docs/site/{robots.txt,sitemap.xml,site.webmanifest}`.
 
 ## Updating
-When a release ships, update three things in `index.html`:
+When a release ships, update three things in `docs/index.html`:
 1. Version string in the JSON-LD `softwareVersion`, hero version pill, and footer.
 2. Filenames in the Downloads section.
 3. The hero stats (libraries, etc.) if those have shifted.
 
-`sitemap.xml` `<lastmod>` should be bumped on any non-trivial copy change.
+`docs/site/sitemap.xml` `<lastmod>` should be bumped on any non-trivial copy change.
