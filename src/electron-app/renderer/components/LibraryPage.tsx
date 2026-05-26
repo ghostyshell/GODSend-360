@@ -1666,7 +1666,7 @@ function SaveGamesSection({ game, visible = true }: SaveGamesSectionProps) {
                     >
                       <option value="">Copy to…</option>
                       {allConsoleProfiles.filter(p => p.profile_id !== profile.profile_id).map(p => (
-                        <option key={p.profile_id} value={p.profile_id}>{displayName(p.profile_id)}</option>
+                        <option key={p.profile_id} value={p.profile_id}>{displayNameForProfile(p)}</option>
                       ))}
                     </select>
                     <button

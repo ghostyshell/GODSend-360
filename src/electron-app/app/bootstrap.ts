@@ -1,8 +1,47 @@
-import { app, ipcMain, protocol, net } from "electron";
+import { app, ipcMain, protocol, net, dialog } from "electron";
 import { pathToFileURL } from "url";
 import fs from "fs";
 
 import { appendAppEvent, getLogInfo } from "../infrastructure/serverLog";
+
+// Catch otherwise-fatal errors in the main process, log them to the daily
+// log file, and show the user where to find it. Without this the user just
+// sees Electron's generic "A JavaScript error occurred in the main process"
+// dialog with a stack we can't recover after the fact.
+function installCrashLogging(): void {
+  const log = (kind: string, err: unknown) => {
+    const stack =
+      err && typeof err === "object" && "stack" in (err as any)
+        ? String((err as any).stack)
+        : String(err);
+    try {
+      appendAppEvent("FATAL", `${kind}: ${stack}`);
+    } catch {
+      /* logging itself failed — fall through to dialog */
+    }
+  };
+
+  process.on("uncaughtException", (err) => {
+    log("uncaughtException", err);
+    try {
+      const logFile = getLogInfo().currentLogFile;
+      dialog.showErrorBox(
+        "GODsend crashed",
+        `An error occurred in the main process. The full stack trace was written to:\n\n${logFile}\n\n${
+          (err as any)?.message || err
+        }`,
+      );
+    } catch {
+      /* dialog may be unavailable pre-ready; default Electron dialog will show */
+    }
+  });
+
+  process.on("unhandledRejection", (reason) => {
+    log("unhandledRejection", reason);
+  });
+}
+
+installCrashLogging();
 import { safeFileUnderRoot, getActiveAuroraCacheRoot } from "../infrastructure/auroraLibraryCache";
 import { createTray } from "../infrastructure/electronTray";
 import {
