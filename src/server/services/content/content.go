@@ -343,15 +343,46 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 					Active:      active,
 					Source:      item.Source,
 					SourceURL:   item.SourceURL,
+					Drive:       driveClean,
 				}
 				tus = append(tus, tuItem)
 				s.App.Logf("CONTENT SCAN: added TU %s (%s, active=%v, file=%s)", tuItem.DisplayName, tuItem.ContentType, tuItem.Active, tuItem.FileName)
 			}
 		} else if trueCT == "00000002" || trueCT == "00000001" || trueCT == "00009000" {
-			// 00009000 is a non-standard content type seen in some Minerva/No-Intro
-			// DLC archives (e.g. Prototype 2 addon). The file header confirms it.
-			dlcs = append(dlcs, item)
-			s.App.Logf("CONTENT SCAN: added DLC %s (%s)", item.DisplayName, item.ContentType)
+			// One row per DLC file in the folder. Xbox 360 bundles every DLC
+			// for a title into a single 00000002 directory, so picking just
+			// fileNames[0] previously hid all but the first installed file
+			// from the UI. Each row carries its own filename so the renderer
+			// can target deletes / moves precisely.
+			// 00009000 is a non-standard content type seen in some Minerva/
+			// No-Intro DLC archives — the file header confirms it.
+			for _, sf := range subFiles {
+				if sf.Type != goftp.EntryTypeFile {
+					continue
+				}
+				if strings.EqualFold(sf.Name, godsendMarkerName) ||
+					strings.HasPrefix(strings.ToLower(sf.Name), ".godsend") {
+					continue
+				}
+				// Start from the folder-level item (so marker-enriched
+				// display name / source survive) but override per-file
+				// fields. If marker-enrichment didn't fire, fall back to
+				// the generic content-type label.
+				dlcItem := item
+				dlcItem.ContentType = trueCT
+				dlcItem.FileName = sf.Name
+				dlcItem.Size = int64(sf.Size)
+				dlcItem.Active = false
+				dlcItem.Drive = driveClean
+				// If the marker provided a per-file display name, prefer it;
+				// otherwise show the filename so multiple bundled DLCs are
+				// distinguishable.
+				if dlcItem.DisplayName == contentTypeName(ct) || dlcItem.DisplayName == "" {
+					dlcItem.DisplayName = sf.Name
+				}
+				dlcs = append(dlcs, dlcItem)
+				s.App.Logf("CONTENT SCAN: added DLC %s (%s, file=%s)", dlcItem.DisplayName, dlcItem.ContentType, dlcItem.FileName)
+			}
 		} else {
 			s.App.Logf("CONTENT SCAN: ct=%s not DLC/TU, skipping", ct)
 		}
@@ -633,13 +664,12 @@ func (s *Service) containsDLC(list []models.ContentItem, candidate models.Conten
 		if candidate.SourceURL != "" && strings.EqualFold(it.SourceURL, candidate.SourceURL) {
 			return true
 		}
-		// Weak dedup: any installed DLC of the same content type for the same
-		// TitleID is treated as a likely duplicate. Xbox 360 puts all DLC for a
-		// title into a single 00000002 folder, so we cannot distinguish individual
-		// DLCs once installed; prefer not offering a re-download.
-		if it.Installed && it.ContentType == candidate.ContentType && it.TitleID == candidate.TitleID {
-			return true
-		}
+		// (Per-content-type weak dedup intentionally removed: Xbox 360 bundles
+		// every DLC for a title into one 00000002 folder, so the old rule
+		// "any installed DLC of the same content type = duplicate" hid every
+		// Minerva/IA candidate the moment a single DLC was installed. Each
+		// installed file now gets its own row from the scan, so accurate
+		// dedup happens at the filename / display-name / source-url level.)
 	}
 	return false
 }

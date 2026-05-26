@@ -9,7 +9,12 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [2.12.11] — 2026-05-26
+## [2.12.12] — 2026-05-26
+
+### Fixed
+- **Installed DLC no longer hides every Minerva / IA candidate** — `containsDLC` previously contained a "weak" dedup rule: any installed DLC of the same content type for the same TitleID was treated as a duplicate of *every* candidate of that content type. Since Xbox 360 bundles every DLC for a title into a single `00000002` folder, the moment one DLC was installed all 80+ Minerva / IA candidate rows vanished from the game's DLC list, leaving just the single installed row. The weak rule is removed; dedup now happens at the filename / display-name / source-url level.
+- **One row per DLC file in the scan output** — the scan used to pick `fileNames[0]` per `00000002` folder, so a folder with multiple installed DLC files showed only one. It now emits one `ContentItem` per file, mirroring the per-file model already used for Title Updates.
+- **Delete / Move / Make-Active now target the correct drive** — `handleDelete`, `handleMove`, and `handleToggleActive` built the FTP path using `defaultDrive || game.sourceDrive`. When a game lived on `Usb0` but the user's default drive was `Hdd1`, the resulting FTP `DELE` / `RNFR` / `RNFR` ran against the wrong drive and failed with a generic "Unknown error". The scan now records the drive each item lives on (new `Drive` field on `ContentItem`), and the renderer prefers `item.drive`, falling back to `game.sourceDrive`, then `defaultDrive`.
 
 ### Fixed
 - **Silently-dead FTP upload no longer freezes the app** — Aurora's FTP server occasionally drops the data connection mid-transfer without sending FIN/RST. The Go `STOR` call's `Write` to the half-open TCP socket then blocked indefinitely, the upload goroutine never released the per-IP FTP semaphore, and every other FTP op (Aurora library refresh, opening a game's DLC page, cover prefetch) queued behind it forever. `UploadFile` now runs a stall watchdog: if no bytes have moved for 60 s the watchdog closes the FTP control connection, `STOR` returns with an error, and the semaphore is released so the rest of the app keeps working.

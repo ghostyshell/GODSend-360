@@ -14,6 +14,11 @@ type ContentItem struct {
 	Installed     bool   `json:"installed"`
 	Active        bool   `json:"active"`            // for TUs: currently active
 	OfferID       string `json:"offer_id,omitempty"`
+	// Drive is the Xbox drive where an installed item lives (e.g. "Usb0").
+	// Empty for catalog candidates. Lets the renderer build the correct FTP
+	// path for delete / move when the default drive differs from where the
+	// scan actually found the file.
+	Drive         string `json:"drive,omitempty"`
 }
 
 // ContentManifest is what gets returned by discovery endpoints.
