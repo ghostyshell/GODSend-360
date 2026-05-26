@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from "child_process";
+import fs from "fs";
 import { BrowserWindow } from "electron";
 import {
   getGodsendExePath,
@@ -109,11 +110,44 @@ export function startGodsend(): void {
     localIPv4:      getPrimaryIPv4(),
   });
 
-  godsendProcess = spawn(godsendExePath, [], {
-    cwd:         writableRoot,
-    windowsHide: true,
-    env:         childEnv,
-  });
+  // Pre-flight: confirm the backend binary is actually there and readable
+  // before we hand it to spawn(). On Windows, antivirus quarantine yields
+  // `spawn UNKNOWN` (a *synchronous* throw) rather than an ENOENT-style
+  // error event — which used to crash the main process with the generic
+  // "A JavaScript error occurred…" dialog.
+  if (!fs.existsSync(godsendExePath)) {
+    const msg =
+      `[ERROR] Backend binary not found at:\n  ${godsendExePath}\n` +
+      `This usually means the installer didn't ship godsend-backend.exe ` +
+      `next to GODsend.exe. Reinstall, or place the binary there manually.`;
+    addOutputLine(msg);
+    appendAppEvent("BACKEND", `start failed: missing binary at ${godsendExePath}`);
+    appendBackendSessionEnd("missing_binary", null, null);
+    return;
+  }
+
+  try {
+    godsendProcess = spawn(godsendExePath, [], {
+      cwd:         writableRoot,
+      windowsHide: true,
+      env:         childEnv,
+    });
+  } catch (err: any) {
+    const code = err?.code || "UNKNOWN";
+    const hint =
+      process.platform === "win32" && (code === "UNKNOWN" || code === "EACCES")
+        ? `\nThis usually means antivirus (Windows Defender, Avast, Norton, etc.) ` +
+          `quarantined or blocked the backend executable. Whitelist:\n` +
+          `  ${godsendExePath}\n` +
+          `and restart GODsend. The Go binary is unsigned and sometimes ` +
+          `flagged as a false positive.`
+        : "";
+    const msg = `[ERROR] Could not start backend (${code}): ${err?.message || err}${hint}`;
+    addOutputLine(msg);
+    appendAppEvent("BACKEND", `spawn threw ${code}: ${err?.message || err}`);
+    appendBackendSessionEnd("spawn_throw", null, null);
+    return;
+  }
 
   appendAppEvent("BACKEND", `spawned pid=${godsendProcess.pid}`);
 
