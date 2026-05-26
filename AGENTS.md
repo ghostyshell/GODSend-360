@@ -58,12 +58,15 @@ The backend uses a **DDD-style package layout** with an `App` struct for depende
   - `pipeline/ini.go`: `UpdateGameINI_Parts`, `UpdateGameINI_Raw`, `UpdateGameINI_XEX`, `Iso2GodResolveDisplayTitle`, `GodFolderName`.
   - `title_lookup.go`: `LookupTitleName` (XboxUnity → XboxDB → embedded iso2god-rs list).
   - `game_service.go`: `GameService` interface.
+  - `saves/saves.go`, `saves/account.go`: save-game `Service` — FTP-walk profiles + per-title saves, profile-package STFS parsing, `Account` blob RC4 decrypt, gamertag extraction (retail + devkit keys), `BackupAllProfiles` bulk pull. Backup folder layout `Saves/<gamertag> (<XUID>)/<gameName> - <titleID>/<files>`.
 
 #### `interfaces/http/` — HTTP delivery layer
   - `middleware.go`: `Deps` struct (holds `*app.App` + service references), `jsonError`, `jsonSuccess`, `RecoverMiddleware`.
-  - `handlers.go`: all main HTTP handlers as methods on `*Deps` (browse, cache, trigger, status, queue, register, debug, file serving, range parsing, etc.).
-  - `handlers_rxea.go`: `/rxea/decode` and `/rxea/encode` handlers.
+  - `handlers.go`: all main HTTP handlers as methods on `*Deps` (browse, cache, trigger, status, queue, register, debug, file serving, range parsing, `/disc-info`, etc.).
+  - `handlers_rxea.go`: `/rxea/decode`, `/rxea/encode`, `/rxea/encode-multi` handlers.
   - `handlers_tools.go`: `/tools/probe-iso`, `/tools/iso2god`, `/tools/iso2xex` handlers.
+  - `handlers_content.go`: `/content/discover`, `/content/tu`, `/content/installed`, `/content/queue`, `/content/sources`, `/content/set-active` — DLC / Title Update management.
+  - `handlers_saves.go`: `/saves/discover`, `/saves/list`, `/saves/download`, `/saves/delete`, `/saves/copy`, `/saves/backup-all`, `/saves/keyvault-status`.
   - `router.go`: `NewRouter()` — registers all routes on `*http.ServeMux`.
 
 #### `utils/` (`package utils`)
@@ -103,13 +106,17 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
   - `services/auroraPathHelper.ts`: derives and caches the Aurora install root from the configured FTP scripts path; `discoverAuroraRoot` probes common locations.
   - `services/coverArtService.ts`: multi-source cover art fetching (XboxUnity, Xbox CDN, Microsoft Store autosuggest, Wikipedia); in-memory `browseCoverCache`.
   - `services/autoSyncService.ts`: post-FTP automation — `autoUploadAuroraAssets` and `doAuroraLibrarySync`.
+  - `services/badAvatarUsbService.ts`: BadAvatar USB build orchestrator — optional FAT32 format step + BadStick payload (Proto / FreestyleDash / Aurora XeUnshackle) install with per-file progress.
 - **IPC handlers (`ipc/`)**
-  - `configHandlers.ts`: startup, logs, transfer folder, server port, IA auth, ROM path, cache refresh, Xbox connection, default drive, aria2 ports, Aurora library sources.
+  - `configHandlers.ts`: startup, logs, transfer folder, server port, IA auth, ROM path, cache refresh, Xbox connection, default drive, aria2 ports, Aurora library sources, save-backup folder.
   - `xboxFtpHandlers.ts`: ping, verbose FTP test, port scanner, Aurora scripts upload, drive listing, game listing, cover fetch.
   - `auroraLibraryHandlers.ts`: Aurora library sync (DB fingerprint caching), cover + visual asset sync, disk-cache visual refresh.
   - `auroraAssetHandlers.ts`: asset search (XboxUnity + CDN), image fetch, file picker, console upload, RXEA decode/encode, Aurora game inspector.
   - `browseHandlers.ts`: game list, queue game, disc info, browse cover art, download queue.
   - `toolsHandlers.ts`: ISO probe/convert, FTP Manager (list, upload queue, delete, mkdir, rename, copy), game drive move.
+  - `contentHandlers.ts`: DLC / Title Update discovery (`content:discover`, `content:title-updates`, `content:installed`, `content:sources`), install queue (`content:queue`), active-TU toggle (`content:set-active`).
+  - `saveHandlers.ts`: profile + save game ops (`saves:discover`, `saves:list`, `saves:download`, `saves:delete`, `saves:copy`, `saves:backup-all`, `saves:keyvault-status`).
+  - `badAvatarHandlers.ts`: BadAvatar USB tool (`tools:badavatar-list-drives`, `tools:badavatar-is-admin`, `tools:badavatar-create`, `tools:badavatar-progress`).
 - **Infrastructure (platform concerns)**
   - `infrastructure/fileSystem.ts`: canonical install/runtime root detection, directory creation, cache/Temp/Transfer/Ready layout, Aurora scripts path, icon resolution.
   - `infrastructure/electronTray.ts`: tray icon creation, context menu wiring.
@@ -118,12 +125,14 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
   - `infrastructure/serverLog.ts`: session-structured log file appender for backend stdout/stderr and app events.
   - `infrastructure/auroraLibraryCache.ts`: local Aurora DB cache layout, meta read/write, safe path helper.
   - `infrastructure/sqlHelper.ts`: sql.js wrapper (`getSqlJs`, `sqlRows`, `filetimeToDateStr`).
+  - `infrastructure/fat32Format.ts`: cross-platform FAT32 format for large USB volumes — bundled Ridgecrop `fat32format.exe` on Windows (fetched by `scripts/download-fat32format.js` → `dist/tools/` at build time), `newfs_msdos` / `diskutil` on macOS, `mkfs.vfat` / `mkfs.fat` on Linux.
 - **Renderer bridge**
   - `preload.ts`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`).
   - React renderer (`renderer/`): `App.jsx` (routing, queue polling every 5 s), page components `HomePage`, `SettingsPage`, `LibraryPage`, `QueuePage`.
 - **Build scripts**
   - `scripts/sync-assets-icon.js`: pre-build script to normalise tray/icon artwork.
   - `scripts/after-pack-win-icon.js`: `electron-builder` `afterPack` hook for embedding the icon.
+  - `scripts/download-fat32format.js`: fetches Ridgecrop `fat32format.exe` into `dist/tools/` for Windows builds (BadAvatar USB large-volume formatter). Run from `build:server`, `build-go-all.js`, and godsend-release-keeper `build-win.sh` before packaging.
 - **TypeScript compilation**
   - `tsconfig.json`: `"module": "commonjs"`, `"strict": false`, no `outDir` (in-place compilation).
   - Build commands (`npm run build:win` etc.) run `tsc` before electron-builder; `npm run tsc` compiles only.

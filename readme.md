@@ -117,7 +117,7 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 Minerva Archive (BitTorrent, no account), Internet Archive (chunked parallel HTTP, optional), local ISOs, XBLA, DLC, XBLIG, Game Archives, Retro ROMs (62 systems via EdgeEmu), multi-disc support, GOD/XEX/content install layouts, FTP transfer with persistent retry, server queue management, and persistent logging.
 
-The desktop app adds an **Xbox Library** (live view of games on your console with cover art, sorting, filtering, and move-to-drive), an **FTP Manager** (full file browser with cut/copy/paste/delete/rename/mkdir), an **Aurora Asset Editor** (search, preview, and upload cover/background/banner/icon artwork via RXEA or XboxUnity), **ISO to GOD and ISO to XEX** conversion tools, a **Job Queue** (unified game pipeline + FTP jobs), and **overlay navigation** so tools open as panels without leaving the current page.
+The desktop app adds an **Xbox Library** (live view of games on your console with cover art, sorting, filtering, and move-to-drive), **DLC & Title Updates management** (browse Minerva / IA / XboxUnity sources, install, and toggle active TUs per game), **Save Game management** (per-title save browse/restore plus one-click bulk backup of every profile and save on the console), an **FTP Manager** (full file browser with cut/copy/paste/delete/rename/mkdir), an **Aurora Asset Editor** (search, preview, and upload cover/background/banner/icon artwork via RXEA or XboxUnity), **ISO to GOD and ISO to XEX** conversion tools, a **BadAvatar USB builder** (formats large FAT32 USBs and installs the BadStick BadUpdate payload), a **Job Queue** (unified game pipeline + FTP jobs), and **overlay navigation** so tools open as panels without leaving the current page.
 
 **[Full feature list with details on each capability](docs/features.md)**
 
@@ -242,7 +242,7 @@ If the host IP or port changes after installation, edit `state.lua` in the scrip
 
 ## Backend HTTP API, runtime folders & environment variables
 
-The backend listens on port `8080` by default. Key endpoints: `/browse`, `/trigger`, `/status`, `/queue`, `/register`, `/files/`, `/cache-status`, `/cache-refresh`, `/tools/probe-iso`, `/tools/iso2god`, `/tools/iso2xex`, `/rxea/decode`, `/rxea/encode`, and 17 FTP endpoints under `/ftp/*` (ping, list, mkdir, delete, rename, batch, upload, copy, move-game, jobs, and more).
+The backend listens on port `8080` by default. Key endpoints: `/browse`, `/trigger`, `/status`, `/queue`, `/register`, `/files/`, `/cache-status`, `/cache-refresh`, `/disc-info`, `/content/*` (DLC + Title Update discover / install / set-active), `/saves/*` (profile + save browse / download / delete / copy / backup-all), `/tools/probe-iso`, `/tools/iso2god`, `/tools/iso2xex`, `/rxea/decode`, `/rxea/encode`, `/rxea/encode-multi`, and 17 FTP endpoints under `/ftp/*` (ping, list, mkdir, delete, rename, batch, upload, copy, move-game, jobs, and more).
 
 **[Full API reference, runtime folder layout, and environment variable table](docs/api-reference.md)**
 
