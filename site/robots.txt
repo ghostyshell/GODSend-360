@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://ghostyshell.github.io/GODSend-360/sitemap.xml
