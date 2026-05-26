@@ -13,14 +13,29 @@ The backend listens on port `8080` by default (configurable via Electron `Backen
 | GET/POST | `/queue/remove?game=<name>` | Remove one job (`game` omitted clears all); Aurora uses GET |
 | GET | `/cache-status` | Per-platform cache build state and counts |
 | GET | `/cache-refresh?platform=<p>` | Trigger cache rebuild (`all`, an IA platform, or `rom_<sysid>`); Electron uses GET |
+| GET | `/disc-info` | Probe a local ISO in the Transfer folder for disc compatibility metadata (used by the multi-disc install picker) |
 | GET | `/data/status` | Returns `active_jobs`, `pending_ftp_jobs`, `local_data_mb` — used by Electron clear-data UI |
 | GET | `/data/clear` | Cancels all jobs and pending FTP transfers, wipes `Ready/` and `Temp/` |
 | GET | `/config` | Returns server-side config readable by Lua (currently `default_drive`) |
+| GET | `/content/discover?titleId=<id>` | Combined DLC discovery: scans installed DLC on the Xbox plus Minerva / Internet Archive candidates for the title |
+| GET | `/content/tu?titleId=<id>` | List Title Updates from XboxUnity for the title; merges with installed TUs |
+| GET | `/content/installed?titleId=<id>` | List only the DLC / TU already installed on the Xbox for the title |
+| GET | `/content/sources?titleId=<id>` | Available download sources (Minerva, Internet Archive, XboxUnity) for a content item |
+| POST | `/content/queue` | Queue a DLC / TU download + FTP install; supports Minerva torrent and direct-URL paths |
+| POST | `/content/set-active` | Activate / deactivate an installed Title Update via FTP rename (auto-disables sibling TUs in the same folder) |
+| GET | `/saves/discover?titleId=<id>` | List Xbox profiles (XUID, gamertag) with saves for a title; `titleId` optional |
+| GET | `/saves/list?titleId=<id>&profileId=<xuid>` | List individual save files for a profile + title |
+| POST | `/saves/download` | Download save files (or entire profile package) to the local backup folder |
+| POST | `/saves/delete` | Delete a save folder on the Xbox |
+| POST | `/saves/copy` | Copy saves between profiles or drives |
+| POST | `/saves/backup-all` | Bulk-pull every profile package and per-game save for every profile on the connected Xbox into the local backup folder |
+| GET | `/saves/keyvault-status` | Report whether a usable KeyVault is present (needed to re-sign profile saves for cross-profile copy) |
 | POST | `/tools/probe-iso` | Probe ISO disc metadata (title ID, media ID, disc number) without converting |
 | POST | `/tools/iso2god` | Convert a local ISO file to Games on Demand format |
 | POST | `/tools/iso2xex` | Convert a local ISO file to XEX folder format |
 | POST | `/rxea/decode` | Decode an Aurora RXEA `.asset` file to PNG images (returns JSON with slot→PNG data) |
 | POST | `/rxea/encode?slot=N` | Encode a PNG/JPEG/image into an RXEA `.asset` file (returns raw RXEA bytes) |
+| POST | `/rxea/encode-multi` | Encode multiple slot images into a single RXEA `.asset` file in one call |
 | GET | `/ftp/ping` | Test FTP connectivity to the Xbox |
 | GET | `/ftp/test` | Verbose FTP connection test with detailed diagnostics |
 | POST | `/ftp/list` | List directory contents on the Xbox via FTP |
@@ -31,7 +46,7 @@ The backend listens on port `8080` by default (configurable via Electron `Backen
 | POST | `/ftp/download-file` | Download a file from the Xbox via FTP |
 | POST | `/ftp/upload-file` | Upload a single file to the Xbox via FTP |
 | GET | `/ftp/drives` | List Xbox drives (filters to valid `Hdd\d*`/`Usb\d+` patterns) |
-| POST | `/ftp/batch` | Execute multiple FTP operations over a single connection (list, size, download, upload, ensure_dir, remove, cd, pwd) |
+| POST | `/ftp/batch` | Execute multiple FTP operations over a single connection (list, size, download, upload, ensure_dir, remove, cd, pwd). Optional `lock_wait_ms` bounds how long the call waits for the per-IP FTP lock; if not acquired, responds `{ok:false, busy:true}` so callers can fall back to cached data |
 | POST | `/ftp/upload` | Queue a tracked async FTP upload job with progress reporting |
 | POST | `/ftp/copy` | Queue a tracked async FTP copy job (download + re-upload) |
 | POST | `/ftp/move-game` | Queue a tracked async game drive move (rename or download-reupload-delete) |
@@ -49,6 +64,7 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 | `Ready/` | Staging area for GOD/archive files pending FTP transfer; also used by `pending_ftp/` job tracking |
 | `Temp/` | Working directory for in-progress conversions |
 | `cache/` | Cached Internet Archive game metadata (avoids re-fetching on each launch) |
+| `Saves/` | Local backup of Xbox profiles and save files; layout `<gamertag> (<XUID>)/<gameName> - <titleID>/<files>`, profile STFS at `<gamertag> (<XUID>)/Profile/<XUID>` |
 
 ## Environment variables
 
