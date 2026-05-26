@@ -21,6 +21,17 @@ fs.mkdirSync(dist, { recursive: true });
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
+// fat32format.exe — bundled in Windows installer for BadAvatar USB (>32 GB FAT32).
+{
+  const dl = path.join(__dirname, "download-fat32format.js");
+  const r = spawnSync(process.execPath, [dl], { stdio: "inherit", cwd: root, env: process.env });
+  if (r.status !== 0) {
+    console.warn(
+      "[build-go-all] fat32format download failed — Windows NSIS/portable builds need dist/tools/fat32format.exe",
+    );
+  }
+}
+
 const targets = [
   ["windows", "amd64", "godsend.exe"],
   ["linux", "amd64", "godsend-linux-x64"],

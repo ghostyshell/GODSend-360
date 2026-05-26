@@ -7,9 +7,10 @@ import BrowsePage from "./components/BrowsePage";
 import ISO2GODPage from "./components/ISO2GODPage";
 import ISO2XEXPage from "./components/ISO2XEXPage";
 import FTPManagerPage from "./components/FTPManagerPage";
+import BadAvatarUsbPage from "./components/BadAvatarUsbPage";
 import MainNav from "./components/MainNav";
 
-type PageId = "home" | "library" | "settings" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager";
+type PageId = "home" | "library" | "settings" | "queue" | "browse" | "iso2god" | "iso2xex" | "ftpmanager" | "badavatarusb";
 
 const PAGE_TITLES: Record<string, string> = {
   settings:   "Settings",
@@ -18,6 +19,7 @@ const PAGE_TITLES: Record<string, string> = {
   iso2god:    "ISO to GOD",
   iso2xex:    "ISO to XEX",
   ftpmanager: "FTP Manager",
+  badavatarusb: "BadAvatar USB",
 };
 
 export default function App() {
@@ -255,6 +257,7 @@ export default function App() {
     onNavigateIso2God:    () => navigateTo("iso2god"),
     onNavigateIso2Xex:    () => navigateTo("iso2xex"),
     onNavigateFtpManager: () => navigateTo("ftpmanager"),
+    onNavigateBadAvatarUsb: () => navigateTo("badavatarusb"),
   };
 
   // ── Routing ───────────────────────────────────────────────────────────────
@@ -279,6 +282,7 @@ export default function App() {
         onNavigateIso2God={navProps.onNavigateIso2God}
         onNavigateIso2Xex={navProps.onNavigateIso2Xex}
         onNavigateFtpManager={navProps.onNavigateFtpManager}
+        onNavigateBadAvatarUsb={navProps.onNavigateBadAvatarUsb}
       />
     );
   }
@@ -295,6 +299,7 @@ export default function App() {
         onNavigateIso2God={navProps.onNavigateIso2God}
         onNavigateIso2Xex={navProps.onNavigateIso2Xex}
         onNavigateFtpManager={navProps.onNavigateFtpManager}
+        onNavigateBadAvatarUsb={navProps.onNavigateBadAvatarUsb}
         onLibraryToggle={handleLibraryToggle}
         onReconnect={pingFtp}
         libraryLoading={libraryLoading}
@@ -318,17 +323,19 @@ export default function App() {
     pageContent = <ISO2XEXPage />;
   } else if (page === "ftpmanager") {
     pageContent = <FTPManagerPage />;
+  } else if (page === "badavatarusb") {
+    pageContent = <BadAvatarUsbPage />;
   }
 
   return (
     <div className="flex flex-col h-screen p-3 gap-2.5">
-      <header className="flex items-center shrink-0">
-        <span className="text-[15px] font-semibold text-foreground flex-1">
+      <header className="flex items-center shrink-0 pb-2.5 border-b border-border/40">
+        <span className="font-display text-[15px] font-bold text-foreground flex-1 tracking-wide">
           {PAGE_TITLES[page] || page}
         </span>
         <MainNav {...navProps} />
       </header>
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-auto animate-fade-in">
         {pageContent}
       </div>
     </div>

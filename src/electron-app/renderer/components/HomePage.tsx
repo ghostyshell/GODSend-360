@@ -17,6 +17,7 @@ interface HomePageProps {
   onNavigateIso2God: () => void;
   onNavigateIso2Xex: () => void;
   onNavigateFtpManager: () => void;
+  onNavigateBadAvatarUsb: () => void;
   onLibraryToggle: () => void;
   onReconnect: () => void;
   libraryLoading: boolean;
@@ -34,6 +35,7 @@ export default function HomePage({
   onNavigateIso2God,
   onNavigateIso2Xex,
   onNavigateFtpManager,
+  onNavigateBadAvatarUsb,
   onLibraryToggle,
   onReconnect,
   libraryLoading,
@@ -72,6 +74,7 @@ export default function HomePage({
           onNavigateIso2God={onNavigateIso2God}
           onNavigateIso2Xex={onNavigateIso2Xex}
           onNavigateFtpManager={onNavigateFtpManager}
+          onNavigateBadAvatarUsb={onNavigateBadAvatarUsb}
         />
       </header>
 

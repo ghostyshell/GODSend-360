@@ -19,6 +19,7 @@ type App struct {
 	ToolsDir         string
 	GodsendExeDir    string // directory containing the godsend binary
 	TransferDir      string // local ISO folder
+	SaveBackupDir    string // save-game backup folder
 	PendingFTPDir    string
 	ServerIP         string
 	ServerPort       string

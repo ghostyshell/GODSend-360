@@ -25,6 +25,12 @@ contextBridge.exposeInMainWorld("godsendApi", {
   getServerPort:            () => ipcRenderer.invoke("config:get-server-port"),
   setServerPort:            (port: number) => ipcRenderer.invoke("config:set-server-port", port),
   chooseTransferFolder:     () => ipcRenderer.invoke("config:choose-transfer-folder"),
+  getSaveBackupFolder:       () => ipcRenderer.invoke("config:get-save-backup-folder"),
+  getEffectiveSaveBackupFolder: () => ipcRenderer.invoke("config:get-effective-save-backup-folder"),
+  setSaveBackupFolder:       (folder: string) => ipcRenderer.invoke("config:set-save-backup-folder", folder),
+  chooseSaveBackupFolder:    () => ipcRenderer.invoke("config:choose-save-backup-folder"),
+  getProfileLabels:          () => ipcRenderer.invoke("config:get-profile-labels"),
+  setProfileLabel:           (profileId: string, label: string) => ipcRenderer.invoke("config:set-profile-label", profileId, label),
   getArchiveAuth:           () => ipcRenderer.invoke("config:get-archive-auth"),
   loginInternetArchive:     (payload: any) => ipcRenderer.invoke("config:ia-login", payload),
   logoutInternetArchive:    () => ipcRenderer.invoke("config:ia-logout"),
@@ -81,6 +87,14 @@ contextBridge.exposeInMainWorld("godsendApi", {
   contentSources:           (payload: any) => ipcRenderer.invoke("content:sources", payload),
   contentSetActive:         (payload: any) => ipcRenderer.invoke("content:set-active", payload),
 
+  savesDiscover:            (titleId?: string) => ipcRenderer.invoke("saves:discover", { titleId }),
+  savesList:                (payload: any) => ipcRenderer.invoke("saves:list", payload),
+  savesDownload:            (payload: any) => ipcRenderer.invoke("saves:download", payload),
+  savesDelete:              (payload: any) => ipcRenderer.invoke("saves:delete", payload),
+  savesCopy:                (payload: any) => ipcRenderer.invoke("saves:copy", payload),
+  savesBackupAll:           (drive?: string) => ipcRenderer.invoke("saves:backup-all", { drive }),
+  savesKeyvaultStatus:      () => ipcRenderer.invoke("saves:keyvault-status"),
+
   decodeAsset:              (payload: any) => ipcRenderer.invoke("xbox:decode-asset", payload),
   encodeAsset:              (payload: any) => ipcRenderer.invoke("xbox:encode-asset", payload),
 
@@ -100,6 +114,15 @@ contextBridge.exposeInMainWorld("godsendApi", {
   toolsFtpRename:           (payload: any) => ipcRenderer.invoke("tools:ftp-rename", payload),
   toolsFtpCopy:             (payload: any) => ipcRenderer.invoke("tools:ftp-copy", payload),
   moveGameToDrive:          (payload: any) => ipcRenderer.invoke("xbox:move-game", payload),
+
+  toolsBadAvatarListDrives: () => ipcRenderer.invoke("tools:badavatar-list-drives"),
+  toolsBadAvatarIsAdmin:    () => ipcRenderer.invoke("tools:badavatar-is-admin"),
+  toolsBadAvatarCreate:     (payload: any) => ipcRenderer.invoke("tools:badavatar-create", payload),
+  onBadAvatarProgress: (callback: (data: any) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on("tools:badavatar-progress", handler);
+    return () => ipcRenderer.removeListener("tools:badavatar-progress", handler);
+  },
 
   onFtpDebugLog: (callback: (line: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, line: string) => callback(line);

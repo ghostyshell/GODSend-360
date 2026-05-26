@@ -23,7 +23,9 @@ import * as auroraLibraryHandlers from "../ipc/auroraLibraryHandlers";
 import * as auroraAssetHandlers   from "../ipc/auroraAssetHandlers";
 import * as browseHandlers        from "../ipc/browseHandlers";
 import * as toolsHandlers         from "../ipc/toolsHandlers";
+import * as badAvatarHandlers     from "../ipc/badAvatarHandlers";
 import * as contentHandlers       from "../ipc/contentHandlers";
+import * as saveHandlers          from "../ipc/saveHandlers";
 
 function registerIpcHandlers(): void {
   ipcMain.handle("godsend:get-buffer", () => getOutputBuffer());
@@ -44,7 +46,9 @@ function registerIpcHandlers(): void {
   auroraAssetHandlers.register(ipcMain);
   browseHandlers.register(ipcMain);
   toolsHandlers.register(ipcMain);
+  badAvatarHandlers.register(ipcMain);
   contentHandlers.register(ipcMain);
+  saveHandlers.register(ipcMain);
 }
 
 export function bootstrapApp(): void {

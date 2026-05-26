@@ -17,6 +17,7 @@ import {
 import {
   getConfiguredStoragePath,
   getConfiguredTransferFolder,
+  getConfiguredSaveBackupFolder,
   getDefaultTransferFolder,
   getConfiguredROMPath,
   getDefaultROMPath,
@@ -34,6 +35,7 @@ import {
   getConfiguredCustomGodPath,
   getConfiguredCustomXexPath,
   getDefaultFtpScriptsPath,
+  readConfig,
   writeConfig,
 } from "../services/settingsService";
 import {
@@ -171,6 +173,42 @@ export function register(ipcMain: IpcMain): void {
   });
 
   ipcMain.handle("config:choose-transfer-folder", async () => {
+    const win = BrowserWindow.getFocusedWindow() || getMainWindow();
+    const r   = await dialog.showOpenDialog(win || undefined, {
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    return r.filePaths[0];
+  });
+
+  ipcMain.handle("config:get-save-backup-folder", () => getConfiguredSaveBackupFolder());
+  ipcMain.handle("config:get-effective-save-backup-folder", () => {
+    const custom = getConfiguredSaveBackupFolder();
+    if (custom) return path.resolve(custom);
+    const tf = getConfiguredTransferFolder();
+    if (tf) return path.resolve(tf);
+    return getDefaultTransferFolder(getWritableRuntimeRoot());
+  });
+  ipcMain.handle("config:set-save-backup-folder", (_event, folder) => {
+    const f = typeof folder === "string" ? folder.trim() : "";
+    writeConfig({ saveBackupFolder: f });
+    appendAppEvent("CONFIG", `saveBackupFolder set to ${f || "(default: Transfer folder)"}; restarting backend`);
+    restartGodsendIfRunning();
+    return getConfiguredSaveBackupFolder();
+  });
+  ipcMain.handle("config:get-profile-labels", () => readConfig().profileLabels || {});
+  ipcMain.handle("config:set-profile-label", (_event, profileId: string, label: string) => {
+    const labels = { ...(readConfig().profileLabels || {}) };
+    if (label) {
+      labels[profileId] = label;
+    } else {
+      delete labels[profileId];
+    }
+    writeConfig({ profileLabels: labels });
+    return labels;
+  });
+
+  ipcMain.handle("config:choose-save-backup-folder", async () => {
     const win = BrowserWindow.getFocusedWindow() || getMainWindow();
     const r   = await dialog.showOpenDialog(win || undefined, {
       properties: ["openDirectory", "createDirectory"],

@@ -59,6 +59,9 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   const [ftpPassword, setFtpPassword]           = useState("");
   const [ftpScriptsPath, setFtpScriptsPath]     = useState("");
   const [transferPath, setTransferPath]         = useState("");
+  const [saveBackupPath, setSaveBackupPath]     = useState("");
+  const [backupAllBusy, setBackupAllBusy]       = useState(false);
+  const [backupAllStatus, setBackupAllStatus]   = useState("");
   const [iaEmail, setIaEmail]                   = useState("");
   const [iaPassword, setIaPassword]             = useState("");
   const [romPath, setRomPath]                   = useState("");
@@ -128,6 +131,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
       setDefaultAppDataDir((await window.godsendApi.getDefaultAppDataDir()) || "");
       setAppDataPortable(Boolean(await window.godsendApi.isPortable()));
       setTransferPath((await window.godsendApi.getEffectiveTransferFolder()) || "");
+      setSaveBackupPath((await window.godsendApi.getEffectiveSaveBackupFolder()) || "");
       setServerPort(String(await window.godsendApi.getServerPort()));
 
       const auth = await window.godsendApi.getArchiveAuth();
@@ -259,6 +263,42 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   async function handleTransferReset() {
     await window.godsendApi.setTransferFolder("");
     setTransferPath((await window.godsendApi.getEffectiveTransferFolder()) || "");
+  }
+
+  async function handleSaveBackupBrowse() {
+    const picked = await window.godsendApi.chooseSaveBackupFolder();
+    if (!picked) return;
+    await window.godsendApi.setSaveBackupFolder(picked);
+    setSaveBackupPath((await window.godsendApi.getEffectiveSaveBackupFolder()) || "");
+  }
+
+  async function handleSaveBackupReset() {
+    await window.godsendApi.setSaveBackupFolder("");
+    setSaveBackupPath((await window.godsendApi.getEffectiveSaveBackupFolder()) || "");
+  }
+
+  async function handleBackupAllSaves() {
+    setBackupAllBusy(true);
+    setBackupAllStatus("Backing up all profiles and saves… this may take a while.");
+    try {
+      const r: any = await window.godsendApi.savesBackupAll();
+      if (r?.ok && r?.result) {
+        const x = r.result;
+        const errs = Array.isArray(x.errors) && x.errors.length > 0
+          ? ` (${x.errors.length} skipped — see backend log)` : "";
+        setBackupAllStatus(
+          `Done: ${x.profiles_backed_up}/${x.profiles_processed} profile packages, ` +
+          `${x.saves_backed_up} title saves, ${x.files_backed_up} files total${errs}.`
+        );
+        onAppendLine(`[INFO] Save backup-all: ${x.files_backed_up} files across ${x.profiles_processed} profiles.`);
+      } else {
+        setBackupAllStatus(`Failed: ${r?.error || r?.message || "unknown error"}`);
+      }
+    } catch (err: any) {
+      setBackupAllStatus(`Failed: ${err?.message || String(err)}`);
+    } finally {
+      setBackupAllBusy(false);
+    }
   }
 
   async function handleIALogin() {
@@ -851,6 +891,38 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
             <Hint>
               Changing this restarts the backend. The Xbox script uses this folder for
               &ldquo;Local Library&rdquo;.
+            </Hint>
+          </Section>
+
+          {/* ── Save backup folder ── */}
+          <Section title="Save Game Backup folder">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Input
+                type="text"
+                readOnly
+                className="flex-1 min-w-[180px]"
+                placeholder="Default: same as Transfer folder"
+                value={saveBackupPath}
+              />
+              <Button onClick={handleSaveBackupBrowse}>Browse&hellip;</Button>
+              <Button onClick={handleSaveBackupReset}>Use default</Button>
+            </div>
+            <Hint>
+              Downloaded save-game backups are stored here. Defaults to the Transfer
+              folder if not set. Layout:{" "}
+              <code>Saves/&lt;gamertag&gt; (&lt;XUID&gt;)/&lt;game&gt; - &lt;titleID&gt;/</code>.
+            </Hint>
+
+            <div className="flex flex-wrap gap-2 items-center mt-2">
+              <Button onClick={handleBackupAllSaves} disabled={backupAllBusy}>
+                {backupAllBusy ? "Backing up…" : "Back up all profiles and saves"}
+              </Button>
+            </div>
+            {backupAllStatus && <Status className="mt-2">{backupAllStatus}</Status>}
+            <Hint>
+              Pulls every profile package and every per-game save from the connected
+              Xbox into the folder above. Profiles with a resolvable gamertag are
+              grouped under their name; the rest fall back to the XUID.
             </Hint>
           </Section>
 

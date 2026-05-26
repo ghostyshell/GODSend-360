@@ -7,6 +7,8 @@ export interface GodsendConfig {
   appDataDir?: string;
   storagePath?: string;
   transferFolder?: string;
+  saveBackupFolder?: string;
+  profileLabels?: Record<string, string>;
   iaCookie?: string;
   iaAuthorization?: string;
   serverPort?: number | string;
@@ -55,6 +57,11 @@ export function getConfiguredTransferFolder(): string {
 
 export function getDefaultTransferFolder(writableRoot: string): string {
   return path.join(writableRoot, "Transfer");
+}
+
+export function getConfiguredSaveBackupFolder(): string {
+  const v = readConfig().saveBackupFolder;
+  return typeof v === "string" ? v.trim() : "";
 }
 
 export function getConfiguredIACookie(): string {
@@ -148,6 +155,8 @@ export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, GODSEND_HOME: writableRoot };
   const custom = getConfiguredTransferFolder();
   if (custom) env.GODSEND_TRANSFER = path.resolve(custom);
+  const saveBackup = getConfiguredSaveBackupFolder();
+  if (saveBackup) env.GODSEND_SAVE_BACKUP = path.resolve(saveBackup);
   const iaCookie = getConfiguredIACookie();
   if (iaCookie) env.GODSEND_IA_COOKIE = iaCookie;
   const iaAuth = getConfiguredIAAuthorization();
