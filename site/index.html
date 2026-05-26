@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#020617" />
+
+  <title>GODsend 360 — Xbox 360 game manager for Aurora · Free, no account</title>
+  <meta name="description" content="GODsend 360 is a free, open-source Xbox 360 game manager for Aurora. Browse Minerva Archive and Internet Archive, convert ISO to GOD on the fly, push DLC, Title Updates, and save backups over FTP — all from one desktop app. Windows, macOS, and Linux." />
+  <meta name="keywords" content="Xbox 360, Aurora dashboard, RGH, JTAG, ISO to GOD, GOD format, Xbox 360 homebrew, BadUpdate, BadAvatar, Minerva Archive, Xbox 360 FTP, Xbox 360 DLC, Xbox 360 title updates, Xbox 360 save backup, GODsend, GODsend 360" />
+  <meta name="author" content="ghosty99" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="color-scheme" content="dark" />
+
+  <link rel="canonical" href="https://ghostyshell.github.io/GODSend-360/" />
+  <link rel="icon" href="/GODSend-360/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/GODSend-360/favicon.svg" />
+  <link rel="manifest" href="/GODSend-360/site.webmanifest" />
+  <link rel="sitemap" type="application/xml" href="/GODSend-360/sitemap.xml" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="GODsend 360" />
+  <meta property="og:title" content="GODsend 360 — Xbox 360 game manager for Aurora" />
+  <meta property="og:description" content="Free, open-source Xbox 360 game manager. Convert ISO to GOD on the fly, push DLC, Title Updates, and save backups to your console — no account needed." />
+  <meta property="og:url" content="https://ghostyshell.github.io/GODSend-360/" />
+  <meta property="og:image" content="https://ghostyshell.github.io/GODSend-360/og-image.svg" />
+  <meta property="og:image:alt" content="GODsend 360 hero — neon green Xbox 360 game manager on a synthwave grid" />
+  <meta property="og:image:type" content="image/svg+xml" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="GODsend 360 — Xbox 360 game manager for Aurora" />
+  <meta name="twitter:description" content="Free, open-source Xbox 360 game manager. Convert ISO to GOD on the fly, push DLC, Title Updates, and save backups — no account needed." />
+  <meta name="twitter:image" content="https://ghostyshell.github.io/GODSend-360/og-image.svg" />
+  <meta name="twitter:image:alt" content="GODsend 360 hero artwork" />
+
+  <!-- Performance hints -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="dns-prefetch" href="https://github.com" />
+  <link rel="dns-prefetch" href="https://gofile.io" />
+  <link rel="dns-prefetch" href="https://file.kiwi" />
+
+  <!-- Fonts -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+  <!-- Tailwind CDN (Play CDN, single-file deploy) -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography" defer></script>
+  <script>
+    window.tailwind = window.tailwind || {};
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ink:    { 950: '#020617', 900: '#0B1120', 800: '#0F172A', 700: '#1E293B' },
+            line:   '#1F2937',
+            neon:   { green: '#22C55E', magenta: '#A855F7', cyan: '#22D3EE', red: '#F43F5E' },
+          },
+          fontFamily: {
+            display: ['"Russo One"', 'system-ui', 'sans-serif'],
+            body:    ['"Chakra Petch"', 'system-ui', 'sans-serif'],
+            mono:    ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+          boxShadow: {
+            'neon-green':   '0 0 0 1px rgba(34,197,94,0.35), 0 0 24px rgba(34,197,94,0.25)',
+            'neon-magenta': '0 0 0 1px rgba(168,85,247,0.35), 0 0 28px rgba(168,85,247,0.25)',
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- JSON-LD: SoftwareApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "GODsend 360",
+    "alternateName": "GODsend-360",
+    "applicationCategory": "GameApplication",
+    "applicationSubCategory": "Game Management",
+    "operatingSystem": "Windows, macOS, Linux",
+    "url": "https://ghostyshell.github.io/GODSend-360/",
+    "downloadUrl": "https://github.com/ghostyshell/GODSend-360",
+    "softwareVersion": "2.12.19",
+    "license": "https://github.com/ghostyshell/GODSend-360/blob/main/LICENSE",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "ghosty99", "url": "https://github.com/ghostyshell" },
+    "description": "A free, open-source Xbox 360 game manager for the Aurora dashboard. Browse Minerva Archive and Internet Archive, convert ISO to GOD on the fly, and push DLC, Title Updates, and save backups to a console over FTP.",
+    "image": "https://ghostyshell.github.io/GODSend-360/og-image.svg",
+    "screenshot": "https://ghostyshell.github.io/GODSend-360/og-image.svg",
+    "featureList": [
+      "ISO to GOD conversion (pure Go, no external tools)",
+      "Minerva Archive BitTorrent source — no account required",
+      "Internet Archive parallel HTTP source",
+      "DLC and Title Update management with active-TU toggle",
+      "Save game browse, restore, and bulk profile backup",
+      "Xbox Library viewer with cover art and drive management",
+      "FTP Manager — full Xbox filesystem browser",
+      "BadAvatar USB builder for the BadUpdate exploit",
+      "Aurora Asset Editor (RXEA cover/background/banner/icon)"
+    ]
+  }
+  </script>
+
+  <!-- JSON-LD: FAQ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Do I need an account to use GODsend 360?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. Minerva Archive works over BitTorrent with no login. An Internet Archive account is optional — only useful as a fallback for titles Minerva does not carry." }
+      },
+      {
+        "@type": "Question",
+        "name": "What Xbox 360 hardware do I need?",
+        "acceptedAnswer": { "@type": "Answer", "text": "A console running the Aurora dashboard with its FTP server enabled. That typically means an RGH or JTAG console, or a stock console with a hardware-free exploit such as BadUpdate (see the BadAvatar USB tool below)." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it run on macOS and Linux?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. GODsend 360 ships as a Windows installer, a portable Windows .exe, Apple Silicon and Intel DMGs, and Linux AppImages for x64 and arm64. The Go backend can also run headlessly on a NAS or home server." }
+      },
+      {
+        "@type": "Question",
+        "name": "Where do my downloads go before transfer?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Into a writable runtime folder (Transfer / Ready / Temp / cache) under your user data directory. ISOs are converted to GOD in Temp, staged in Ready, and FTP'd to the Xbox. If the console goes offline mid-transfer, jobs are persisted and retried automatically." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I back up profiles and save games?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Settings → Save Game Backup pulls every profile package and every per-game save for every profile on the connected console into a local archive folder, organised by gamertag." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is the source code open?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. The code lives at github.com/ghostyshell/GODSend-360 under an open-source licence. Contributions, issues, and discussion are welcome." }
+      }
+    ]
+  }
+  </script>
+
+  <!-- JSON-LD: Organization / Project -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "GODsend 360",
+    "url": "https://ghostyshell.github.io/GODSend-360/",
+    "publisher": { "@type": "Person", "name": "ghosty99", "url": "https://github.com/ghostyshell" }
+  }
+  </script>
+
+  <style>
+    /* Skip-link & a11y */
+    .sr-only-focusable:not(:focus) { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+    /* Synthwave grid background */
+    .grid-bg {
+      background-image:
+        linear-gradient(to bottom, rgba(2,6,23,0) 0%, rgba(2,6,23,0.92) 78%, #020617 100%),
+        linear-gradient(rgba(34,197,94,0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(168,85,247,0.06) 1px, transparent 1px);
+      background-size: 100% 100%, 56px 56px, 56px 56px;
+      background-position: center, center, center;
+    }
+
+    /* Subtle CRT scanlines on hero only */
+    .scanlines::after {
+      content: "";
+      position: absolute; inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.025) 0px,
+        rgba(255,255,255,0.025) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      mix-blend-mode: overlay;
+    }
+
+    /* Neon text glow */
+    .neon-green  { color: #22C55E; text-shadow: 0 0 6px rgba(34,197,94,0.45), 0 0 24px rgba(34,197,94,0.18); }
+    .neon-magenta{ color: #A855F7; text-shadow: 0 0 6px rgba(168,85,247,0.45), 0 0 24px rgba(168,85,247,0.18); }
+
+    /* Animated gradient sweep on hero headline */
+    .sweep {
+      background: linear-gradient(90deg, #22C55E 0%, #A855F7 45%, #22D3EE 80%, #22C55E 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent;
+      animation: sweep 7s linear infinite;
+    }
+    @keyframes sweep { to { background-position: 200% center; } }
+
+    /* Card hover lift */
+    .lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+    .lift:hover { transform: translateY(-4px); border-color: rgba(34,197,94,0.45); box-shadow: 0 14px 40px -18px rgba(34,197,94,0.4); }
+
+    /* Mock browser frame (used for "screenshot" placeholders) */
+    .mock-frame { background: linear-gradient(180deg, #0B1120 0%, #050912 100%); }
+    .mock-dot   { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+
+    /* Reduce motion */
+    @media (prefers-reduced-motion: reduce) {
+      .sweep { animation: none; background-position: 0 0; }
+      * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+    }
+  </style>
+</head>
+
+<body class="bg-ink-950 text-slate-100 font-body antialiased selection:bg-neon-green/30 selection:text-white">
+
+  <a href="#main" class="sr-only-focusable absolute z-50 top-3 left-3 bg-neon-green text-ink-950 px-3 py-2 rounded font-display tracking-wide">Skip to content</a>
+
+  <!-- NAV -->
+  <header class="sticky top-0 z-40 backdrop-blur bg-ink-950/70 border-b border-white/5">
+    <nav aria-label="Primary" class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3 group">
+        <span aria-hidden="true" class="inline-flex w-9 h-9 rounded-md bg-gradient-to-br from-neon-green to-neon-magenta items-center justify-center font-display text-ink-950 text-sm">G3</span>
+        <span class="font-display tracking-wider text-lg">GODsend <span class="neon-green">360</span></span>
+      </a>
+      <ul class="hidden md:flex items-center gap-7 text-sm">
+        <li><a href="#features" class="hover:text-neon-green transition">Features</a></li>
+        <li><a href="#how" class="hover:text-neon-green transition">How it works</a></li>
+        <li><a href="#screenshots" class="hover:text-neon-green transition">Screenshots</a></li>
+        <li><a href="#downloads" class="hover:text-neon-green transition">Downloads</a></li>
+        <li><a href="#faq" class="hover:text-neon-green transition">FAQ</a></li>
+      </ul>
+      <div class="flex items-center gap-3">
+        <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="hidden md:inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white transition">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
+          <span>Source</span>
+        </a>
+        <a href="#downloads" class="inline-flex items-center gap-2 bg-neon-green text-ink-950 font-display tracking-wide px-4 py-2 rounded-md shadow-neon-green hover:brightness-110 transition">
+          Download
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+
+    <!-- HERO -->
+    <section aria-labelledby="hero-title" class="relative grid-bg scanlines overflow-hidden">
+      <div class="absolute inset-0 -z-10 opacity-50" aria-hidden="true">
+        <div class="absolute -top-40 -left-32 w-[42rem] h-[42rem] rounded-full bg-neon-magenta/20 blur-3xl"></div>
+        <div class="absolute -bottom-40 -right-32 w-[42rem] h-[42rem] rounded-full bg-neon-green/20 blur-3xl"></div>
+      </div>
+
+      <div class="max-w-7xl mx-auto px-5 md:px-8 pt-20 pb-28 md:pt-28 md:pb-36">
+        <div class="grid lg:grid-cols-12 gap-10 items-center">
+          <div class="lg:col-span-7">
+            <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80 mb-5">v2.12.19 · Windows · macOS · Linux</p>
+            <h1 id="hero-title" class="font-display text-4xl md:text-6xl leading-[1.05] tracking-tight">
+              The Xbox 360 game manager <br class="hidden md:block" />
+              your <span class="sweep">Aurora dashboard</span> deserves.
+            </h1>
+            <p class="mt-6 text-lg md:text-xl text-slate-300 max-w-2xl">
+              Browse Minerva Archive and Internet Archive, convert <strong>ISO → GOD</strong> on the fly, and push DLC, Title Updates, and save backups to your console over FTP — from one open-source desktop app. <span class="text-neon-green">No accounts. No tags. No telemetry.</span>
+            </p>
+            <div class="mt-8 flex flex-wrap items-center gap-4">
+              <a href="#downloads" class="inline-flex items-center gap-2 bg-neon-green text-ink-950 font-display tracking-wide px-6 py-3 rounded-md shadow-neon-green hover:brightness-110 transition cursor-pointer">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                Download GODsend 360
+              </a>
+              <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="inline-flex items-center gap-2 border border-white/15 hover:border-neon-magenta px-6 py-3 rounded-md font-display tracking-wide hover:text-white transition cursor-pointer">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
+                Star on GitHub
+              </a>
+            </div>
+            <dl class="mt-12 grid grid-cols-3 gap-4 md:gap-8 max-w-2xl">
+              <div class="border-l-2 border-neon-green/50 pl-4">
+                <dt class="font-mono text-[11px] uppercase tracking-widest text-slate-400">Libraries</dt>
+                <dd class="font-display text-2xl mt-1">25k+</dd>
+                <p class="text-xs text-slate-400 mt-1">Minerva + IA combined</p>
+              </div>
+              <div class="border-l-2 border-neon-magenta/50 pl-4">
+                <dt class="font-mono text-[11px] uppercase tracking-widest text-slate-400">Tools</dt>
+                <dd class="font-display text-2xl mt-1">0</dd>
+                <p class="text-xs text-slate-400 mt-1">External binaries required</p>
+              </div>
+              <div class="border-l-2 border-neon-cyan/50 pl-4" style="border-color:rgba(34,211,238,0.5)">
+                <dt class="font-mono text-[11px] uppercase tracking-widest text-slate-400">Cost</dt>
+                <dd class="font-display text-2xl mt-1">$0</dd>
+                <p class="text-xs text-slate-400 mt-1">Free &amp; open-source</p>
+              </div>
+            </dl>
+          </div>
+
+          <!-- Mock screenshot frame -->
+          <div class="lg:col-span-5">
+            <figure class="relative mock-frame rounded-xl border border-white/10 shadow-2xl shadow-neon-magenta/10 overflow-hidden" aria-labelledby="hero-mock-cap">
+              <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
+                <span class="mock-dot bg-rose-500/80"></span>
+                <span class="mock-dot bg-amber-400/80"></span>
+                <span class="mock-dot bg-emerald-400/80"></span>
+                <span class="ml-3 font-mono text-xs text-slate-400">godsend://library</span>
+              </div>
+              <div class="p-5 space-y-3 text-xs font-mono">
+                <div class="flex justify-between text-slate-400">
+                  <span>Aurora · Hdd1</span>
+                  <span class="text-neon-green">● Connected · 192.168.1.42</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-emerald-700/40 to-emerald-900/60 border border-emerald-500/20"></div>
+                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-fuchsia-700/40 to-purple-900/60 border border-fuchsia-500/20"></div>
+                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-sky-700/40 to-indigo-900/60 border border-sky-500/20"></div>
+                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-amber-700/40 to-orange-900/60 border border-amber-500/20"></div>
+                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-rose-700/40 to-red-900/60 border border-rose-500/20"></div>
+                  <div class="aspect-[3/4] rounded bg-gradient-to-br from-teal-700/40 to-cyan-900/60 border border-teal-500/20"></div>
+                </div>
+                <div class="pt-3 border-t border-white/5 space-y-1">
+                  <div class="flex justify-between"><span class="text-slate-400">Halo 3</span><span class="text-neon-green">GOD · ready</span></div>
+                  <div class="flex justify-between"><span class="text-slate-400">Skyrim — TU 9</span><span class="text-neon-magenta">FTP 64%</span></div>
+                  <div class="flex justify-between"><span class="text-slate-400">RDR — Undead Nightmare</span><span class="text-slate-500">queued</span></div>
+                </div>
+              </div>
+              <figcaption id="hero-mock-cap" class="sr-only">Library view showing connected console, cover-art grid, and queue status.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRUST BAR -->
+    <section aria-label="At a glance" class="border-y border-white/5 bg-ink-900/60">
+      <div class="max-w-7xl mx-auto px-5 md:px-8 py-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div class="flex items-center gap-3">
+          <span class="font-display text-neon-green">●</span>
+          <span><strong class="font-display">Zero account</strong> for Minerva</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="font-display text-neon-magenta">●</span>
+          <span><strong class="font-display">Pure-Go</strong> ISO → GOD</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="font-display" style="color:#22D3EE">●</span>
+          <span><strong class="font-display">FTP-resilient</strong> retries</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="font-display text-neon-green">●</span>
+          <span><strong class="font-display">Open source</strong>, MIT-spirited</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" aria-labelledby="features-title" class="max-w-7xl mx-auto px-5 md:px-8 py-24">
+      <header class="max-w-3xl">
+        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-magenta/80">Features</p>
+        <h2 id="features-title" class="font-display text-3xl md:text-5xl mt-3">Everything an Aurora console needs, in one window.</h2>
+        <p class="mt-4 text-slate-300">No dual-booting between iso2god, FTP clients, asset editors, and save tools. GODsend 360 bundles the entire flow — download → convert → install → patch → back up — and runs the same way on Windows, macOS, and Linux.</p>
+      </header>
+
+      <ul role="list" class="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-green/15 text-neon-green flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-2 9a2 2 0 0 1-2 1.6H7A2 2 0 0 1 5 17l-2-9"/><path d="M3 8h18"/><path d="m9 5 1.5-2h3L15 5"/></svg>
+          </div>
+          <h3 class="font-display text-lg">ISO → GOD, natively</h3>
+          <p class="mt-2 text-slate-300 text-sm">Pure-Go converter built in. No iso2god-rs binary, no Wine, no third-party tools. Probe disc metadata, convert, and FTP the result in one job.</p>
+        </li>
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-magenta/15 text-neon-magenta flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0Z"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>
+          </div>
+          <h3 class="font-display text-lg">Minerva Archive — no account</h3>
+          <p class="mt-2 text-slate-300 text-sm">BitTorrent via bundled aria2c. Pulls only the file you asked for. Internet Archive stays available as a chunked-HTTP fallback for missing titles.</p>
+        </li>
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-green/15 text-neon-green flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><path d="M8 7h.01"/><path d="M8 17h.01"/></svg>
+          </div>
+          <h3 class="font-display text-lg">FTP that survives a reboot</h3>
+          <p class="mt-2 text-slate-300 text-sm">Per-IP semaphores, stall watchdog, TCP keepalive, and persistent pending-FTP queue. If the console disappears mid-transfer, the job comes back — no re-downloads.</p>
+        </li>
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-magenta/15 text-neon-magenta flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          </div>
+          <h3 class="font-display text-lg">DLC &amp; Title Updates</h3>
+          <p class="mt-2 text-slate-300 text-sm">Browse Minerva / IA / XboxUnity sources side-by-side with what's already installed. One-click activate-a-TU swaps siblings to <code class="font-mono text-xs text-neon-green">.disabled</code> automatically.</p>
+        </li>
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-green/15 text-neon-green flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+          </div>
+          <h3 class="font-display text-lg">Save backup, profile-first</h3>
+          <p class="mt-2 text-slate-300 text-sm">One click bulk-pulls every profile package and every save for every profile on the console — organised by gamertag, with names resolved via XboxUnity → XboxDB → embedded list.</p>
+        </li>
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-magenta/15 text-neon-magenta flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><circle cx="8" cy="14" r="2"/></svg>
+          </div>
+          <h3 class="font-display text-lg">BadAvatar USB builder</h3>
+          <p class="mt-2 text-slate-300 text-sm">Format a large FAT32 USB (no 32 GB Windows ceiling) and stage the BadStick BadUpdate payload — Proto, FreestyleDash, and Aurora XeUnshackle — in one Toolbox flow.</p>
+        </li>
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-green/15 text-neon-green flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+          </div>
+          <h3 class="font-display text-lg">Xbox Library viewer</h3>
+          <p class="mt-2 text-slate-300 text-sm">Live cover-art grid from Aurora's <code class="font-mono text-xs">content.db</code>. Sort, search, filter to favourites or multi-disc, and move games between drives without leaving the page.</p>
+        </li>
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-magenta/15 text-neon-magenta flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 4-9 4-9-4 9-4Z"/><path d="m3 11 9 4 9-4"/><path d="m3 16 9 4 9-4"/></svg>
+          </div>
+          <h3 class="font-display text-lg">Aurora Asset Editor</h3>
+          <p class="mt-2 text-slate-300 text-sm">Search XboxUnity / Xbox CDN or drop your own art. Encodes to RXEA <code class="font-mono text-xs">.asset</code> (DXT5 Xenos textures) and uploads to <code class="font-mono text-xs">Aurora/Data/GameData/</code> — visible without a rescan.</p>
+        </li>
+        <li class="lift bg-ink-900/70 border border-white/10 rounded-xl p-6">
+          <div class="w-10 h-10 rounded-lg bg-neon-green/15 text-neon-green flex items-center justify-center mb-4" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18"/><path d="M3 12h18"/><path d="M3 17h12"/></svg>
+          </div>
+          <h3 class="font-display text-lg">Headless &amp; scriptable</h3>
+          <p class="mt-2 text-slate-300 text-sm">The Go backend runs standalone on Windows / macOS / Linux — perfect for a NAS, a Pi, or a tucked-away home server. Configured via plain env vars.</p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how" aria-labelledby="how-title" class="relative bg-ink-900/60 border-y border-white/5">
+      <div class="max-w-7xl mx-auto px-5 md:px-8 py-24">
+        <header class="max-w-3xl">
+          <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-cyan/80" style="color:#22D3EE">Pipeline</p>
+          <h2 id="how-title" class="font-display text-3xl md:text-5xl mt-3">From "I want this game" to <span class="neon-green">launched on the Xbox</span> in one flow.</h2>
+        </header>
+
+        <ol role="list" class="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <li class="bg-ink-800/60 border border-white/10 rounded-xl p-6">
+            <span class="font-display text-3xl text-neon-green">01</span>
+            <h3 class="font-display mt-2 text-lg">Pick it on the Xbox</h3>
+            <p class="text-sm text-slate-300 mt-2">The Aurora script lists Minerva and IA libraries directly inside the dashboard. Pick a title, drive, and install type — that's all the console does.</p>
+          </li>
+          <li class="bg-ink-800/60 border border-white/10 rounded-xl p-6">
+            <span class="font-display text-3xl text-neon-magenta">02</span>
+            <h3 class="font-display mt-2 text-lg">Backend fetches</h3>
+            <p class="text-sm text-slate-300 mt-2">Local Transfer → Minerva (BitTorrent) → Internet Archive (chunked HTTP). The first available source wins.</p>
+          </li>
+          <li class="bg-ink-800/60 border border-white/10 rounded-xl p-6">
+            <span class="font-display text-3xl" style="color:#22D3EE">03</span>
+            <h3 class="font-display mt-2 text-lg">Convert in-place</h3>
+            <p class="text-sm text-slate-300 mt-2">ISO → GOD, XBLA extract, or DLC unpack — natively in Go. Title IDs resolved via XboxUnity → XboxDB → embedded list.</p>
+          </li>
+          <li class="bg-ink-800/60 border border-white/10 rounded-xl p-6">
+            <span class="font-display text-3xl text-neon-green">04</span>
+            <h3 class="font-display mt-2 text-lg">FTP to the console</h3>
+            <p class="text-sm text-slate-300 mt-2">Streamed straight to <code class="font-mono text-xs">GOD\</code>, <code class="font-mono text-xs">Content\</code>, or <code class="font-mono text-xs">XEX\</code>. If the console drops, the job parks and resumes.</p>
+          </li>
+        </ol>
+
+        <pre aria-hidden="true" class="mt-12 overflow-x-auto rounded-xl border border-white/10 bg-ink-950/80 p-6 text-xs font-mono leading-relaxed text-slate-300"><span class="text-neon-magenta">[Aurora script]</span> ──HTTP──▶ <span class="text-neon-green">[Go backend]</span> ──FTP──▶ <span class="text-neon-cyan" style="color:#22D3EE">[Xbox HDD / USB]</span>
+                              │     ▲
+                  ┌───────────┴─────┴────┐
+            Minerva Archive       Internet Archive
+            (BitTorrent · aria2c) (chunked parallel HTTP)
+                              │
+                  Local Transfer folder
+                  (your ISOs — highest priority)</pre>
+      </div>
+    </section>
+
+    <!-- SCREENSHOTS -->
+    <section id="screenshots" aria-labelledby="shots-title" class="max-w-7xl mx-auto px-5 md:px-8 py-24">
+      <header class="max-w-3xl">
+        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80">Inside the app</p>
+        <h2 id="shots-title" class="font-display text-3xl md:text-5xl mt-3">Built for people who already know what FTP is.</h2>
+        <p class="mt-4 text-slate-300">Five surfaces, all on the same backend. Tools open as overlay panels so you never lose your place in the Library.</p>
+      </header>
+
+      <div class="mt-12 grid lg:grid-cols-2 gap-5">
+        <!-- Shot 1: Library -->
+        <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
+          <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
+            <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Library · 248 games · Hdd1 + Usb0</span>
+          </div>
+          <div class="p-5">
+            <div class="grid grid-cols-6 gap-2">
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-emerald-700/40 to-emerald-900/60 border border-emerald-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-fuchsia-700/40 to-purple-900/60 border border-fuchsia-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-sky-700/40 to-indigo-900/60 border border-sky-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-amber-700/40 to-orange-900/60 border border-amber-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-rose-700/40 to-red-900/60 border border-rose-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-teal-700/40 to-cyan-900/60 border border-teal-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-lime-700/40 to-emerald-900/60 border border-lime-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-violet-700/40 to-fuchsia-900/60 border border-violet-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-cyan-700/40 to-blue-900/60 border border-cyan-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-orange-700/40 to-rose-900/60 border border-orange-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-pink-700/40 to-red-900/60 border border-pink-500/20"></div>
+              <div class="aspect-[3/4] rounded bg-gradient-to-br from-green-700/40 to-teal-900/60 border border-green-500/20"></div>
+            </div>
+          </div>
+          <figcaption class="px-5 pb-5 text-sm text-slate-400"><strong class="font-display text-slate-100">Xbox Library</strong> — live cover-art grid; sort by name, rating, last played, drive, or favourites.</figcaption>
+        </figure>
+        <!-- Shot 2: Queue / pipeline -->
+        <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
+          <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
+            <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Job Queue · 3 active</span>
+          </div>
+          <div class="p-5 space-y-3 text-sm">
+            <div class="border border-white/10 rounded-md p-3">
+              <div class="flex justify-between text-xs font-mono text-slate-400 mb-1"><span>Skyrim — Title Update 9</span><span class="text-neon-magenta">FTP · 64%</span></div>
+              <div class="h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-neon-magenta" style="width:64%"></div></div>
+              <p class="text-xs text-slate-500 mt-2 font-mono">14.2 MB/s · TU9.bin → Hdd1:\Content\…\000B0000\</p>
+            </div>
+            <div class="border border-white/10 rounded-md p-3">
+              <div class="flex justify-between text-xs font-mono text-slate-400 mb-1"><span>Red Dead Redemption — Undead Nightmare</span><span class="text-neon-green">Convert · 92%</span></div>
+              <div class="h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-neon-green" style="width:92%"></div></div>
+              <p class="text-xs text-slate-500 mt-2 font-mono">ISO → GOD · finalising header</p>
+            </div>
+            <div class="border border-white/10 rounded-md p-3">
+              <div class="flex justify-between text-xs font-mono text-slate-400 mb-1"><span>Halo 3</span><span class="text-slate-400">Queued</span></div>
+              <div class="h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-white/30" style="width:8%"></div></div>
+            </div>
+          </div>
+          <figcaption class="px-5 pb-5 text-sm text-slate-400"><strong class="font-display text-slate-100">Unified Job Queue</strong> — backend pipeline + FTP jobs merged into one view.</figcaption>
+        </figure>
+        <!-- Shot 3: DLC / TU -->
+        <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
+          <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
+            <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Borderlands 2 · DLC &amp; Title Updates</span>
+          </div>
+          <div class="p-5 text-sm space-y-2">
+            <div class="flex justify-between p-2 rounded bg-emerald-500/5 border border-emerald-500/20"><span>TU9 <span class="text-xs text-slate-500 font-mono">active</span></span><span class="text-neon-green font-mono">installed</span></div>
+            <div class="flex justify-between p-2 rounded border border-white/10"><span>TU8</span><span class="text-slate-500 font-mono">.disabled</span></div>
+            <div class="flex justify-between p-2 rounded border border-white/10"><span>Captain Scarlett DLC</span><span class="font-mono text-neon-magenta">XboxUnity</span></div>
+            <div class="flex justify-between p-2 rounded border border-white/10"><span>Mr. Torgue's Campaign</span><span class="font-mono" style="color:#22D3EE">Minerva</span></div>
+            <div class="flex justify-between p-2 rounded border border-white/10"><span>Tiny Tina's Assault</span><span class="font-mono text-slate-400">Internet Archive</span></div>
+          </div>
+          <figcaption class="px-5 pb-5 text-sm text-slate-400"><strong class="font-display text-slate-100">DLC &amp; Title Updates</strong> — Minerva, IA, and XboxUnity merged with what's already on disk.</figcaption>
+        </figure>
+        <!-- Shot 4: Saves -->
+        <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
+          <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
+            <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Settings · Save Game Backup</span>
+          </div>
+          <div class="p-5 text-sm space-y-3">
+            <div class="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <p class="font-display text-neon-green">Backing up 4 profiles · 312 saves</p>
+              <div class="h-1.5 rounded-full bg-white/10 overflow-hidden mt-3"><div class="h-full bg-neon-green" style="width:78%"></div></div>
+              <p class="text-xs text-slate-400 mt-2 font-mono">GhostlyShell (E0001CFA…) · Halo 3 · Save0001 → /Saves/GhostlyShell (E…)/Halo 3 — 4D5307E6/</p>
+            </div>
+            <ul class="text-xs font-mono text-slate-400 space-y-1">
+              <li>● GhostlyShell · 109 saves · 412 MB</li>
+              <li>● PlayerTwo · 78 saves · 287 MB</li>
+              <li>● smol_gamer · 64 saves · 198 MB</li>
+              <li>● dev_acct · 61 saves · 174 MB</li>
+            </ul>
+          </div>
+          <figcaption class="px-5 pb-5 text-sm text-slate-400"><strong class="font-display text-slate-100">Save Game Backup</strong> — every profile, every save, organised by gamertag.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- DOWNLOADS -->
+    <section id="downloads" aria-labelledby="dl-title" class="relative bg-ink-900/60 border-y border-white/5">
+      <div class="max-w-7xl mx-auto px-5 md:px-8 py-24">
+        <header class="max-w-3xl">
+          <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-magenta/80">Downloads</p>
+          <h2 id="dl-title" class="font-display text-3xl md:text-5xl mt-3">Pick your platform.</h2>
+          <p class="mt-4 text-slate-300">All builds carry the same Go backend. Need a headless server? See the README for backend-only binaries.</p>
+        </header>
+
+        <div class="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <article class="lift bg-ink-800/70 border border-white/10 rounded-xl p-6">
+            <div class="flex items-center gap-3">
+              <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" class="text-sky-300"><path d="M3 5.5 10.5 4.4v7.1H3Zm0 7.5h7.5v7.1L3 19Zm8.5-8.6L21 3v8.5h-9.5Zm0 9.5H21V21l-9.5-1.4Z"/></svg>
+              <h3 class="font-display text-lg">Windows</h3>
+            </div>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-Setup-2.12.14.exe</span><span class="font-mono text-xs text-slate-400">installer</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-Portable-2.12.14.exe</span><span class="font-mono text-xs text-slate-400">portable</span></a></li>
+            </ul>
+            <p class="mt-4 text-xs text-slate-500">Includes BadAvatar USB large-volume FAT32 formatter (Ridgecrop fat32format).</p>
+          </article>
+          <article class="lift bg-ink-800/70 border border-white/10 rounded-xl p-6">
+            <div class="flex items-center gap-3">
+              <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" class="text-slate-200"><path d="M16.4 12.7c0-2.4 2-3.6 2.1-3.6-1.1-1.6-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.2 1-4 2.4-1.7 3-.4 7.4 1.3 9.9.8 1.2 1.7 2.5 3 2.5 1.2-.1 1.7-.8 3.2-.8s1.9.8 3.2.8 2.2-1.2 3-2.4c1-1.4 1.4-2.7 1.4-2.7 0-.1-2.8-1.1-2.8-4.3ZM13.7 5.4c.7-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3Z"/></svg>
+              <h3 class="font-display text-lg">macOS</h3>
+            </div>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.12.14-arm64.dmg</span><span class="font-mono text-xs text-slate-400">Apple Silicon</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.12.14-x64.dmg</span><span class="font-mono text-xs text-slate-400">Intel</span></a></li>
+            </ul>
+            <p class="mt-4 text-xs text-slate-500">First-launch Gatekeeper override required — see README.</p>
+          </article>
+          <article class="lift bg-ink-800/70 border border-white/10 rounded-xl p-6">
+            <div class="flex items-center gap-3">
+              <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" class="text-amber-300"><path d="M12 2c-2.2 0-3.8 1.4-3.8 3.5 0 1.3.5 2.4 1 3.1.5.7.5 1.4 0 2-1.5 1.8-3.5 4.4-3.5 7.2 0 2.4 2 3.2 6.3 3.2s6.3-.8 6.3-3.2c0-2.8-2-5.4-3.5-7.2-.5-.6-.5-1.3 0-2 .5-.7 1-1.8 1-3.1C15.8 3.4 14.2 2 12 2Z"/></svg>
+              <h3 class="font-display text-lg">Linux</h3>
+            </div>
+            <ul class="mt-4 space-y-2 text-sm">
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.12.14-x86_64.AppImage</span><span class="font-mono text-xs text-slate-400">x64</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.12.14-arm64.AppImage</span><span class="font-mono text-xs text-slate-400">arm64</span></a></li>
+            </ul>
+            <p class="mt-4 text-xs text-slate-500"><code class="font-mono">chmod +x</code> then run; may need <code class="font-mono">libfuse2</code>.</p>
+          </article>
+        </div>
+
+        <p class="mt-8 text-sm text-slate-400">
+          Mirrors and headless backend binaries are on the
+          <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="text-neon-green hover:underline">GitHub README</a>.
+          The project is free, open source, and ships without telemetry.
+        </p>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" aria-labelledby="faq-title" class="max-w-5xl mx-auto px-5 md:px-8 py-24">
+      <header class="max-w-3xl">
+        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80">FAQ</p>
+        <h2 id="faq-title" class="font-display text-3xl md:text-5xl mt-3">Quick answers.</h2>
+      </header>
+
+      <div class="mt-10 divide-y divide-white/10 border border-white/10 rounded-xl bg-ink-900/60">
+        <details class="group p-5 open:bg-white/5">
+          <summary class="flex justify-between items-center cursor-pointer list-none">
+            <span class="font-display text-lg">Do I need an account to use GODsend 360?</span>
+            <span class="ml-4 text-neon-green transition group-open:rotate-45" aria-hidden="true">+</span>
+          </summary>
+          <p class="mt-3 text-slate-300">No. Minerva Archive works over BitTorrent with no login. An Internet Archive account is optional — only useful as a fallback for titles Minerva does not carry.</p>
+        </details>
+        <details class="group p-5 open:bg-white/5">
+          <summary class="flex justify-between items-center cursor-pointer list-none">
+            <span class="font-display text-lg">What Xbox 360 hardware do I need?</span>
+            <span class="ml-4 text-neon-green transition group-open:rotate-45" aria-hidden="true">+</span>
+          </summary>
+          <p class="mt-3 text-slate-300">A console running the Aurora dashboard with its FTP server enabled. That typically means an RGH or JTAG console, or a stock console with a hardware-free exploit such as BadUpdate (see the BadAvatar USB tool above).</p>
+        </details>
+        <details class="group p-5 open:bg-white/5">
+          <summary class="flex justify-between items-center cursor-pointer list-none">
+            <span class="font-display text-lg">Does it run on macOS and Linux?</span>
+            <span class="ml-4 text-neon-green transition group-open:rotate-45" aria-hidden="true">+</span>
+          </summary>
+          <p class="mt-3 text-slate-300">Yes — Windows installer, portable Windows .exe, Apple Silicon and Intel DMGs, and Linux AppImages for x64 and arm64. The Go backend can also run headlessly on a NAS or home server.</p>
+        </details>
+        <details class="group p-5 open:bg-white/5">
+          <summary class="flex justify-between items-center cursor-pointer list-none">
+            <span class="font-display text-lg">Where do my downloads go before transfer?</span>
+            <span class="ml-4 text-neon-green transition group-open:rotate-45" aria-hidden="true">+</span>
+          </summary>
+          <p class="mt-3 text-slate-300">Into a writable runtime folder (Transfer / Ready / Temp / cache) under your user-data directory. ISOs are converted to GOD in Temp, staged in Ready, and FTP'd to the Xbox. If the console goes offline mid-transfer, jobs are persisted to disk and retried automatically.</p>
+        </details>
+        <details class="group p-5 open:bg-white/5">
+          <summary class="flex justify-between items-center cursor-pointer list-none">
+            <span class="font-display text-lg">Can I back up profiles and save games?</span>
+            <span class="ml-4 text-neon-green transition group-open:rotate-45" aria-hidden="true">+</span>
+          </summary>
+          <p class="mt-3 text-slate-300">Yes — Settings → Save Game Backup pulls every profile package and every per-game save for every profile on the connected console into a local archive folder, organised by gamertag with per-title display names resolved automatically.</p>
+        </details>
+        <details class="group p-5 open:bg-white/5">
+          <summary class="flex justify-between items-center cursor-pointer list-none">
+            <span class="font-display text-lg">Is the source code open?</span>
+            <span class="ml-4 text-neon-green transition group-open:rotate-45" aria-hidden="true">+</span>
+          </summary>
+          <p class="mt-3 text-slate-300">Yes — the repository lives at <a class="text-neon-green hover:underline" rel="noopener" href="https://github.com/ghostyshell/GODSend-360">github.com/ghostyshell/GODSend-360</a> under an open-source licence. Issues and discussion are welcome.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section aria-labelledby="cta-title" class="relative overflow-hidden">
+      <div class="absolute inset-0 -z-10" aria-hidden="true">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[60rem] h-[60rem] rounded-full blur-3xl" style="background:conic-gradient(from 90deg at 50% 50%, rgba(168,85,247,0.12), rgba(34,197,94,0.12), rgba(34,211,238,0.10), rgba(168,85,247,0.12));"></div>
+      </div>
+      <div class="max-w-5xl mx-auto px-5 md:px-8 py-24 text-center">
+        <h2 id="cta-title" class="font-display text-3xl md:text-5xl">
+          <span class="sweep">Modern tooling</span> for a 20-year-old console.
+        </h2>
+        <p class="mt-4 text-slate-300 max-w-2xl mx-auto">Free, open source, and built by someone who wanted their Aurora workflow to stop being a stack of three terminals and an FTP client.</p>
+        <div class="mt-8 flex flex-wrap justify-center gap-3">
+          <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="inline-flex items-center gap-2 bg-neon-green text-ink-950 font-display tracking-wide px-6 py-3 rounded-md shadow-neon-green hover:brightness-110 transition cursor-pointer">Get it on GitHub</a>
+          <a href="https://ko-fi.com/ghosty99" rel="noopener" class="inline-flex items-center gap-2 border border-white/15 hover:border-neon-magenta px-6 py-3 rounded-md font-display tracking-wide hover:text-white transition cursor-pointer">Support on Ko-fi</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-white/5 bg-ink-950">
+    <div class="max-w-7xl mx-auto px-5 md:px-8 py-12 grid md:grid-cols-4 gap-8 text-sm">
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-3">
+          <span aria-hidden="true" class="inline-flex w-9 h-9 rounded-md bg-gradient-to-br from-neon-green to-neon-magenta items-center justify-center font-display text-ink-950 text-sm">G3</span>
+          <span class="font-display tracking-wider text-lg">GODsend <span class="neon-green">360</span></span>
+        </div>
+        <p class="mt-3 text-slate-400 max-w-md">Open-source Xbox 360 game manager for Aurora. Convert, install, patch, and back up — from one window, on the OS you actually use.</p>
+      </div>
+      <div>
+        <h3 class="font-display text-slate-200 text-base">Project</h3>
+        <ul class="mt-3 space-y-2 text-slate-400">
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360">GitHub repository</a></li>
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/CHANGELOG.md">Changelog</a></li>
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/docs/features.md">Feature list</a></li>
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/issues">Issue tracker</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="font-display text-slate-200 text-base">Reference</h3>
+        <ul class="mt-3 space-y-2 text-slate-400">
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/docs/api-reference.md">HTTP API</a></li>
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/docs/headless-setup.md">Headless setup</a></li>
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/docs/reference/aurora.md">Aurora Lua API</a></li>
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="https://ko-fi.com/ghosty99">Support on Ko-fi</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-white/5">
+      <div class="max-w-7xl mx-auto px-5 md:px-8 py-6 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
+        <p>© <span id="year">2026</span> ghosty99. GODsend 360 is community software with no affiliation to Microsoft, Aurora, Minerva Archive, or Internet Archive.</p>
+        <p class="font-mono">v2.12.19 · static · zero telemetry</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

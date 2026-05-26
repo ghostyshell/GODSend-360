@@ -36,6 +36,7 @@ When adding new skills:
 4. Update this file's `related_skills` list
 
 ## Related Skills
+- `docs/agents/skills/doc-sync.md` — **auto-sync trigger checklist** for keeping README/AGENTS/CHANGELOG/features.md/api-reference.md in lockstep with code changes
 - `docs/agents/skills/playwright-testing.md` — video recording & UI test conventions (results saved to ignored `test-results/` dir)
 - `docs/agents/skills/shim-electron.md` — Electron agent conventions
 - `docs/agents/skills/shim-go-backend.md` — Go backend agent conventions

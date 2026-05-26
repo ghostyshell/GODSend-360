@@ -13,6 +13,7 @@ Pure-Go ISO→GOD and archive logic lives in **`src/server/utils/`** (`package u
 ## Agent rules
 
 - **Always version bump** — every non-trivial change must update the version string in all four places (`package.json`, `src/electron-app/package.json`, `src/server/main.go`, `aurora-scripts/main.lua`) and add a `CHANGELOG.md` entry under `[Unreleased]`. Do not commit without this.
+- **Always run the doc-sync checklist** — for any change to HTTP routes, IPC channels, services, infrastructure files, runtime folders, env vars, or user-facing features, follow [`docs/agents/skills/doc-sync.md`](../docs/agents/skills/doc-sync.md). README/AGENTS/features.md/api-reference.md must be updated in the **same commit** as the code change, not a follow-up.
 
 ## Additional references
 

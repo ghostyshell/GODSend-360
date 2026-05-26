@@ -402,6 +402,10 @@ Every non-trivial change **must** include a `CHANGELOG.md` update. Read [`CONTRI
 - Add a bullet under `[Unreleased]` at the top of `CHANGELOG.md` (create the section if absent) in the appropriate category (`Added`, `Fixed`, `Changed`, `Removed`).
 - When releasing (cutting a new version), move `[Unreleased]` to the new version number + date and bump versions in **all four places** — see the version-bump table in `CONTRIBUTING.md`.
 
+## Doc-sync trigger (mandatory)
+
+Before every commit that touches `src/` or `aurora-scripts/`, run the trigger checklist in [`docs/agents/skills/doc-sync.md`](docs/agents/skills/doc-sync.md). It maps each kind of code change (new HTTP route, IPC channel, service, env var, user-facing feature, etc.) to the docs that **must** be updated **in the same commit** — `README.md`, `AGENTS.md`, `CHANGELOG.md`, `docs/features.md`, and `docs/api-reference.md`. Doc drift is treated as a regression; don't ship code that updates only one side.
+
 ## When and how to update this file
 
 Treat `AGENTS.md` as **living documentation for agents and automation**. Update it whenever you:
