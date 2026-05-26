@@ -732,6 +732,7 @@ interface ContentItem {
   installed: boolean;
   active: boolean;
   offer_id?: string;
+  drive?: string;
 }
 
 interface ContentSectionProps {
@@ -882,7 +883,7 @@ function ContentSection({ game }: ContentSectionProps) {
 
   async function handleToggleActive(item: ContentItem, setActive: boolean) {
     const key = `${item.content_type}-${item.display_name}-${item.file_name}`;
-    const drive = defaultDrive || game.sourceDrive;
+    const drive = item.drive || game.sourceDrive || defaultDrive;
     if (!item.installed || !item.file_name || !drive) return;
     setTogglingActive((prev) => ({ ...prev, [key]: true }));
     try {
@@ -907,7 +908,10 @@ function ContentSection({ game }: ContentSectionProps) {
 
   async function handleDelete(item: ContentItem) {
     const key = `${item.content_type}-${item.display_name}`;
-    const drive = defaultDrive || game.sourceDrive;
+    // Prefer the drive the scan actually found the item on. Falling back
+    // to defaultDrive first (the old behaviour) sent the FTP DELE to the
+    // wrong drive whenever the game lived on Usb0 but the default was Hdd1.
+    const drive = item.drive || game.sourceDrive || defaultDrive;
     if (!item.installed || !item.file_name || !drive) return;
     setDeleting((prev) => ({ ...prev, [key]: true }));
     try {
@@ -927,7 +931,8 @@ function ContentSection({ game }: ContentSectionProps) {
 
   async function handleMove(item: ContentItem, targetDrive: string) {
     const key = `${item.content_type}-${item.display_name}`;
-    const srcDrive = defaultDrive || game.sourceDrive;
+    // Same drive-selection as handleDelete: trust the scan-recorded drive first.
+    const srcDrive = item.drive || game.sourceDrive || defaultDrive;
     if (!item.installed || !item.file_name || !srcDrive || targetDrive === srcDrive) return;
     setMoving((prev) => ({ ...prev, [key]: true }));
     try {
