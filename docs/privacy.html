@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#020617" />
+
+  <title>Privacy Policy · GODsend 360</title>
+  <meta name="description" content="GODsend 360 privacy policy: we don't collect anything. The desktop app is local-only, the marketing site has no analytics or cookies." />
+  <meta name="robots" content="index, follow" />
+  <meta name="color-scheme" content="dark" />
+
+  <link rel="canonical" href="https://ghostyshell.github.io/GODSend-360/privacy.html" />
+  <link rel="icon" href="/GODSend-360/site/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/GODSend-360/site/favicon.svg" />
+  <link rel="manifest" href="/GODSend-360/site/site.webmanifest" />
+
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="GODsend 360" />
+  <meta property="og:title" content="Privacy Policy · GODsend 360" />
+  <meta property="og:description" content="GODsend 360 is a local-only app. We don't collect, transmit, or store any of your data." />
+  <meta property="og:url" content="https://ghostyshell.github.io/GODSend-360/privacy.html" />
+  <meta property="og:image" content="https://ghostyshell.github.io/GODSend-360/site/og-image.svg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+  <script>
+    window.tailwind = {
+      config: {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              ink:  { 950: '#020617', 900: '#0B1120', 800: '#0F172A', 700: '#1E293B' },
+              neon: { green: '#22C55E', magenta: '#A855F7', cyan: '#22D3EE' },
+            },
+            fontFamily: {
+              display: ['"Russo One"', 'system-ui', 'sans-serif'],
+              body:    ['"Chakra Petch"', 'system-ui', 'sans-serif'],
+              mono:    ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+
+  <style>
+    .neon-green   { color: #22C55E; text-shadow: 0 0 6px rgba(34,197,94,0.45), 0 0 24px rgba(34,197,94,0.18); }
+    .grid-bg {
+      background-image:
+        linear-gradient(to bottom, rgba(2,6,23,0) 0%, rgba(2,6,23,0.92) 78%, #020617 100%),
+        linear-gradient(rgba(34,197,94,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(168,85,247,0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 56px 56px, 56px 56px;
+    }
+    .sr-only-focusable:not(:focus) { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+  </style>
+</head>
+
+<body class="bg-ink-950 text-slate-100 font-body antialiased">
+
+  <a href="#main" class="sr-only-focusable absolute z-50 top-3 left-3 bg-neon-green text-ink-950 px-3 py-2 rounded font-display">Skip to content</a>
+
+  <header class="sticky top-0 z-40 backdrop-blur bg-ink-950/70 border-b border-white/5">
+    <nav aria-label="Primary" class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
+      <a href="/GODSend-360/" class="flex items-center gap-3 group">
+        <img src="/GODSend-360/site/icon.png" alt="" width="36" height="36" class="w-9 h-9" decoding="async" />
+        <span class="font-display tracking-wider text-lg">GODsend <span class="neon-green">360</span></span>
+      </a>
+      <a href="/GODSend-360/" class="text-sm text-slate-300 hover:text-neon-green transition">← Back to site</a>
+    </nav>
+  </header>
+
+  <main id="main" class="grid-bg">
+    <article class="max-w-3xl mx-auto px-5 md:px-8 py-16 md:py-24">
+      <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80">Privacy</p>
+      <h1 class="font-display text-4xl md:text-5xl mt-3">Privacy Policy</h1>
+      <p class="mt-2 text-sm text-slate-400 font-mono">Last updated: 26 May 2026</p>
+
+      <div class="prose prose-invert mt-10 max-w-none prose-headings:font-display prose-headings:tracking-tight prose-a:text-neon-green prose-a:no-underline hover:prose-a:underline">
+
+        <h2>Short version</h2>
+        <p><strong>GODsend 360 doesn't collect anything.</strong> The desktop app runs entirely on your computer and your local network. This marketing site has no analytics, no cookies, and no tracking. We don't have a server that you talk to, and we don't have an account system to register against.</p>
+
+        <hr />
+
+        <h2>1. The desktop application</h2>
+        <p>GODsend 360 is an open-source desktop app. The Go backend and Electron frontend run on your machine and talk only to:</p>
+        <ul>
+          <li><strong>Your Xbox 360</strong>, over your local network, using Aurora's built-in FTP server.</li>
+          <li><strong>Public game-metadata services</strong> on the internet — only when you actually browse or trigger a download:
+            <ul>
+              <li><a href="https://archive.org" rel="noopener">Internet Archive</a> — over HTTPS. If you log in (optional), your session cookie is stored locally only.</li>
+              <li><a href="https://minerva-archive.org" rel="noopener">Minerva Archive</a> — over BitTorrent. The aria2c client connects to the BitTorrent swarm; the same peer-exposure considerations apply as with any BitTorrent client.</li>
+              <li><a href="https://xboxunity.net" rel="noopener">XboxUnity</a> and the public Xbox Live CDN — cover art, Title Updates, asset metadata.</li>
+              <li>Other public sources used incidentally for cover art (Wikipedia, Microsoft Store autosuggest).</li>
+            </ul>
+          </li>
+        </ul>
+        <p>The app does <strong>not</strong> phone home, send crash reports, beacon usage events, or contact any server we operate. There is no telemetry of any kind.</p>
+
+        <h2>2. What is stored locally</h2>
+        <p>The app writes files only under its own runtime directory and your OS's user-data directory:</p>
+        <ul>
+          <li><code>Transfer/</code>, <code>Ready/</code>, <code>Temp/</code>, <code>cache/</code>, <code>Saves/</code>, <code>pending_ftp/</code> — game data, save-game backups, and queued FTP jobs.</li>
+          <li><code>logs/</code> — daily backend log files (stdout/stderr, FTP step traces, IA secrets <em>redacted</em>).</li>
+          <li>Your settings (Transfer folder path, default drive, Xbox IP/credentials, aria2 ports, IA cookie if you opted in) under the Electron user-data directory.</li>
+        </ul>
+        <p>These files never leave your machine unless you copy them somewhere yourself.</p>
+
+        <h2>3. Internet Archive login (optional)</h2>
+        <p>If you choose to log in to Internet Archive inside the app's Settings, the app stores the session cookie locally. Your password is <strong>never</strong> saved, transmitted, or read after the initial login request to archive.org. You can sign out at any time, which clears the cookie.</p>
+
+        <h2>4. This website (ghostyshell.github.io/GODSend-360)</h2>
+        <p>The marketing site is a static HTML page hosted on GitHub Pages. It has:</p>
+        <ul>
+          <li>❌ No analytics (no Google Analytics, no Plausible, no anything).</li>
+          <li>❌ No cookies set by us.</li>
+          <li>❌ No A/B testing, fingerprinting, or session recording.</li>
+        </ul>
+        <p>The page loads three third-party resources, each of which sees only the standard request data (IP address, user-agent) that any web server sees:</p>
+        <ul>
+          <li><a href="https://fonts.google.com" rel="noopener">Google Fonts</a> — for the Russo One, Chakra Petch, and JetBrains Mono fonts.</li>
+          <li><a href="https://tailwindcss.com" rel="noopener">Tailwind Play CDN</a> — for the page's stylesheet.</li>
+          <li>Outbound links to <a href="https://github.com" rel="noopener">GitHub</a>, <a href="https://gofile.io" rel="noopener">GoFile</a>, <a href="https://file.kiwi" rel="noopener">file.kiwi</a>, and <a href="https://ko-fi.com" rel="noopener">Ko-fi</a> are only followed when you click them.</li>
+        </ul>
+        <p>GitHub Pages itself logs basic access information at the server level; refer to <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a> for details.</p>
+
+        <h2>5. Source code transparency</h2>
+        <p>Everything described above is verifiable. The full source code — backend, app, scripts, and site — is at <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener">github.com/ghostyshell/GODSend-360</a>. If any of this looks wrong, please <a href="https://github.com/ghostyshell/GODSend-360/issues" rel="noopener">file an issue</a>.</p>
+
+        <h2>6. Changes</h2>
+        <p>If this policy changes, the "Last updated" date at the top will change with it, and the diff will be in the repository's git history.</p>
+
+        <h2>7. Contact</h2>
+        <p>For privacy questions, open an issue on <a href="https://github.com/ghostyshell/GODSend-360/issues" rel="noopener">the GitHub repo</a>. There's no separate contact channel — the project is maintained by one person in their spare time.</p>
+
+      </div>
+    </article>
+  </main>
+
+  <footer class="border-t border-white/5 bg-ink-950 mt-8">
+    <div class="max-w-7xl mx-auto px-5 md:px-8 py-8 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
+      <p>© <span id="year">2026</span> ghosty99 · GODsend 360 is community software with no affiliation to Microsoft, Aurora, Minerva Archive, or Internet Archive.</p>
+      <nav aria-label="Footer" class="flex gap-5">
+        <a href="/GODSend-360/" class="hover:text-neon-green transition">Home</a>
+        <a href="/GODSend-360/privacy.html" class="hover:text-neon-green transition">Privacy</a>
+        <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="hover:text-neon-green transition">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

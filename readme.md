@@ -12,9 +12,9 @@ GODsend 360 is a local-network game management system for Xbox 360 consoles runn
 
 Download priority for online libraries: **Local Transfer folder → Minerva Archive → Internet Archive**. An Internet Archive account is only needed if Minerva doesn't have the title you want.
 
-[![GODsend 360 v2.9.2 overview video preview](GODsend-360-2.9.2-preview.png)](GODsend-360-2.9.2.mov)
+[![GODsend 360 v2.9.2 overview video preview](docs/site/assets/GODsend-360-2.9.2-preview.png)](docs/site/assets/GODsend-360-2.9.2.mov)
 
-[Download or play the overview video (`.mov`)](GODsend-360-2.9.2.mov)
+[Download or play the overview video (`.mov`)](docs/site/assets/GODsend-360-2.9.2.mov)
 
 ---
 
