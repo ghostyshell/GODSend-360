@@ -745,7 +745,7 @@ func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 	j.State = JobProcessing
 	j.Detail = "Connecting…"
 
-	tmpDir := filepath.Join(os.TempDir(), fmt.Sprintf("godsend-ftp-copy-%d", time.Now().UnixNano()))
+	tmpDir := filepath.Join(m.App.ToolsDir, "Temp", fmt.Sprintf("godsend-ftp-copy-%d", time.Now().UnixNano()))
 	os.MkdirAll(tmpDir, 0755)
 	defer os.RemoveAll(tmpDir)
 
@@ -891,7 +891,7 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 	m.App.Logf("FTP MOVE %s: total size = %d bytes", gameName, totalBytes)
 
 	// Fallback: download → upload → delete source
-	tmpDir := filepath.Join(os.TempDir(), fmt.Sprintf("godsend-move-%d", time.Now().UnixNano()))
+	tmpDir := filepath.Join(m.App.ToolsDir, "Temp", fmt.Sprintf("godsend-move-%d", time.Now().UnixNano()))
 	os.MkdirAll(tmpDir, 0755)
 	defer os.RemoveAll(tmpDir)
 

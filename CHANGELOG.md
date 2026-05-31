@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.23] — 2026-06-01
+
+### Fixed
+- **Files written to `AppData\Local\Temp` instead of the configured data directory** — FTP Manager copy/move staging and save-game keyvault/account downloads were all calling `os.TempDir()` (which resolves to the system temp on Windows) instead of the user-configured `ToolsDir/Temp`. Fixed in `infrastructure/ftp/manager.go` (`doCopy`, `doMove`) and `services/saves/saves.go` (`downloadAndParseKV`, `ResolveProfileName`); all four now use `filepath.Join(App.ToolsDir, "Temp", ...)` so temporary data stays inside the configured storage path for both the installer and portable builds.
+
 ## [2.12.22] — 2026-05-27
 
 ### Fixed
