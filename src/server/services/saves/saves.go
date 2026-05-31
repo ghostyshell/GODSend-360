@@ -471,7 +471,7 @@ func (s *Service) TryFindKeyVaultOnConsole(ip string) (*KeyVault, error) {
 }
 
 func (s *Service) downloadAndParseKV(ip, remotePath string) (*KeyVault, error) {
-	tmpFile := filepath.Join(os.TempDir(), "godsend_kv_"+ipToFilename(ip)+".bin")
+	tmpFile := filepath.Join(s.App.ToolsDir, "Temp", "godsend_kv_"+ipToFilename(ip)+".bin")
 	if err := s.FTPMgr.DownloadFile(ip, remotePath, tmpFile); err != nil {
 		return nil, err
 	}
@@ -532,7 +532,7 @@ func (s *Service) ResolveProfileName(ip, drive, profileID string) string {
 	accountPath := fmt.Sprintf("/%s/Content/%s/FFFE07D1/00010000/%s", drive,
 		strings.ToUpper(profileID), strings.ToUpper(profileID))
 
-	tmpFile := filepath.Join(os.TempDir(), "godsend_acc_"+profileID+".bin")
+	tmpFile := filepath.Join(s.App.ToolsDir, "Temp", "godsend_acc_"+profileID+".bin")
 	if err := s.FTPMgr.DownloadFile(ip, accountPath, tmpFile); err != nil {
 		s.App.Logf("SAVES: cannot download account for %s: %v", profileID, err)
 		return ""
