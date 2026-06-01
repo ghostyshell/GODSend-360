@@ -4,7 +4,7 @@ The primary reference for this project is [`AGENTS.md`](AGENTS.md). Read it befo
 
 - Project overview and component boundaries (Go backend, Electron app, Aurora Lua scripts)
 - Repository layout and architectural patterns
-- Run and test commands (builds are handled by `godsend-release-keeper`)
+- Run, build, and test commands (local wine-based cross-builds via `npm run build:*`)
 - Code style and design guidelines
 - Rules for keeping `AGENTS.md` itself up to date
 

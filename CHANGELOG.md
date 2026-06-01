@@ -9,6 +9,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Builds now run locally instead of via the `godsend-release-keeper` watchdog.** Retired the external Sliplane build service from the docs; `AGENTS.md` and `.claude/CLAUDE.md` now document the local `npm run build:*` workflow — Go backends cross-compile with `CGO_ENABLED=0`, macOS DMGs build natively, and Windows installers/portables package through **Wine** on a macOS host. The GoFile + file.kiwi upload steps are documented as manual (account token + `npx @file-kiwi/node`).
+- **Published the 2.12.23 Windows installer + portable.** The keeper had updated macOS/Linux to 2.12.23 but left Windows at 2.12.22; built `godsend-Setup-2.12.23.exe` and `godsend-Portable-2.12.23.exe` locally, uploaded to GoFile + file.kiwi, and refreshed the Windows rows in the README download table.
+
 ## [2.12.23] — 2026-06-01
 
 ### Fixed
