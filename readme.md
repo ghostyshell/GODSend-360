@@ -42,8 +42,8 @@ Download the build for your platform:
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.22.exe`](https://gofile.io/d/0pbDI9) | [`godsend-Setup-2.12.22.exe`](https://file.kiwi/9c1aa92b#yVqU5SikKHXH3VOPoaV_2w) |
-| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.22.exe`](https://gofile.io/d/ZNxKge) | [`godsend-Portable-2.12.22.exe`](https://file.kiwi/baf798e8#MhNcvkWJIbm8SyhYZVfnFw) |
+| **Windows (x64, installer — tray app + backend)** | [`godsend-Setup-2.12.23.exe`](https://gofile.io/d/OBOV8I) | [`godsend-Setup-2.12.23.exe`](https://file.kiwi/103e7834#LXMstQCtVAnNYbJlWsm84w) |
+| **Windows (x64, portable — no install needed)** | [`godsend-Portable-2.12.23.exe`](https://gofile.io/d/yIa6Cc) | [`godsend-Portable-2.12.23.exe`](https://file.kiwi/6985d634#OqLJS-mxEu9vdEMY1_Dqjw) |
 | **macOS (Apple Silicon)** | [`godsend-2.12.23-arm64.dmg`](https://gofile.io/d/tnv3ol) | [`godsend-2.12.23-arm64.dmg`](https://file.kiwi/13b19052#3FpITrtuf0XfmPrUPmQaJA) |
 | **macOS (Intel)** | [`godsend-2.12.23-x64.dmg`](https://gofile.io/d/obm6rG) | [`godsend-2.12.23-x64.dmg`](https://file.kiwi/2a0fd89f#IsSIZf6TF0NoUY8YzxKpcw) |
 | **Linux (x64 / amd64)** | [`godsend-2.12.23-x86_64.AppImage`](https://gofile.io/d/IY9a5q) | [`godsend-2.12.23-x86_64.AppImage`](https://file.kiwi/8188da18#VhC_ZYVyhOw_tsh-gIBwpg) |
@@ -53,7 +53,7 @@ Download the build for your platform:
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.12.2.exe`** and follow the installer (or just run **`godsend-Portable-2.12.2.exe`** directly — no install step needed).
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.12.23.exe`** and follow the installer (or just run **`godsend-Portable-2.12.23.exe`** directly — no install step needed).
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher — the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.

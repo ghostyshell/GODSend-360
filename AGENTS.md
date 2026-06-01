@@ -132,7 +132,7 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 - **Build scripts**
   - `scripts/sync-assets-icon.js`: pre-build script to normalise tray/icon artwork.
   - `scripts/after-pack-win-icon.js`: `electron-builder` `afterPack` hook for embedding the icon.
-  - `scripts/download-fat32format.js`: fetches Ridgecrop `fat32format.exe` into `dist/tools/` for Windows builds (BadAvatar USB large-volume formatter). Run from `build:server`, `build-go-all.js`, and godsend-release-keeper `build-win.sh` before packaging.
+  - `scripts/download-fat32format.js`: fetches Ridgecrop `fat32format.exe` into `dist/tools/` for Windows builds (BadAvatar USB large-volume formatter). Run from `build:server` and `build-go-all.js` before packaging.
 - **TypeScript compilation**
   - `tsconfig.json`: `"module": "commonjs"`, `"strict": false`, no `outDir` (in-place compilation).
   - Build commands (`npm run build:win` etc.) run `tsc` before electron-builder; `npm run tsc` compiles only.
@@ -166,32 +166,59 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 
 ### Build tooling
 
-> **Builds are handled by `godsend-release-keeper`.** Do not run `npm run build`, `npm run build:*`, or packaging commands from this repo.
+> **Builds are run locally from this repo** with the `npm run build:*` scripts. Cross-platform packaging works from a macOS host: macOS DMGs build natively, and **Windows installers build via Wine** (`wine` must be on `PATH` — `brew install --cask wine-stable`). The Go backend cross-compiles to every target with `CGO_ENABLED=0`, so no platform-specific toolchain is needed for the binaries. (The old `godsend-release-keeper` Sliplane watchdog has been retired — there is no external build service.)
 
-- `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.) produced by `godsend-release-keeper`.
+- `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.) produced by the local `npm run build:*` scripts.
 - `tools/`: ignored directory for third-party executables (`7za.exe`, `7za.dll`, `7zxa.dll`) when needed outside the bundled Go pipeline.
 
-### Release assets (GoFile upload + README links)
+Build-script map (run from repo root):
 
-**Do NOT create git tags or GitHub releases.** All build assets are uploaded to GoFile.io and linked directly from `README.md`.
+| Command | Output |
+|---|---|
+| `npm run build:server` | `dist/godsend.exe` (Windows backend) + `dist/tools/{aria2c,fat32format}.exe` |
+| `npm run build:server:mac` / `:mac:arm` | `dist/godsend-mac` (Intel / Apple Silicon headless backend) |
+| `npm run build:server:linux` | `dist/godsend-linux-x64` + `dist/godsend-linux-arm64` |
+| `npm run build:server:all` | all headless Go backends in one pass |
+| `npm run build:electron:win:x64` | `dist/godsend-Setup-X.Y.Z.exe` (NSIS installer, via Wine) |
+| `npm run build:electron:win:portable` | `dist/godsend-Portable-X.Y.Z.exe` (portable, via Wine) |
+| `npm run build:electron:mac` / `:mac:arm` | `dist/godsend-X.Y.Z-{x64,arm64}.dmg` |
+| `npm run build:electron:linux` | `dist/godsend-X.Y.Z-{x86_64,arm64}.AppImage` |
+
+> The Electron Windows build needs `dist/godsend.exe` + `dist/tools/*.exe` present first, so run `build:server` before `build:electron:win:*`. On a non-Windows host the `rcedit` icon-embed step is skipped (it needs `wine64` on `PATH`); this is cosmetic and the installer/exe still carry their icons.
+
+### Release assets (GoFile + file.kiwi upload + README links)
+
+**Do NOT create git tags or GitHub releases.** All build assets are uploaded to **GoFile.io** (primary) and **file.kiwi** (backup mirror) and linked directly from `README.md` — the download table has one column per host.
 
 #### GoFile upload workflow
 
-Each file must be uploaded **individually** (no `folderId`) so every file gets its own unique download page URL.
+Each file must be uploaded **individually** (no `folderId`) so every file gets its own unique download page URL. Use the persistent account token in `.gofile-io-token` so uploads survive (anonymous uploads expire).
 
 Upload steps (per file):
 
 ```bash
-RESPONSE=$(curl -s -X POST "https://upload.gofile.io/uploadfile" -F "file=@dist/FILENAME")
-DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
-echo "$DOWNLOAD_PAGE"
+TOKEN=$(cat .gofile-io-token)
+RESPONSE=$(curl -s -X POST "https://upload.gofile.io/contents/uploadfile" \
+  -H "Authorization: Bearer $TOKEN" -F "file=@dist/FILENAME")
+echo "$RESPONSE" | jq -r '.data.downloadPage'
 ```
 
 The `downloadPage` value (e.g. `https://gofile.io/d/AbC123`) is the per-file public link to use in the README.
 
+#### file.kiwi upload workflow
+
+Mirror each file to file.kiwi (anonymous, E2E-encrypted) with the official CLI:
+
+```bash
+FORCE_COLOR=0 npx -y @file-kiwi/node dist/FILENAME --title "FILENAME" 2>&1 \
+  | grep -Eo 'https://file\.kiwi/[A-Za-z0-9][A-Za-z0-9#_+/=-]*' | tail -1
+```
+
+The full URL **including the `#<key>` fragment** is the link to use in the README — without the fragment the file cannot be decrypted.
+
 ##### Files to upload
 
-After `npm run build` on macOS, the following files in `dist/` must be uploaded:
+After building on macOS, the following files in `dist/` must be uploaded (to both hosts):
 
 | File | Description |
 |---|---|
@@ -210,19 +237,19 @@ After `npm run build` on macOS, the following files in `dist/` must be uploaded:
 
 #### Updating README download links
 
-After uploading, update **both** download tables in `README.md`:
+After uploading, update **both** download tables in `README.md` (and `docs/headless-setup.md`). Each table has a **GoFile column** and a **file.kiwi column** — update both per row:
 
 1. **Quick Installation table** (desktop installers):
    ```markdown
-   | **macOS (Apple Silicon)** | [`godsend-X.Y.Z-arm64.dmg`](https://gofile.io/d/UNIQUE_CODE) |
+   | **macOS (Apple Silicon)** | [`godsend-X.Y.Z-arm64.dmg`](https://gofile.io/d/CODE) | [`godsend-X.Y.Z-arm64.dmg`](https://file.kiwi/ID#KEY) |
    ```
 
 2. **Running Without the Desktop App table** (headless backend binaries):
    ```markdown
-   | **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/UNIQUE_CODE) |
+   | **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/CODE) | [`godsend.exe`](https://file.kiwi/ID#KEY) |
    ```
 
-Each row gets its own unique GoFile link — do **not** point multiple files at the same folder page.
+Each cell gets its own unique link — do **not** point multiple files at the same folder page.
 
 Also update all inline version references in `README.md` (filenames in prose, installer names in instructions).
 
@@ -230,8 +257,9 @@ Also update all inline version references in `README.md` (filenames in prose, in
 
 - **Never** create git tags, GitHub releases, or push tags to the remote.
 - Upload each platform build as a **separate file** — do not zip multiple builds together.
-- Each file must have its **own unique GoFile download page** (upload without `folderId`).
+- Each file must have its **own unique GoFile download page** (upload without `folderId`) and its own file.kiwi link (with the `#<key>` fragment).
 - When bumping versions, update `README.md` download links **in the same commit** as the version bump.
+- You only need to rebuild + re-upload the platforms that actually changed; leave links for platforms already published at the current version alone.
 
 ---
 
@@ -261,28 +289,45 @@ Search-and-replace the old version with the new one in all filenames and inline 
 - DMG/AppImage filenames
 - Prose mentioning the version
 
-#### 4. Build all targets
+#### 4. Build all targets locally
 
-Trigger `godsend-release-keeper` to cross-compile all Go backends and produce Electron installers/DMGs/AppImages. Do not run `npm run build` from this repo.
-
-#### 5. Upload all dist files to GoFile
-
-Upload each file individually (no `folderId`) and collect the per-file download page URLs:
+Cross-compile the Go backends and package the Electron apps with the `npm run build:*` scripts (see the **Build tooling** section for the full command→output map). From a macOS host:
 
 ```bash
+# Headless Go backends (all platforms)
+npm run build:server:all
+# Windows installer + portable (via Wine)
+npm run build:server && npm run build:electron:win:x64 && npm run build:electron:win:portable
+# macOS DMGs (native)
+npm run build:electron:mac && npm run build:electron:mac:arm
+# Linux AppImages
+npm run build:electron:linux
+```
+
+You only need to rebuild the platforms that changed since the last release.
+
+#### 5. Upload all dist files to GoFile + file.kiwi
+
+Upload each changed file individually (no `folderId`) to **both** hosts and collect the per-file links:
+
+```bash
+TOKEN=$(cat .gofile-io-token)
 for f in godsend.exe godsend-darwin-arm64 godsend-darwin-amd64 godsend-linux-arm64 \
          godsend-linux-x64 godsend-mac \
          godsend-Setup-X.Y.Z.exe godsend-Portable-X.Y.Z.exe \
          godsend-X.Y.Z-arm64.dmg godsend-X.Y.Z-x64.dmg \
          godsend-X.Y.Z-arm64.AppImage godsend-X.Y.Z-x86_64.AppImage; do
-  resp=$(curl -s -X POST "https://upload.gofile.io/uploadfile" -F "file=@dist/$f")
-  echo "$f | $(echo "$resp" | jq -r '.data.downloadPage')"
+  gofile=$(curl -s -X POST "https://upload.gofile.io/contents/uploadfile" \
+    -H "Authorization: Bearer $TOKEN" -F "file=@dist/$f" | jq -r '.data.downloadPage')
+  kiwi=$(FORCE_COLOR=0 npx -y @file-kiwi/node "dist/$f" --title "$f" 2>&1 \
+    | grep -Eo 'https://file\.kiwi/[A-Za-z0-9][A-Za-z0-9#_+/=-]*' | tail -1)
+  echo "$f | $gofile | $kiwi"
 done
 ```
 
 #### 6. Update README.md download links
 
-Replace every GoFile URL in both download tables with the fresh per-file links from step 5.
+Replace the GoFile and file.kiwi URLs in both download tables with the fresh per-file links from step 5 (only for the platforms you rebuilt).
 
 #### 7. Commit and push
 
@@ -317,7 +362,7 @@ git push -u github HEAD
 
 ## Build, run, and test commands
 
-> **Builds are handled by `godsend-release-keeper`.** Do not run `npm run build`, `npm run build:*`, or packaging commands from this repo. The helper manages cross-compilation, packaging, and artifact uploads.
+> **Builds run locally** via the `npm run build:*` scripts (see **Build tooling** for the command→output map). Windows installers package through Wine on macOS/Linux; macOS DMGs build natively; the Go backend cross-compiles to every target.
 
 ### Electron + backend (Windows)
 
