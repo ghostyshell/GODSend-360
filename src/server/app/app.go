@@ -18,6 +18,7 @@ type App struct {
 	// ── Paths & config (set once at startup) ──────────────────────────
 	ToolsDir         string
 	GodsendExeDir    string // directory containing the godsend binary
+	TorrentTempDir   string // aria2c Minerva download staging (default ToolsDir/Temp/torrent-dl)
 	TransferDir      string // local ISO folder
 	SaveBackupDir    string // save-game backup folder
 	PendingFTPDir    string

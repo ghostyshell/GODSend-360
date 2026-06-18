@@ -16,6 +16,9 @@ import {
 } from "../services/appDataPath";
 import {
   getConfiguredStoragePath,
+  getConfiguredTorrentTempPath,
+  getDefaultTorrentTempPath,
+  getEffectiveTorrentTempPath,
   getConfiguredTransferFolder,
   getConfiguredSaveBackupFolder,
   getDefaultTransferFolder,
@@ -85,6 +88,44 @@ export function register(ipcMain: IpcMain): void {
   ipcMain.handle("config:choose-storage-path", async () => {
     const win = BrowserWindow.getFocusedWindow() || getMainWindow();
     const r   = await dialog.showOpenDialog(win || undefined, {
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    return r.filePaths[0];
+  });
+
+  // ── Torrent download temp (GODSEND_TORRENT_TEMP) ───────────────────────────
+  ipcMain.handle("config:get-torrent-temp-path", () => getConfiguredTorrentTempPath());
+
+  ipcMain.handle("config:get-effective-torrent-temp-path", () => {
+    const writableRoot = getWritableRuntimeRoot();
+    return getEffectiveTorrentTempPath(writableRoot);
+  });
+
+  ipcMain.handle("config:get-default-torrent-temp-path", () => {
+    const writableRoot = getWritableRuntimeRoot();
+    return getDefaultTorrentTempPath(writableRoot);
+  });
+
+  ipcMain.handle("config:get-effective-backend-temp-path", () => {
+    return path.join(getWritableRuntimeRoot(), "Temp");
+  });
+
+  ipcMain.handle("config:set-torrent-temp-path", (_event, folder) => {
+    const f = typeof folder === "string" ? folder.trim() : "";
+    writeConfig({ torrentTempPath: f });
+    appendAppEvent(
+      "CONFIG",
+      `torrentTempPath set to ${f ? path.resolve(f) : "(default under storage Temp/torrent-dl)"}; restarting backend`
+    );
+    restartGodsendIfRunning();
+    return getConfiguredTorrentTempPath();
+  });
+
+  ipcMain.handle("config:choose-torrent-temp-path", async () => {
+    const win = BrowserWindow.getFocusedWindow() || getMainWindow();
+    const r = await dialog.showOpenDialog(win || undefined, {
+      title: "Choose torrent download temp folder",
       properties: ["openDirectory", "createDirectory"],
     });
     if (r.canceled || !r.filePaths[0]) return null;

@@ -231,7 +231,10 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 
 	// Write torrent to a temp file so aria2c doesn't need to re-fetch it via HTTPS.
 	// (aria2c on Windows has SSL issues fetching HTTPS URLs; Go has none.)
-	tf, err := os.CreateTemp("", "godsend-*.torrent")
+	if err := os.MkdirAll(s.App.TorrentTempDir, 0755); err != nil {
+		return "", fmt.Errorf("create torrent temp dir: %w", err)
+	}
+	tf, err := os.CreateTemp(s.App.TorrentTempDir, "godsend-*.torrent")
 	if err != nil {
 		return "", fmt.Errorf("create temp torrent: %w", err)
 	}
@@ -245,9 +248,9 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 
 	// aria2c nests output under <torrent-name>/path/… so the full path can exceed
 	// Windows MAX_PATH (260 chars) when destDir + torrent subdirs + filename are combined.
-	// Use a short-named OS temp dir as the aria2c working directory; move the finished
-	// file to destDir afterwards.
-	aria2cDir, err := os.MkdirTemp("", "gd-dl-*")
+	// Stage under TorrentTempDir (configurable; default GODSEND_HOME/Temp/torrent-dl), then
+	// move the finished file to destDir afterwards.
+	aria2cDir, err := os.MkdirTemp(s.App.TorrentTempDir, "gd-dl-*")
 	if err != nil {
 		return "", fmt.Errorf("create aria2c temp dir: %w", err)
 	}
@@ -376,10 +379,40 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 		return "", fmt.Errorf("create dest dir: %w", err)
 	}
 	destFile := filepath.Join(destDir, filepath.Base(foundPath))
-	if err := os.Rename(foundPath, destFile); err != nil {
-		return "", fmt.Errorf("move downloaded file to dest: %w", err)
+	if err := moveDownloadedFile(foundPath, destFile); err != nil {
+		return "", err
 	}
 
 	s.App.Logf("TORRENT [%s]: Download complete (%.0f MB)", gameName, float64(fileSize)/1048576)
 	return destFile, nil
+}
+
+// moveDownloadedFile moves src to dst, using copy+delete when rename fails (e.g. cross-drive on Windows).
+func moveDownloadedFile(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return fmt.Errorf("create dest dir: %w", err)
+	}
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	} else if !isCrossDeviceRenameErr(err) {
+		return fmt.Errorf("move downloaded file to dest: %w", err)
+	}
+	if err := helpers.CopyFileBuffered(src, dst); err != nil {
+		return fmt.Errorf("move downloaded file to dest: copy: %w", err)
+	}
+	if err := os.Remove(src); err != nil {
+		return fmt.Errorf("move downloaded file to dest: remove source after copy: %w", err)
+	}
+	return nil
+}
+
+func isCrossDeviceRenameErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "different disk") ||
+		strings.Contains(msg, "cross-device") ||
+		strings.Contains(msg, "cross device") ||
+		strings.Contains(msg, "exdev")
 }

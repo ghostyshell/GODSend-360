@@ -84,7 +84,7 @@ main → everything (wiring only)
 ```
 
 #### Key architectural notes
-- **Pending FTP queue** (`infrastructure/ftp/`) — when an FTP transfer fails after retries (e.g. console launched a game), the backend persists the job to `GODSEND_HOME/pending_ftp/<id>.json` and retries indefinitely (30 s → 5 min backoff). Jobs survive restarts and are resumed at startup. Endpoints: `GET /data/status`, `GET /data/clear`, `GET /config`. Env vars: `GODSEND_DEFAULT_DRIVE`, `GODSEND_ARIA2_LISTEN_PORT`, `GODSEND_ARIA2_DHT_PORT`.
+- **Pending FTP queue** (`infrastructure/ftp/`) — when an FTP transfer fails after retries (e.g. console launched a game), the backend persists the job to `GODSEND_HOME/pending_ftp/<id>.json` and retries indefinitely (30 s → 5 min backoff). Jobs survive restarts and are resumed at startup. Endpoints: `GET /data/status`, `GET /data/clear`, `GET /config`. Env vars: `GODSEND_DEFAULT_DRIVE`, `GODSEND_TORRENT_TEMP`, `GODSEND_ARIA2_LISTEN_PORT`, `GODSEND_ARIA2_DHT_PORT`.
 - **Minerva source** (`services/cache/minerva.go`, `infrastructure/torrent/`, `services/pipeline/minerva.go`) — Minerva Archive integration alongside IA. Download priority in `/trigger`: **local → Minerva → Internet Archive**. `/browse` merges Minerva + IA lists (Minerva first, deduped). Torrent download via `aria2c` (`--select-file`); macOS uses Homebrew bootstrap (`aria2c_darwin.go`).
 - **Bundled torrent zips** — `cache/minerva_*.zip` in the repo root. Electron `extraFiles` ships `cache/` next to the app; backend seeds `GODSEND_HOME/cache` from that bundle. Pre-scrape: `npm run scrape:minerva`.
 
@@ -108,7 +108,7 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
   - `services/autoSyncService.ts`: post-FTP automation — `autoUploadAuroraAssets` and `doAuroraLibrarySync`.
   - `services/badAvatarUsbService.ts`: BadAvatar USB build orchestrator — optional FAT32 format step + BadStick payload (Proto / FreestyleDash / Aurora XeUnshackle) install with per-file progress.
 - **IPC handlers (`ipc/`)**
-  - `configHandlers.ts`: startup, logs, transfer folder, server port, IA auth, ROM path, cache refresh, Xbox connection, default drive, aria2 ports, Aurora library sources, save-backup folder.
+  - `configHandlers.ts`: startup, logs, storage path, torrent temp path, app data directory, transfer folder, server port, IA auth, ROM path, cache refresh, Xbox connection, default drive, aria2 ports, Aurora library sources, save-backup folder.
   - `xboxFtpHandlers.ts`: ping, verbose FTP test, port scanner, Aurora scripts upload, drive listing, game listing, cover fetch.
   - `auroraLibraryHandlers.ts`: Aurora library sync (DB fingerprint caching), cover + visual asset sync, disk-cache visual refresh.
   - `auroraAssetHandlers.ts`: asset search (XboxUnity + CDN), image fetch, file picker, console upload, RXEA decode/encode, Aurora game inspector.

@@ -271,6 +271,18 @@ func (a *App) SetupPaths() error {
 			return err
 		}
 	}
+	a.TorrentTempDir = filepath.Join(a.ToolsDir, "Temp", "torrent-dl")
+	if v := strings.TrimSpace(os.Getenv("GODSEND_TORRENT_TEMP")); v != "" {
+		abs, err := filepath.Abs(v)
+		if err != nil {
+			return fmt.Errorf("GODSEND_TORRENT_TEMP: %w", err)
+		}
+		a.TorrentTempDir = abs
+		a.Logf("[INFO] Torrent download temp (GODSEND_TORRENT_TEMP): %s", a.TorrentTempDir)
+	}
+	if err := os.MkdirAll(a.TorrentTempDir, 0755); err != nil {
+		return fmt.Errorf("torrent temp dir: %w", err)
+	}
 	// ROM install path (drive-relative, no drive letter, no trailing slash)
 	a.ROMRootPath = "Emulators\\RetroArch\\roms"
 	if v := strings.TrimSpace(os.Getenv("GODSEND_ROM_PATH")); v != "" {

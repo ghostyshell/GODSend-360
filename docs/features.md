@@ -12,7 +12,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 
 - **What:** Xbox 360, OG Xbox, XBLA, DLC, XBLIG, and Game Archive libraries sourced from [minerva-archive.org](https://minerva-archive.org) — no account or login required. Works out of the box.
 - **How:** When browsing any game library, select **Minerva Archive** as the source. Game lists are bundled in the installer so browsing is instant.
-- **How it works:** The backend fetches the Minerva collection torrent, finds the requested file's index, and uses `aria2c` to download only that file via BitTorrent (`--select-file`). **Windows** and **Linux** desktop builds ship a bundled `aria2c` next to the backend; the **Windows NSIS** installer can add OS firewall rules for `aria2c` so Windows does not prompt on first torrent use. **macOS** does not bundle `aria2c` — the backend prepends Homebrew to `PATH` and, if needed, tries a non-interactive Homebrew install plus `brew install aria2` at startup; if `sudo` is unavailable (typical when launched from the GUI), it sets **`SUDO_ASKPASS`** so the installer runs as your user and macOS shows the password dialog when Homebrew needs `sudo` (the installer cannot run as root). Progress is reported to the Aurora queue display every 3 seconds.
+- **How it works:** The backend fetches the Minerva collection torrent, finds the requested file's index, and uses `aria2c` to download only that file via BitTorrent (`--select-file`). Pieces land in **torrent download temp** (`GODSEND_HOME/Temp/torrent-dl` by default, or `GODSEND_TORRENT_TEMP` / Settings → **Torrent download temp**), then move into processing `Temp/` for extraction/conversion. **Windows** and **Linux** desktop builds ship a bundled `aria2c` next to the backend; the **Windows NSIS** installer can add OS firewall rules for `aria2c` so Windows does not prompt on first torrent use. **macOS** does not bundle `aria2c` — the backend prepends Homebrew to `PATH` and, if needed, tries a non-interactive Homebrew install plus `brew install aria2` at startup; if `sudo` is unavailable (typical when launched from the GUI), it sets **`SUDO_ASKPASS`** so the installer runs as your user and macOS shows the password dialog when Homebrew needs `sudo` (the installer cannot run as root). Progress is reported to the Aurora queue display every 3 seconds.
 
 ## Internet Archive account & parallel downloads (optional fallback)
 
@@ -25,6 +25,12 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 - **What:** Install disc games from `.iso` files you already have, without re-downloading from IA.
 - **How:** Settings → set **Local Transfer folder** (or use the default runtime `Transfer` folder). Drop ISOs there. On the Xbox, open **Local Library** or trigger a title that matches a filename in that folder.
 - **How it works:** For Xbox 360 / original Xbox / `local` browse, the backend prefers a matching ISO under `Transfer` over Internet Archive and runs the same conversion pipeline locally.
+
+## Storage paths and temporary directories
+
+- **What:** Control where GODsend stores working files — separate from Windows `%TEMP%`.
+- **How:** Settings → **App data directory** (config, logs, caches), **Local storage path** (`GODSEND_HOME`: `Temp/`, `Ready/`, `Transfer/`, `cache/`), and **Temporary directories** (read-only **Processing temp** path plus configurable **Torrent download temp**).
+- **How it works:** Electron writes `storagePath` / `torrentTempPath` to `config.json` and passes `GODSEND_HOME` / `GODSEND_TORRENT_TEMP` to the Go backend on spawn. Processing temp holds extraction, ISO→GOD, FTP staging, and post-torrent job folders; torrent temp is where aria2c writes active Minerva downloads (`gd-dl-*`) before they move into processing temp.
 
 ## Library metadata caches
 

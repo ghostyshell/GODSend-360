@@ -62,7 +62,8 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 |--------|---------|
 | `Transfer/` | Drop ISOs here for local-library installs (used instead of downloading from IA) |
 | `Ready/` | Staging area for GOD/archive files pending FTP transfer; also used by `pending_ftp/` job tracking |
-| `Temp/` | Working directory for in-progress conversions |
+| `Temp/` | Working directory for in-progress conversions (extract, ISO→GOD, FTP staging, save keyvault pulls) |
+| `Temp/torrent-dl/` | Default aria2c Minerva torrent download staging (`gd-dl-*` folders); override with `GODSEND_TORRENT_TEMP` |
 | `cache/` | Cached Internet Archive game metadata (avoids re-fetching on each launch) |
 | `Saves/` | Local backup of Xbox profiles and save files; layout `<gamertag> (<XUID>)/<gameName> - <titleID>/<files>`, profile STFS at `<gamertag> (<XUID>)/Profile/<XUID>` |
 
@@ -71,6 +72,7 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GODSEND_HOME` | binary directory | Root path for Transfer/Ready/Temp/cache |
+| `GODSEND_TORRENT_TEMP` | `$GODSEND_HOME/Temp/torrent-dl` | aria2c Minerva torrent download staging (`.torrent` scratch + `gd-dl-*` folders) |
 | `GODSEND_TRANSFER` | `$GODSEND_HOME/Transfer` | Override Transfer folder path independently |
 | `GODSEND_IA_COOKIE` | — | `logged-in-user=…; logged-in-sig=…` session cookie for IA auth |
 | `GODSEND_IA_AUTHORIZATION` | — | Bearer token as an alternative to cookie auth |

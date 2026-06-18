@@ -8,11 +8,11 @@ The Go backend works as a standalone headless server — no Electron, no GUI, no
 
 | Platform | GoFile | file.kiwi backup |
 |----------|--------|--------|
-| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/5H41qW) | [`godsend.exe`](https://file.kiwi/91ab5dad#2svs_Ixop27RUk0WLpiSbg) |
-| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gofile.io/d/pdkvMI) | [`godsend-linux-x64`](https://file.kiwi/85dc2238#fjm0y9iGax0W7CaPoh_OrA) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/T99zO5) | [`godsend-linux-arm64`](https://file.kiwi/56209c15#N1f2AG6rr7Ol2hAXsYkSIQ) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/L01QNh) | [`godsend-darwin-arm64`](https://file.kiwi/4d5410d6#nPqL1F3BjhZU8K9kEgmI1w) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/T1qWK0) | [`godsend-darwin-amd64`](https://file.kiwi/bd6c55aa#602e9xK1UCsHX47RbjD8WQ) |
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/4vcihY) | [`godsend.exe`](https://file.kiwi/ed33d76f#LBw0nO70UCE_ZOOvU-OYtg) |
+| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gofile.io/d/e0FCcx) | [`godsend-linux-x64`](https://file.kiwi/6aeaf6c0#cinl7EF5J8hSPRvSXj-gFA) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/sl7UU8) | [`godsend-linux-arm64`](https://file.kiwi/4266258d#7oSd59OI04M49UnYCUbwpA) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/PsrM03) | [`godsend-darwin-arm64`](https://file.kiwi/0c47e7fd#Oo9t6aZcGax3dyhUtW5AWg) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/qBp1NP) | [`godsend-darwin-amd64`](https://file.kiwi/6cb4306d#U1BVE5oxZajw5-V43Vy_nA) |
 
 For the **full desktop app** (tray UI + bundled backend), see the download table in the main [README](../readme.md#quick-installation).
 
@@ -46,6 +46,7 @@ The backend reads all its settings from environment variables — no config file
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `GODSEND_HOME` | Recommended | Root directory for `Transfer/`, `Ready/`, `Temp/`, `cache/`. Defaults to the binary's directory. |
+| `GODSEND_TORRENT_TEMP` | No | aria2c Minerva torrent staging (default `$GODSEND_HOME/Temp/torrent-dl`). |
 | `GODSEND_TRANSFER` | No | Override the Transfer folder independently (defaults to `$GODSEND_HOME/Transfer`). |
 | `GODSEND_PORT` | No | HTTP listen port (default `8080`). |
 | `GODSEND_IA_COOKIE` | For IA | `logged-in-user=…; logged-in-sig=…` session cookie from archive.org. |

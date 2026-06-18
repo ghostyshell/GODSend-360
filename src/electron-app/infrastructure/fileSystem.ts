@@ -93,6 +93,7 @@ export function prepareWritableRuntime(): string {
   ensureDirectory(writableRoot);
   ensureDirectory(path.join(writableRoot, "cache"));
   ensureDirectory(path.join(writableRoot, "Temp"));
+  ensureDirectory(path.join(writableRoot, "Temp", "torrent-dl"));
   ensureDirectory(path.join(writableRoot, "Transfer"));
   ensureDirectory(path.join(writableRoot, "Ready"));
 
