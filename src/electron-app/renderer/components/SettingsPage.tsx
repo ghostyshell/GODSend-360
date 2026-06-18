@@ -29,6 +29,16 @@ function Hint({ children }: { children: React.ReactNode }) {
   );
 }
 
+function PathExplain({ title, path, children }: { title: string; path: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-3 rounded border border-[#1e242e] bg-[#0d1117] px-3 py-2.5">
+      <p className="text-[12px] font-medium text-[#cad3dc]">{title}</p>
+      <p className="mt-1 font-mono text-[10px] text-[#8b9aab] break-all">{path || "—"}</p>
+      <p className="mt-1.5 text-[11px] text-muted-foreground leading-[1.45]">{children}</p>
+    </div>
+  );
+}
+
 function Status({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
     <p className={cn("text-[12px] text-[#a8b4c0]", className)} aria-live="polite">
@@ -48,6 +58,9 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   const [startup, setStartup]                   = useState(false);
   const [storagePath, setStoragePath]           = useState("");
   const [defaultStoragePath, setDefaultStoragePath] = useState("");
+  const [backendTempPath, setBackendTempPath]   = useState("");
+  const [torrentTempPath, setTorrentTempPath]   = useState("");
+  const [defaultTorrentTempPath, setDefaultTorrentTempPath] = useState("");
   const [appDataDir, setAppDataDir]             = useState("");
   const [defaultAppDataDir, setDefaultAppDataDir] = useState("");
   const [appDataPortable, setAppDataPortable]   = useState(false);
@@ -127,6 +140,9 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
       setStartup(await window.godsendApi.getStartupEnabled());
       setStoragePath((await window.godsendApi.getEffectiveStoragePath()) || "");
       setDefaultStoragePath((await window.godsendApi.getDefaultStoragePath()) || "");
+      setBackendTempPath((await window.godsendApi.getEffectiveBackendTempPath()) || "");
+      setTorrentTempPath((await window.godsendApi.getEffectiveTorrentTempPath()) || "");
+      setDefaultTorrentTempPath((await window.godsendApi.getDefaultTorrentTempPath()) || "");
       setAppDataDir((await window.godsendApi.getAppDataDir()) || "");
       setDefaultAppDataDir((await window.godsendApi.getDefaultAppDataDir()) || "");
       setAppDataPortable(Boolean(await window.godsendApi.isPortable()));
@@ -200,13 +216,33 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
     if (!picked) return;
     await window.godsendApi.setStoragePath(picked);
     setStoragePath((await window.godsendApi.getEffectiveStoragePath()) || "");
+    setBackendTempPath((await window.godsendApi.getEffectiveBackendTempPath()) || "");
+    setTorrentTempPath((await window.godsendApi.getEffectiveTorrentTempPath()) || "");
+    setDefaultTorrentTempPath((await window.godsendApi.getDefaultTorrentTempPath()) || "");
     onAppendLine(`[INFO] Storage path changed to ${picked}; backend restarted.`);
   }
 
   async function handleStorageReset() {
     await window.godsendApi.setStoragePath("");
     setStoragePath((await window.godsendApi.getEffectiveStoragePath()) || "");
+    setBackendTempPath((await window.godsendApi.getEffectiveBackendTempPath()) || "");
+    setTorrentTempPath((await window.godsendApi.getEffectiveTorrentTempPath()) || "");
+    setDefaultTorrentTempPath((await window.godsendApi.getDefaultTorrentTempPath()) || "");
     onAppendLine("[INFO] Storage path reset to default; backend restarted.");
+  }
+
+  async function handleTorrentTempBrowse() {
+    const picked = await window.godsendApi.chooseTorrentTempPath();
+    if (!picked) return;
+    await window.godsendApi.setTorrentTempPath(picked);
+    setTorrentTempPath((await window.godsendApi.getEffectiveTorrentTempPath()) || "");
+    onAppendLine(`[INFO] Torrent download temp changed to ${picked}; backend restarted.`);
+  }
+
+  async function handleTorrentTempReset() {
+    await window.godsendApi.setTorrentTempPath("");
+    setTorrentTempPath((await window.godsendApi.getEffectiveTorrentTempPath()) || "");
+    onAppendLine("[INFO] Torrent download temp reset to default; backend restarted.");
   }
 
   async function applyAppDataDir(target: string) {
@@ -666,10 +702,12 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               <p className="text-[11px] text-muted-foreground mt-1">{appDataStatus}</p>
             )}
             <Hint>
-              Holds settings, logs, caches, and (by default) downloads. Changing
-              this moves existing data to the new location and relaunches the
-              app. {appDataPortable
-                ? "Portable build — defaults to a folder next to the .exe so the app stays self-contained."
+              Holds <strong>config.json</strong>, daily server logs, Aurora library
+              cache, and (by default) the <code className="mx-1">runtime/</code> folder.
+              This is <em>not</em> Windows <code className="mx-1">%TEMP%</code> — it is
+              GODsend&apos;s own application data. Changing this moves existing data and
+              relaunches the app. {appDataPortable
+                ? "Portable build — defaults to a folder next to the .exe."
                 : "Default is the OS application-data folder."}
             </Hint>
           </Section>
@@ -688,11 +726,49 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               <Button onClick={handleStorageReset}>Use default</Button>
             </div>
             <Hint>
-              Root directory for downloads / temp / Ready staging. Defaults to
-              <code className="mx-1">runtime/</code> inside the app data
-              directory. Override this to put large download stages on a
-              different drive without moving the whole app data folder.
+              Backend working root (<code className="mx-1">GODSEND_HOME</code>). Contains{" "}
+              <code className="mx-1">Temp/</code> (processing scratch space),{" "}
+              <code className="mx-1">Ready/</code> (finished installs awaiting FTP),{" "}
+              <code className="mx-1">Transfer/</code> (local ISO drop folder unless overridden
+              below), and <code className="mx-1">cache/</code> (Minerva / IA title lists).
+              Override to put large files on another drive without moving logs and settings.
             </Hint>
+          </Section>
+
+          {/* ── Temporary directories ── */}
+          <Section title="Temporary directories">
+            <PathExplain title="Processing temp" path={backendTempPath}>
+              Active job scratch space under <code>Temp/</code>. Stores extracted archives,
+              ISO→GOD conversion folders, Minerva post-torrent staging (
+              <code>&lt;game&gt;_torrent</code>), FTP Manager copy/move buffers, and save-game
+              keyvault downloads. Cleared by <strong>Clear local data</strong> on the Home page.
+              Follows <strong>Local storage path</strong> — not configurable separately.
+            </PathExplain>
+
+            <div className="mt-4">
+              <p className="text-[12px] font-medium text-[#cad3dc] mb-2">Torrent download temp</p>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Input
+                  type="text"
+                  readOnly
+                  className="flex-1 min-w-[180px]"
+                  placeholder={`Default: ${defaultTorrentTempPath}`}
+                  value={torrentTempPath}
+                />
+                <Button onClick={handleTorrentTempBrowse}>Browse&hellip;</Button>
+                <Button onClick={handleTorrentTempReset}>Use default</Button>
+              </div>
+              <PathExplain title="Effective path" path={torrentTempPath}>
+                Where <strong>aria2c</strong> writes Minerva torrent pieces while downloading (
+                <code>gd-dl-*</code> folders and short-lived <code>*.torrent</code> files).
+                Defaults to <code>Temp/torrent-dl</code> under your storage path so downloads stay
+                on the same drive as processing temp. Override to put active torrent
+                downloads on a specific disk — keep it on the <strong>same drive</strong> as
+                Local storage path when possible (cross-drive moves are slower). This setting
+                controls Minerva/aria2c staging; it is <em>not</em> the Windows{" "}
+                <code>%TEMP%</code> / <code>TMP</code> environment variable.
+              </PathExplain>
+            </div>
           </Section>
 
           {/* ── Backend server port ── */}

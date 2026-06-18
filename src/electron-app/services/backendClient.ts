@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from "child_process";
 import fs from "fs";
+import path from "path";
 import { BrowserWindow } from "electron";
 import {
   getGodsendExePath,
@@ -19,6 +20,7 @@ import {
 import {
   getConfiguredTransferFolder,
   getDefaultTransferFolder,
+  getEffectiveTorrentTempPath,
   getConfiguredServerPort,
   writeConfig,
   buildGodsendEnv,
@@ -94,10 +96,13 @@ export function startGodsend(): void {
   const godsendExePath  = getGodsendExePath();
   const transferNote    =
     getConfiguredTransferFolder() || getDefaultTransferFolder(writableRoot);
+  const torrentTempNote = getEffectiveTorrentTempPath(writableRoot);
 
   const childEnv = buildGodsendEnv(writableRoot);
   addOutputLine(`[INFO] Starting: ${godsendExePath}`);
   addOutputLine(`[INFO] Data dir (GODSEND_HOME): ${writableRoot}`);
+  addOutputLine(`[INFO] Backend Temp: ${path.join(writableRoot, "Temp")}`);
+  addOutputLine(`[INFO] Torrent download temp: ${torrentTempNote}`);
   addOutputLine(`[INFO] Local Transfer folder: ${transferNote}`);
   addOutputLine(`[INFO] Server logs: ${getLogInfo().logsDirectory}`);
 
