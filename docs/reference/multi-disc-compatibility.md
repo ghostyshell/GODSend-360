@@ -20,7 +20,7 @@ Adapted from [Iso2God by r4dius](https://github.com/r4dius/Iso2God) with additio
 | Alan Wake | 4D5308AB | Disc 2 is bonus content; install as Content to `00000002` |
 | Alpha Protocol | 555307DC | Disc 2 is bonus content |
 | Bayonetta | 5345082C / 53450833 | Disc 2 is bonus content; install as Content |
-| Borderlands: Game of the Year Edition | 545407E7 | GOTY Disc 2 / Add-On Content Disc is DLC/bonus content; install as Content. The Add-On Content Disc XEX carries placeholder TitleID `FFED2000` — server overrides to `545407E7` automatically. |
+| Borderlands: Game of the Year Edition | 545407E7 | GOTY Disc 2 / Add-On Content Disc is DLC/bonus content; install as Content. The Add-On Content Disc XEX carries placeholder TitleID `FFED2000` - server overrides to `545407E7` automatically. |
 | Borderlands 2: Game of the Year Edition | 5454087C | GOTY Disc 2 is DLC/bonus content (same Title ID as base game); install as Content |
 | Brutal Legend | 4541082F | Disc 2 is bonus content |
 | Call of Duty: Black Ops | 41560855 | Disc 2 (multiplayer/zombies); install as Content |

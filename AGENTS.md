@@ -451,6 +451,21 @@ Every non-trivial change **must** include a `CHANGELOG.md` update. Read [`CONTRI
 
 Before every commit that touches `src/` or `aurora-scripts/`, run the trigger checklist in [`docs/agents/skills/doc-sync.md`](docs/agents/skills/doc-sync.md). It maps each kind of code change (new HTTP route, IPC channel, service, env var, user-facing feature, etc.) to the docs that **must** be updated **in the same commit** — `README.md`, `AGENTS.md`, `CHANGELOG.md`, `docs/features.md`, and `docs/api-reference.md`. Doc drift is treated as a regression; don't ship code that updates only one side.
 
+## Keeping docs & instructions in sync
+
+`AGENTS.md` is the **single source of truth** for agent instructions. `CLAUDE.md` is a thin pointer that makes Claude Code load it; Cursor also reads `.cursor/rules/*.mdc`.
+
+- **Before every push** run the `sync-docs` skill (Claude Code / OpenCode) or follow `.cursor/rules/sync-docs.mdc` (Cursor) to audit `README.md`, `CHANGELOG.md`, `docs/`, and this file against the actual code.
+- **No em/en dashes** in public-facing copy: `rg '[—–]' README.md CHANGELOG.md docs/` (use `-` or restructure). The `humanizer` skill covers the wider de-AI pass for substantive copy.
+- **After code changes** run `graphify update .` (graphify is wired at `graphify-out/`), run the `code-reviewer` agent (`security-auditor` for input/secret/network surface), and add a `CHANGELOG.md` `[Unreleased]` entry for user-visible changes.
+- `.githooks/pre-push` prints a non-blocking reminder; install once with `sh scripts/install-hooks.sh`.
+
+| Tool | Instructions file | Native rules |
+| --- | --- | --- |
+| Claude Code | `CLAUDE.md` -> `AGENTS.md` | none needed |
+| OpenCode | `AGENTS.md` | none needed |
+| Cursor | `AGENTS.md` | `.cursor/rules/*.mdc` (`graphify`, `sync-docs`, `no-em-dashes`) |
+
 ## When and how to update this file
 
 Treat `AGENTS.md` as **living documentation for agents and automation**. Update it whenever you:
