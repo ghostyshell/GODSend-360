@@ -1,0 +1,34 @@
+---
+description: Audit and sync README + docs before pushing. Invoke /sync-docs before any git push to keep public documentation accurate.
+globs:
+  - README.md
+  - docs/**/*.md
+  - docs/index.html
+alwaysApply: false
+---
+
+# sync-docs
+
+Before pushing, run `/sync-docs` to audit and update `README.md` and `docs/` against the actual current codebase.
+
+## What to check
+
+- **Features list** — every feature in the README exists in the code; major code features appear in the README
+- **Project structure** — file tree matches actual layout
+- **Env vars** — table matches `process.env.*`, `.env.example`, or config files
+- **API endpoints** — list matches actual routes
+- **Stack / versions** — matches `package.json`, `go.mod`, or equivalent
+- **Live URLs and badges** — correct and not stale
+- **Related projects** — links point to the correct repos/accounts
+- **No em/en dashes** in public-facing copy (`rg '[—–]'` to check)
+
+## Procedure
+
+1. Read `README.md` fully
+2. Read `package.json` / `go.mod` / `Dockerfile` for stack/version facts
+3. Scan source for routes, env vars, and structural changes
+4. Apply minimum edits to make README accurate - do not rewrite accurate prose
+5. If `docs/` exists, update any stale doc files
+6. Report: N sections checked, N fixed
+
+Run this before `git push`. The pre-push hook will remind you.

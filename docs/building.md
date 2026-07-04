@@ -1,6 +1,6 @@
 # Building
 
-Requires **Go 1.21+** and **Node.js 18+**. No third-party tool binaries are needed — ISO conversion and archive extraction are handled by the Go backend natively. **Packaged desktop builds** place the Go backend next to the app executable as **`godsend-backend`** (`.exe` on Windows) and ship the Aurora Lua scripts under **`resources/`**; Electron starts the backend when the app launches.
+Requires **Go 1.21+** and **Node.js 18+**. No third-party tool binaries are needed - ISO conversion and archive extraction are handled by the Go backend natively. **Packaged desktop builds** place the Go backend next to the app executable as **`godsend-backend`** (`.exe` on Windows) and ship the Aurora Lua scripts under **`resources/`**; Electron starts the backend when the app launches.
 
 From the repository root:
 
@@ -20,7 +20,7 @@ Backend only (all platforms): `npm run build:server:all`.
 
 ```
 package.json             Root npm scripts: `npm install`, `npm run build` (all Go targets + OS-matched Electron installer; DMGs on macOS)
-dist/                    Build artifacts (per-OS binaries and installers) — created by `npm run build`
+dist/                    Build artifacts (per-OS binaries and installers) - created by `npm run build`
 
 src/server/              Go backend
   main.go                  Entry point: HTTP server wiring & startup banner
@@ -29,7 +29,7 @@ src/server/              Go backend
   infrastructure/          Infrastructure helpers (config loading, path resolution)
   interfaces/http/         HTTP router factory
 
-src/electron-app/        Electron desktop app (Windows / macOS / Linux) — TypeScript source, compiled in-place
+src/electron-app/        Electron desktop app (Windows / macOS / Linux) - TypeScript source, compiled in-place
   main.ts                  Entry point (registers protocol scheme, calls app/bootstrap)
   preload.ts               IPC bridge exposing window.godsendApi to the renderer
   app/

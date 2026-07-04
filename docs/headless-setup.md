@@ -1,10 +1,10 @@
 # Running Without the Desktop App
 
-The Go backend works as a standalone headless server — no Electron, no GUI, no display required. This is useful for always-on home servers, NAS boxes, Raspberry Pi, Docker containers, or any Linux/macOS/Windows machine you want to run unattended.
+The Go backend works as a standalone headless server - no Electron, no GUI, no display required. This is useful for always-on home servers, NAS boxes, Raspberry Pi, Docker containers, or any Linux/macOS/Windows machine you want to run unattended.
 
 ## 1. Get the server binary
 
-**Option A — Download a prebuilt binary** *(GoFile is primary, file.kiwi is a backup mirror — pick whichever loads)*:
+**Option A - Download a prebuilt binary** *(GoFile is primary, file.kiwi is a backup mirror - pick whichever loads)*:
 
 | Platform | GoFile | file.kiwi backup |
 |----------|--------|--------|
@@ -18,7 +18,7 @@ For the **full desktop app** (tray UI + bundled backend), see the download table
 
 On Linux / macOS, make the binary executable after downloading: `chmod +x godsend-*`
 
-**Option B — Build from source** (requires **Go 1.21+**):
+**Option B - Build from source** (requires **Go 1.21+**):
 
 ```bash
 # Windows
@@ -41,7 +41,7 @@ Or use the npm helper: `npm run build:server:all` (builds all platforms).
 
 ## 2. Configure via environment variables
 
-The backend reads all its settings from environment variables — no config file needed. Set these before launching:
+The backend reads all its settings from environment variables - no config file needed. Set these before launching:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -189,7 +189,7 @@ BRAIN_IP = "192.168.1.50"   -- IP of your headless server
 PORT     = "8080"            -- must match GODSEND_PORT
 ```
 
-Copy the `aurora-scripts/` folder to the Xbox at `Hdd1:\Aurora\User\Scripts\Utility\GODSend\` via FTP (this is the default Aurora path — yours may differ depending on where Aurora is installed on your Xbox, e.g. `Usb0:\Apps\Aurora\...` for USB setups), then launch GODsend from Aurora → Scripts.
+Copy the `aurora-scripts/` folder to the Xbox at `Hdd1:\Aurora\User\Scripts\Utility\GODSend\` via FTP (this is the default Aurora path - yours may differ depending on where Aurora is installed on your Xbox, e.g. `Usb0:\Apps\Aurora\...` for USB setups), then launch GODsend from Aurora → Scripts.
 
 ## 6. Verify
 

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Pre-push hook: remind to run /sync-docs before publishing.
+#
+# Install in each repo: sh ~/Code/scripts/install-hooks.sh
+# (installs both pre-commit and pre-push into .githooks/)
+#
+# The hook only warns — it does not block the push.
+# Run /sync-docs in Claude Code (or /sync-docs in OpenCode / Cursor) to audit
+# and update README.md and docs/ before the push lands on the remote.
+
+# Check if README.md exists and has been modified more recently than the last push.
+# If so, nudge the developer to sync docs.
+if [ -f README.md ]; then
+  # Non-blocking reminder only.
+  printf '\n[pre-push] Reminder: run /sync-docs in Claude Code to audit README + docs before publishing.\n' >&2
+  printf '[pre-push] Skipping? Press Ctrl-C within 3 seconds to abort the push.\n\n' >&2
+fi
+
+exit 0

@@ -1,11 +1,11 @@
-# GODsend 360 — marketing site
+# GODsend 360 - marketing site
 
 Single-file static landing page for [GODsend-360](https://github.com/ghostyshell/GODSend-360). No build step.
 
 ## Stack
-- `index.html` — hand-written HTML, Tailwind via Play CDN, vanilla JS for the dynamic year.
+- `index.html` - hand-written HTML, Tailwind via Play CDN, vanilla JS for the dynamic year.
 - Google Fonts: **Russo One** (display) + **Chakra Petch** (body) + **JetBrains Mono** (code).
-- SVG-only assets — `favicon.svg`, `og-image.svg` — so the site stays text-diffable.
+- SVG-only assets - `favicon.svg`, `og-image.svg` - so the site stays text-diffable.
 
 ## SEO checklist (applied)
 - Semantic `<header>`, `<main>`, `<section>`, `<nav>`, `<footer>`, `<article>`, `<figure>`, `<ol>`, `<details>`.
@@ -17,14 +17,14 @@ Single-file static landing page for [GODsend-360](https://github.com/ghostyshell
 - `site.webmanifest` for PWA / install prompt.
 - `prefers-reduced-motion` respected (animations gated).
 - WCAG-conscious contrast (slate-100 on `#020617` body, `#22C55E` accents on dark surfaces).
-- `loading="lazy"` not needed — no raster images on the page; mock screenshots are pure CSS.
+- `loading="lazy"` not needed - no raster images on the page; mock screenshots are pure CSS.
 - `<link rel="preconnect">` for Google Fonts; `dns-prefetch` for github / gofile / file.kiwi.
 - Skip-link `Skip to content` for keyboard users.
 - `aria-label`s on icon-only SVGs; `aria-hidden` on decorative ones.
 
 ## Layout
-- `docs/index.html` — landing page (GitHub Pages serves this at the root URL).
-- `docs/site/` — all supporting assets:
+- `docs/index.html` - landing page (GitHub Pages serves this at the root URL).
+- `docs/site/` - all supporting assets:
   - `favicon.svg`, `og-image.svg`
   - `robots.txt`, `sitemap.xml`
   - `site.webmanifest`

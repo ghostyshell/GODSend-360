@@ -92,11 +92,11 @@
         <p>GODsend 360 is an open-source desktop app. The Go backend and Electron frontend run on your machine and talk only to:</p>
         <ul>
           <li><strong>Your Xbox 360</strong>, over your local network, using Aurora's built-in FTP server.</li>
-          <li><strong>Public game-metadata services</strong> on the internet — only when you actually browse or trigger a download:
+          <li><strong>Public game-metadata services</strong> on the internet - only when you actually browse or trigger a download:
             <ul>
-              <li><a href="https://archive.org" rel="noopener">Internet Archive</a> — over HTTPS. If you log in (optional), your session cookie is stored locally only.</li>
-              <li><a href="https://minerva-archive.org" rel="noopener">Minerva Archive</a> — over BitTorrent. The aria2c client connects to the BitTorrent swarm; the same peer-exposure considerations apply as with any BitTorrent client.</li>
-              <li><a href="https://xboxunity.net" rel="noopener">XboxUnity</a> and the public Xbox Live CDN — cover art, Title Updates, asset metadata.</li>
+              <li><a href="https://archive.org" rel="noopener">Internet Archive</a> - over HTTPS. If you log in (optional), your session cookie is stored locally only.</li>
+              <li><a href="https://minerva-archive.org" rel="noopener">Minerva Archive</a> - over BitTorrent. The aria2c client connects to the BitTorrent swarm; the same peer-exposure considerations apply as with any BitTorrent client.</li>
+              <li><a href="https://xboxunity.net" rel="noopener">XboxUnity</a> and the public Xbox Live CDN - cover art, Title Updates, asset metadata.</li>
               <li>Other public sources used incidentally for cover art (Wikipedia, Microsoft Store autosuggest).</li>
             </ul>
           </li>
@@ -106,8 +106,8 @@
         <h2>2. What is stored locally</h2>
         <p>The app writes files only under its own runtime directory and your OS's user-data directory:</p>
         <ul>
-          <li><code>Transfer/</code>, <code>Ready/</code>, <code>Temp/</code>, <code>cache/</code>, <code>Saves/</code>, <code>pending_ftp/</code> — game data, save-game backups, and queued FTP jobs.</li>
-          <li><code>logs/</code> — daily backend log files (stdout/stderr, FTP step traces, IA secrets <em>redacted</em>).</li>
+          <li><code>Transfer/</code>, <code>Ready/</code>, <code>Temp/</code>, <code>cache/</code>, <code>Saves/</code>, <code>pending_ftp/</code> - game data, save-game backups, and queued FTP jobs.</li>
+          <li><code>logs/</code> - daily backend log files (stdout/stderr, FTP step traces, IA secrets <em>redacted</em>).</li>
           <li>Your settings (Transfer folder path, default drive, Xbox IP/credentials, aria2 ports, IA cookie if you opted in) under the Electron user-data directory.</li>
         </ul>
         <p>These files never leave your machine unless you copy them somewhere yourself.</p>
@@ -124,20 +124,20 @@
         </ul>
         <p>The page loads three third-party resources, each of which sees only the standard request data (IP address, user-agent) that any web server sees:</p>
         <ul>
-          <li><a href="https://fonts.google.com" rel="noopener">Google Fonts</a> — for the Russo One, Chakra Petch, and JetBrains Mono fonts.</li>
-          <li><a href="https://tailwindcss.com" rel="noopener">Tailwind Play CDN</a> — for the page's stylesheet.</li>
+          <li><a href="https://fonts.google.com" rel="noopener">Google Fonts</a> - for the Russo One, Chakra Petch, and JetBrains Mono fonts.</li>
+          <li><a href="https://tailwindcss.com" rel="noopener">Tailwind Play CDN</a> - for the page's stylesheet.</li>
           <li>Outbound links to <a href="https://github.com" rel="noopener">GitHub</a>, <a href="https://gofile.io" rel="noopener">GoFile</a>, <a href="https://file.kiwi" rel="noopener">file.kiwi</a>, and <a href="https://ko-fi.com" rel="noopener">Ko-fi</a> are only followed when you click them.</li>
         </ul>
         <p>GitHub Pages itself logs basic access information at the server level; refer to <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a> for details.</p>
 
         <h2>5. Source code transparency</h2>
-        <p>Everything described above is verifiable. The full source code — backend, app, scripts, and site — is at <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener">github.com/ghostyshell/GODSend-360</a>. If any of this looks wrong, please <a href="https://github.com/ghostyshell/GODSend-360/issues" rel="noopener">file an issue</a>.</p>
+        <p>Everything described above is verifiable. The full source code - backend, app, scripts, and site - is at <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener">github.com/ghostyshell/GODSend-360</a>. If any of this looks wrong, please <a href="https://github.com/ghostyshell/GODSend-360/issues" rel="noopener">file an issue</a>.</p>
 
         <h2>6. Changes</h2>
         <p>If this policy changes, the "Last updated" date at the top will change with it, and the diff will be in the repository's git history.</p>
 
         <h2>7. Contact</h2>
-        <p>For privacy questions, open an issue on <a href="https://github.com/ghostyshell/GODSend-360/issues" rel="noopener">the GitHub repo</a>. There's no separate contact channel — the project is maintained by one person in their spare time.</p>
+        <p>For privacy questions, open an issue on <a href="https://github.com/ghostyshell/GODSend-360/issues" rel="noopener">the GitHub repo</a>. There's no separate contact channel - the project is maintained by one person in their spare time.</p>
 
       </div>
     </article>
