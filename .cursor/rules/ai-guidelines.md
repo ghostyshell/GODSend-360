@@ -24,10 +24,62 @@ Before writing code, walk the ladder and stop at the first that works:
 
 Claude Code plugin: install once with `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail`, then review with `/ponytail-review`, `/ponytail-audit`, `/ponytail-debt`. (Cursor/OpenCode: copy the repo's rules files / add the plugin to `opencode.json`.)
 
-## UI/UX work — ui-ux-pro-max
-Source: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
-This repo has user-facing UI. For any UI/UX task (pages, components, layouts, design systems, styling), use the **ui-ux-pro-max** skill — styles, color palettes, font pairings, and per-product design reasoning. In Claude Code it activates automatically; you can also run `python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<product>" --design-system`.
+## Frontend / UI/UX skills
 
+User-wide install: `~/.claude/skills/` (OpenCode: `~/.config/opencode/skills/` symlinks). Refresh: `sh ~/Code/scripts/install-frontend-skills.sh`.
+
+This repo has user-facing UI. Match skills to the task; layer design → implement → audit on substantive UI work.
+
+### Core UI/UX
+
+| When | Skill |
+|------|-------|
+| Design systems, palettes, typography, stack guidance (default) | **ui-ux-pro-max** — `python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py "<product>" --design-system` |
+| Distinctive interfaces (typography, color, motion; anti–AI-slop) | **frontend-design** |
+| Frontend with opt-in aesthetic presets (editorial, monochrome, etc.) | **akhils-frontend-design** |
+| Full UX fundamentals — bold / creative | **bencium-innovative-ux-designer** |
+| UX within an existing design system (e.g. MUI) | **bencium-controlled-ux-designer** |
+| UI code review / web interface guidelines | **web-design-guidelines** — `/web-design-guidelines <files>` |
+| React performance (waterfalls, bundle, re-renders) | **react-best-practices** |
+| Component APIs — compound components, no boolean-prop sprawl | **composition-patterns** |
+| React Native / Expo mobile UI | **react-native-skills** |
+| shadcn/ui — components, registries, `components.json` | **shadcn** |
+| React + Tailwind artifact scaffold | **web-artifacts-builder** |
+| On-brand visuals from brand guidelines | **brand-guidelines** |
+| Accessibility audit or fix | **accesslint-audit** |
+| Live-page a11y scan | **accesslint-scan** |
+| A11y regressions vs branch or uncommitted changes | **accesslint-diff** |
+
+### Animation & motion
+
+| When | Skill |
+|------|-------|
+| Motion philosophy — timing, easing, choreography | **motion-design** |
+| React/Next Motion.dev — springs, scroll, gestures | **motion-dev-animations** |
+| Copy-paste CSS/JS UI effects (112 presets) | **motion-ref-skill** |
+| View Transitions API in React | **react-view-transitions** |
+| Cinematic / keynote-style UI reveals | **stagecraft** |
+| Multi-runtime motion (GSAP, Lottie, CSS, Three.js) | **hyperframes-animation** |
+| Programmatic video in React | **remotion-best-practices** |
+| Animation-rich HTML slides; PPT → web | **frontend-slides** — `/frontend-slides` |
+
+### Visual design
+
+| When | Skill |
+|------|-------|
+| Anti-slop landing pages & portfolios | **design-taste-frontend** |
+| Premium editorial / soft aesthetic | **high-end-visual-design** |
+| Clean editorial minimal UI | **minimalist-ui** |
+| Brutalist / industrial dashboards | **industrial-brutalist-ui** |
+| Redesign existing UI (audit-first) | **redesign-existing-projects** |
+| Linear-style product UI craft | **emil-design-eng** |
+| Extract design tokens from existing UI | **extract-design-system** |
+| Themes from descriptions | **theme-factory** |
+| Static visual art / posters / graphics | **canvas-design** |
+| Polish, critique, animate, refine UI | **impeccable** |
+| Mobile app UI via Sleek (requires `SLEEK_API_KEY`) | **sleek-design-mobile-apps** |
+
+**Typical flow:** ui-ux-pro-max, design-taste-frontend, or bencium-* for direction → implement (motion-* or react-view-transitions when animating) → web-design-guidelines + accesslint-* before shipping.
 ## Use the specialized agents for quality
 A large library of specialized subagents is installed for each tool — `~/.claude/agents/` (Claude Code), `~/.config/opencode/agents/` (OpenCode), and `~/.cursor/agents/` (Cursor). Use them as part of **every** change to the repos, not as an afterthought: pick the most specific agent for the task and chain them.
 

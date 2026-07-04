@@ -1,4 +1,4 @@
-# Skill: Docs — Source of Truth
+# Skill: Docs - Source of Truth
 
 ## Description
 This skill is the **source of truth** for all documentation-related changes in the GODsend-360 project. It defines conventions, patterns, and requirements for maintaining `AGENTS.md`, `README.md`, `CHANGELOG.md`, and any files under `docs/`.
@@ -7,11 +7,11 @@ This skill is the **source of truth** for all documentation-related changes in t
 When any agent modifies, adds, or removes documentation, it MUST consult this skill first. All other domain-specific skills (Electron, Go, Aurora) reference this skill for doc-related decisions.
 
 ## Scope
-- `AGENTS.md` — living architecture & workflow docs for agents
-- `README.md` — user-facing install, setup, and usage docs
-- `CHANGELOG.md` — versioned release history
-- `docs/**/*.md` — extended guides (headless-setup, API reference, etc.)
-- `CONTRIBUTING.md` — contribution rules
+- `AGENTS.md` - living architecture & workflow docs for agents
+- `README.md` - user-facing install, setup, and usage docs
+- `CHANGELOG.md` - versioned release history
+- `docs/**/*.md` - extended guides (headless-setup, API reference, etc.)
+- `CONTRIBUTING.md` - contribution rules
 
 ## Conventions
 
@@ -36,11 +36,11 @@ When adding new skills:
 4. Update this file's `related_skills` list
 
 ## Related Skills
-- `docs/agents/skills/doc-sync.md` — **auto-sync trigger checklist** for keeping README/AGENTS/CHANGELOG/features.md/api-reference.md in lockstep with code changes
-- `docs/agents/skills/playwright-testing.md` — video recording & UI test conventions (results saved to ignored `test-results/` dir)
-- `docs/agents/skills/shim-electron.md` — Electron agent conventions
-- `docs/agents/skills/shim-go-backend.md` — Go backend agent conventions
-- `docs/agents/skills/shim-aurora-scripts.md` — Aurora Lua agent conventions
+- `docs/agents/skills/doc-sync.md` - **auto-sync trigger checklist** for keeping README/AGENTS/CHANGELOG/features.md/api-reference.md in lockstep with code changes
+- `docs/agents/skills/playwright-testing.md` - video recording & UI test conventions (results saved to ignored `test-results/` dir)
+- `docs/agents/skills/shim-electron.md` - Electron agent conventions
+- `docs/agents/skills/shim-go-backend.md` - Go backend agent conventions
+- `docs/agents/skills/shim-aurora-scripts.md` - Aurora Lua agent conventions
 
 ## Quick Commands
 | Task | Command |

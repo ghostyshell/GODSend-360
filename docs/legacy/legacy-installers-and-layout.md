@@ -1,6 +1,6 @@
 ## Legacy Windows installers and folder layout
 
-Older Windows installers and guides (for example, “GODSend Homelab Edition – Windows Installation Guide”) describe a layout like:
+Older Windows installers and guides (for example, “GODSend Homelab Edition - Windows Installation Guide”) describe a layout like:
 
 ```text
 godsend/
@@ -21,19 +21,19 @@ godsend/
 In this repository, the same pieces are organised as:
 
 - Backend binary:
-  - `dist/godsend.exe` — built from `src/server/` via the root `package.json` or a direct `go build`.
+  - `dist/godsend.exe` - built from `src/server/` via the root `package.json` or a direct `go build`.
 - External tools (legacy workflows only; ISO→GOD is implemented in Go under `src/server/utils/`):
   - `tools/7za.exe`, `tools/7za.dll`, `tools/7zxa.dll`
   - These are not committed; place downloaded binaries in `tools/` before building if you still rely on them.
 - Xbox-side scripts (what legacy docs called `MOVE_THESE_FILES_TO_XBOX/`):
   - `aurora-scripts/`:
-    - `GODSend.ini` — Xbox-side configuration (PC IP, etc.).
-    - `main.lua` — entry point.
-    - `menu_system.lua` — menu helper used by `main.lua`/`menu.lua`.
-    - `state.lua`, `http_client.lua`, `services.lua`, `menu.lua` — modularised script logic.
-    - `Icon/` — same icon assets expected by Aurora.
+    - `GODSend.ini` - Xbox-side configuration (PC IP, etc.).
+    - `main.lua` - entry point.
+    - `menu_system.lua` - menu helper used by `main.lua`/`menu.lua`.
+    - `state.lua`, `http_client.lua`, `services.lua`, `menu.lua` - modularised script logic.
+    - `Icon/` - same icon assets expected by Aurora.
 - Runtime data:
-  - `Ready/`, `Temp/`, `Transfer/`, `cache/` — now created at runtime under `GODSEND_HOME` (or the Electron runtime directory), but conceptually equivalent to the legacy `Ready/` and `Temp/` folders.
+  - `Ready/`, `Temp/`, `Transfer/`, `cache/` - now created at runtime under `GODSEND_HOME` (or the Electron runtime directory), but conceptually equivalent to the legacy `Ready/` and `Temp/` folders.
 
 ### Following the spirit of the old guides
 

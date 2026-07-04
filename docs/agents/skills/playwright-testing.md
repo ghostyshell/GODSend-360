@@ -1,12 +1,12 @@
-# Skill: Playwright Testing — UI Recording & E2E Convention
+# Skill: Playwright Testing - UI Recording & E2E Convention
 
 ## Description
 Defines how to write E2E tests and record video demos for the GODsend-360 Electron app using Playwright.
 
 ## Scope
-- `src/electron-app/tests/**/*.spec.ts` — Playwright test specs
-- `src/electron-app/tests/**/*.js` — standalone recording scripts
-- `src/electron-app/playwright.config.ts` — Playwright configuration
+- `src/electron-app/tests/**/*.spec.ts` - Playwright test specs
+- `src/electron-app/tests/**/*.js` - standalone recording scripts
+- `src/electron-app/playwright.config.ts` - Playwright configuration
 - Video outputs under `test-results/` (never committed)
 
 ## Key Files
@@ -19,12 +19,12 @@ Defines how to write E2E tests and record video demos for the GODsend-360 Electr
 2. Set viewport to `{ width: 1440, height: 900 }` for consistent demo sizing
 3. Use `electron.launch({ args: [path.resolve(__dirname, "../main.js")] })`
 4. Wait for `window` event before accessing `firstWindow()`
-5. Add generous `waitForTimeout` pauses (2–5 s) between steps for clarity
+5. Add generous `waitForTimeout` pauses (2-5 s) between steps for clarity
 6. Use defensive visibility checks (`isVisible().catch(() => false)`) because Electron pages may load conditionally (e.g. Xbox FTP offline)
 
 ## Hard-Won Targeting Rules (GODsend Electron)
 
-These rules are critical — they represent ~10 iterations of trial-and-error against the actual React renderer.
+These rules are critical - they represent ~10 iterations of trial-and-error against the actual React renderer.
 
 ### ❌ NEVER use these locators
 | Bad locator | Why it fails |
@@ -37,12 +37,12 @@ These rules are critical — they represent ~10 iterations of trial-and-error ag
 ### ✅ Correct locators
 | Target | Correct locator |
 |---|---|
-| Backend started (Home page) | `page.locator("pre").first()` — text includes `"GODSend Backend Server"` |
+| Backend started (Home page) | `page.locator("pre").first()` - text includes `"GODSend Backend Server"` |
 | Backend restarted after Save | Poll `page.innerText("body")` and count occurrences of `"GODSend Backend Server"` (should be ≥2) |
 | Game card in Library | `page.locator("button").nth(1)` or `page.evaluate(() => document.querySelector('div[class*="grid"] button').click())` |
 | Game grid loaded | `page.innerText("body")` matches `/Xbox Library/` + `/\d+\s+games/` |
 | Icon/Banner slots | `page.locator("text=Icon").first()` / `page.locator("text=Banner").first()` |
-| "Save to Console" button | `page.locator("button:has-text('Save to Console')").first()` — only appears when `pending` state is non-empty |
+| "Save to Console" button | `page.locator("button:has-text('Save to Console')").first()` - only appears when `pending` state is non-empty |
 | Search result item | `page.locator('div[class*="flex-wrap"] button').first()` |
 | Close search panel | `page.locator("button[title='Close']").first()` |
 
@@ -57,7 +57,7 @@ These rules are critical — they represent ~10 iterations of trial-and-error ag
 - Playwright built-in video saves to `test-results/` in webm format
 - FFmpeg screen capture can save to `test-results/*.mp4`
 - Always clean old output before recording
-- **NEVER commit video files to git** — `test-results/` is already in `.gitignore`
+- **NEVER commit video files to git** - `test-results/` is already in `.gitignore`
 
 ## Running Tests
 ```bash
@@ -69,10 +69,10 @@ node tests/my-demo-script.js         # standalone script (create as needed)
 
 ## Example: Correct Library Detection
 ```js
-// ❌ WRONG — pre doesn't exist on Library page
+// ❌ WRONG - pre doesn't exist on Library page
 const text = await page.locator("pre").innerText(); // throws!
 
-// ✅ CORRECT — use body text
+// ✅ CORRECT - use body text
 const bodyText = await page.innerText("body");
 if (bodyText.includes("Xbox Library") && /\d+\s+games/.test(bodyText)) {
   console.log("Library loaded");
@@ -80,5 +80,5 @@ if (bodyText.includes("Xbox Library") && /\d+\s+games/.test(bodyText)) {
 ```
 
 ## See Also
-- `docs-source-of-truth.md` — general doc conventions
-- `shim-electron.md` — Electron app architecture
+- `docs-source-of-truth.md` - general doc conventions
+- `shim-electron.md` - Electron app architecture

@@ -1,4 +1,4 @@
-# GODSend Homelab Edition — Windows Installation Guide
+# GODSend Homelab Edition - Windows Installation Guide
 
 ---
 
@@ -26,7 +26,7 @@ Before you begin, make sure you have:
 
 - Windows 10 or Windows 11 (64-bit recommended)
 - At least 500MB of free disk space for the program
-- Additional space for game downloads and conversions (15–25GB recommended for temporary storage)
+- Additional space for game downloads and conversions (15-25GB recommended for temporary storage)
 - Stable internet connection for downloading games from Myrient
 - A modded/JTAG/RGH Xbox 360 to use the converted files
 - Aurora Dashboard installed on your Xbox 360 (recommended)
@@ -64,7 +64,7 @@ The installer will automatically:
 **What to expect:**
 
 - The installer may show download progress
-- Installation typically takes 1–3 minutes depending on your internet speed
+- Installation typically takes 1-3 minutes depending on your internet speed
 - You may see extraction/decompression activity
 
 ### Step 4: Verify Installation
@@ -231,7 +231,7 @@ After converting your ISO files to GOD format:
 - Try a different game if one specific title fails
 - Check firewall settings aren’t blocking the download
 
-### Using Own ISOs — Naming Issues
+### Using Own ISOs - Naming Issues
 
 - Verify your ISO filename matches Myrient’s exact naming convention
 - Check for extra spaces, wrong capitalization, or missing information
@@ -258,7 +258,7 @@ After converting your ISO files to GOD format:
 - Ensure FTP is enabled in Aurora settings
 - Check your Xbox’s IP address in **Aurora → Settings → Network**
 - Use the correct port (usually 21)
-- Some routers may block FTP — try connecting from the same subnet
+- Some routers may block FTP - try connecting from the same subnet
 - Try using a different FTP client (FileZilla, WinSCP)
 
 ### Files Not Showing in Aurora Scripts Menu
@@ -283,7 +283,7 @@ After converting your ISO files to GOD format:
 ### Conversion Fails
 
 - Ensure the download completed successfully (check `Temp` folder)
-- Verify you have enough disk space (2–3× the ISO size)
+- Verify you have enough disk space (2-3× the ISO size)
 - If using your own ISO, ensure filename matches Myrient naming convention
 - Check that all necessary `.dll` files are present in the GODSend directory
 - Try a different game to rule out corrupt download
@@ -310,7 +310,7 @@ After converting your ISO files to GOD format:
 - GODSend requires a modded Xbox 360 (JTAG/RGH) to use the converted files
 - Ensure stable internet for downloading from Myrient
 - The Windows installer is community-maintained by volunteer contributors
-- Games are downloaded from Myrient — a game preservation archive
+- Games are downloaded from Myrient - a game preservation archive
 
 ---
 
@@ -372,7 +372,7 @@ If you encounter issues:
 **A:** Yes, the entire `godsend` folder is portable. Just move it to your desired location.
 
 **Q: How long does conversion take?**  
-**A:** Depends on game size and your PC speed. Typically 2–10 minutes per game.
+**A:** Depends on game size and your PC speed. Typically 2-10 minutes per game.
 
 **Q: What’s the difference between ISO and GOD format?**  
 **A:** ISO is a disc image. GOD (Games on Demand) is Microsoft’s format for storing games directly on Xbox storage without needing the disc.

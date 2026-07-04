@@ -14,9 +14,10 @@ The backend listens on port `8080` by default (configurable via Electron `Backen
 | GET | `/cache-status` | Per-platform cache build state and counts |
 | GET | `/cache-refresh?platform=<p>` | Trigger cache rebuild (`all`, an IA platform, or `rom_<sysid>`); Electron uses GET |
 | GET | `/disc-info` | Probe a local ISO in the Transfer folder for disc compatibility metadata (used by the multi-disc install picker) |
-| GET | `/data/status` | Returns `active_jobs`, `pending_ftp_jobs`, `local_data_mb` — used by Electron clear-data UI |
+| GET | `/data/status` | Returns `active_jobs`, `pending_ftp_jobs`, `local_data_mb` - used by Electron clear-data UI |
 | GET | `/data/clear` | Cancels all jobs and pending FTP transfers, wipes `Ready/` and `Temp/` |
 | GET | `/config` | Returns server-side config readable by Lua (currently `default_drive`) |
+| GET | `/debug` | HTML snapshot of cache, transfer folder, ready games, and active jobs for browser-side diagnostics |
 | GET | `/content/discover?titleId=<id>` | Combined DLC discovery: scans installed DLC on the Xbox plus Minerva / Internet Archive candidates for the title |
 | GET | `/content/tu?titleId=<id>` | List Title Updates from XboxUnity for the title; merges with installed TUs |
 | GET | `/content/installed?titleId=<id>` | List only the DLC / TU already installed on the Xbox for the title |
@@ -74,14 +75,19 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 | `GODSEND_HOME` | binary directory | Root path for Transfer/Ready/Temp/cache |
 | `GODSEND_TORRENT_TEMP` | `$GODSEND_HOME/Temp/torrent-dl` | aria2c Minerva torrent download staging (`.torrent` scratch + `gd-dl-*` folders) |
 | `GODSEND_TRANSFER` | `$GODSEND_HOME/Transfer` | Override Transfer folder path independently |
-| `GODSEND_IA_COOKIE` | — | `logged-in-user=…; logged-in-sig=…` session cookie for IA auth |
-| `GODSEND_IA_AUTHORIZATION` | — | Bearer token as an alternative to cookie auth |
-| `GODSEND_IA_MAX_CONNECTIONS` | `16` | Max concurrent HTTP range requests per large IA / EdgeEmu download (1–32). Optional. |
-| `GODSEND_IA_CONCURRENCY` | — | Legacy alias for `GODSEND_IA_MAX_CONNECTIONS` (same clamp 1–32). |
+| `GODSEND_IA_COOKIE` | - | `logged-in-user=…; logged-in-sig=…` session cookie for IA auth |
+| `GODSEND_IA_AUTHORIZATION` | - | Bearer token as an alternative to cookie auth |
+| `GODSEND_IA_MAX_CONNECTIONS` | `16` | Max concurrent HTTP range requests per large IA / EdgeEmu download (1-32). Optional. |
+| `GODSEND_IA_CONCURRENCY` | - | Legacy alias for `GODSEND_IA_MAX_CONNECTIONS` (same clamp 1-32). |
 | `GODSEND_PORT` | `8080` | Backend listen port |
-| `GODSEND_FTP_USER` | — | FTP username for the Xbox (default `xboxftp`) |
-| `GODSEND_FTP_PASS` | — | FTP password for the Xbox (default `xboxftp`) |
+| `GODSEND_FTP_USER` | - | FTP username for the Xbox (default `xboxftp`) |
+| `GODSEND_FTP_PASS` | - | FTP password for the Xbox (default `xboxftp`) |
 | `GODSEND_ROM_PATH` | `Emulators\RetroArch\roms` | Drive-relative ROM install path |
-| `GODSEND_DEFAULT_DRIVE` | — | Default Xbox destination drive (e.g. `Hdd1:`); when set, Aurora skips the drive picker |
-| `GODSEND_ARIA2_LISTEN_PORT` | — | Override BitTorrent listen port used by aria2c (Minerva downloads) |
-| `GODSEND_ARIA2_DHT_PORT` | — | Override DHT listen port used by aria2c |
+| `GODSEND_DEFAULT_DRIVE` | - | Default Xbox destination drive (e.g. `Hdd1:`); when set, Aurora skips the drive picker |
+| `GODSEND_ARIA2_LISTEN_PORT` | - | Override BitTorrent listen port used by aria2c (Minerva downloads) |
+| `GODSEND_ARIA2_DHT_PORT` | - | Override DHT listen port used by aria2c |
+| `GODSEND_SAVE_BACKUP` | `$GODSEND_HOME/Transfer` | Override the local save-backup folder (defaults to the Transfer folder) |
+| `GODSEND_CUSTOM_GOD_PATH` | (none) | Override the Xbox FTP subfolder for GOD-format installs (default `GOD`) |
+| `GODSEND_CUSTOM_XEX_PATH` | (none) | Override the Xbox FTP subfolder for XEX-format installs (default `XEX`) |
+| `GODSEND_SKIP_ARIA2_BOOTSTRAP` | (unset) | Skip the macOS aria2c Homebrew bootstrap at startup |
+| `GODSEND_NO_GUI_ELEVATION` | (unset) | Disable GUI sudo prompting during the macOS aria2c bootstrap |

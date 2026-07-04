@@ -1,0 +1,40 @@
+---
+description: Never use em (—) or en (–) dashes in public-facing copy. Use a hyphen (-) or restructure with a comma, colon, period, or parentheses.
+globs:
+  - README.md
+  - readme.md
+  - docs/**
+alwaysApply: false
+---
+
+## No em or en dashes in public-facing copy
+
+**Hard rule for user-visible text:** never use em dashes (U+2014) or en dashes (U+2013) in public-facing copy. Use a normal ASCII hyphen (`-`), or restructure with a comma, colon, period, or parentheses.
+
+### Where this applies
+
+- HTML / document `<title>` and page metadata (`title`, `openGraph.title`, etc.)
+- Visible headings, hero text, buttons, modals, footer copy
+- Any string rendered to end users on the site
+
+### Allowed
+
+- Hyphen-minus `-` as a separator: `Adult Addons - Stremio & Nuvio`
+- Attributive compound hyphens: `18+ only`, `4K-ready` (when the compound is standard)
+- Hyphens inside code identifiers, URLs, flags, and CLI args
+
+### Not allowed
+
+- `—` (U+2014 em dash)
+- `–` (U+2013 en dash)
+- Spaced double hyphen used as a dash: ` -- `
+
+### With humanizer
+
+Run **humanizer** on substantive UI copy. This rule is the non-negotiable dash constraint; humanizer covers the wider de-AI patterns. Before shipping public-facing text, scan for `—` and `–` and fix any hits.
+
+### Quick check
+
+```bash
+rg '[—–]' README.md CHANGELOG.md docs/
+```
