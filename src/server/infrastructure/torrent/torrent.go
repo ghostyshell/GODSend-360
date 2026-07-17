@@ -364,7 +364,10 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 		if err != nil || info.IsDir() {
 			return nil
 		}
-		if strings.EqualFold(filepath.Base(path), entry.FileName) {
+		// aria2c writes the file under its torrent-metadata name (literal apostrophe),
+		// while entry.FileName may carry HTML entities (e.g. &#39;) from the scraped href.
+		// Match entity-tolerantly, same as the in-torrent lookup above.
+		if torrentBasenameMatches(filepath.Base(path), entry.FileName) {
 			foundPath = path
 			return filepath.SkipAll
 		}
