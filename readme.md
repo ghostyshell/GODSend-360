@@ -43,18 +43,18 @@ Download the build for your platform:
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.12.24.exe`](https://gofile.io/d/37IXmG) | [`godsend-Setup-2.12.24.exe`](https://file.kiwi/7c60592b#rqB5pynFvj09UP-iES_prg) |
-| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.12.24.exe`](https://gofile.io/d/Y01yL6) | [`godsend-Portable-2.12.24.exe`](https://file.kiwi/4c046303#xNe21tqArH4hiWeD5hNY-A) |
-| **macOS (Apple Silicon)** | [`godsend-2.12.24-arm64.dmg`](https://gofile.io/d/x3Ig2y) | [`godsend-2.12.24-arm64.dmg`](https://file.kiwi/39bfadea#xDm2KTFizR2KTdqYtzk02g) |
-| **macOS (Intel)** | [`godsend-2.12.24-x64.dmg`](https://gofile.io/d/o5UeTH) | [`godsend-2.12.24-x64.dmg`](https://file.kiwi/9b476035#8bCXdyItt8yLauNew6Lr7g) |
-| **Linux (x64 / amd64)** | [`godsend-2.12.24-x86_64.AppImage`](https://gofile.io/d/dq3TW6) | [`godsend-2.12.24-x86_64.AppImage`](https://file.kiwi/f33d9e80#t2xnWyVG7D4l_Yx3sRiYyA) |
-| **Linux (arm64)** | [`godsend-2.12.24-arm64.AppImage`](https://gofile.io/d/2EAscX) | [`godsend-2.12.24-arm64.AppImage`](https://file.kiwi/00620d8b#vR2T0H26NrCEv-rybSqNSQ) |
+| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.12.25.exe`](https://gofile.io/d/37IXmG) | [`godsend-Setup-2.12.25.exe`](https://file.kiwi/7c60592b#rqB5pynFvj09UP-iES_prg) |
+| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.12.25.exe`](https://gofile.io/d/Y01yL6) | [`godsend-Portable-2.12.25.exe`](https://file.kiwi/4c046303#xNe21tqArH4hiWeD5hNY-A) |
+| **macOS (Apple Silicon)** | [`godsend-2.12.25-arm64.dmg`](https://gofile.io/d/x3Ig2y) | [`godsend-2.12.25-arm64.dmg`](https://file.kiwi/39bfadea#xDm2KTFizR2KTdqYtzk02g) |
+| **macOS (Intel)** | [`godsend-2.12.25-x64.dmg`](https://gofile.io/d/o5UeTH) | [`godsend-2.12.25-x64.dmg`](https://file.kiwi/9b476035#8bCXdyItt8yLauNew6Lr7g) |
+| **Linux (x64 / amd64)** | [`godsend-2.12.25-x86_64.AppImage`](https://gofile.io/d/dq3TW6) | [`godsend-2.12.25-x86_64.AppImage`](https://file.kiwi/f33d9e80#t2xnWyVG7D4l_Yx3sRiYyA) |
+| **Linux (arm64)** | [`godsend-2.12.25-arm64.AppImage`](https://gofile.io/d/2EAscX) | [`godsend-2.12.25-arm64.AppImage`](https://file.kiwi/00620d8b#vR2T0H26NrCEv-rybSqNSQ) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.12.24.exe`** and follow the installer (or just run **`godsend-Portable-2.12.24.exe`** directly - no install step needed).
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.12.25.exe`** and follow the installer (or just run **`godsend-Portable-2.12.25.exe`** directly - no install step needed).
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher - the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
