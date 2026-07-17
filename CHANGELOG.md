@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.25] - 2026-07-18
+
+### Fixed
+- **Completed Minerva torrent downloads were deleted instead of imported when the game title contained an apostrophe (or `&`, `<`, `>`, `"`).** aria2c writes the file under its torrent-metadata name (literal `'`), but `entry.FileName` carries the scraped HTML entity (`&#39;`). The post-download verify in `infrastructure/torrent/torrent.go` compared the two with a raw `strings.EqualFold`, never matched, and returned "aria2c finished but ... not found" - at which point the `defer os.RemoveAll(aria2cDir)` cleanup wiped the finished download (users saw disk space fill during the download, then vanish on completion). The verify now uses the same entity-tolerant `torrentBasenameMatches` helper the in-torrent file lookup already used. Affected every Minerva title with an entity-encoded character (e.g. Assassin's Creed, Ratchet & Clank).
+
 ### Added
 - Discord community and Ko-fi support badges to README.
 - Code knowledge graph via graphify (`graphify-out/`, PreToolUse hooks, `CLAUDE.md` query guidance) and `.graphifyignore`.
