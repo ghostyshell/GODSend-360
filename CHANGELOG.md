@@ -9,6 +9,8 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.26] - 2026-07-18
+
 ### Added
 - **Debrid-accelerated downloads (Real-Debrid / TorBox).** New **Debrid (faster downloads)** section in Settings: pick one active provider and paste a Real-Debrid and/or TorBox API key. Before falling back to the native source, Minerva torrent downloads and Internet Archive downloads first try to cache on the active provider and wait up to 60s for a direct HTTP link, then pull it over plain HTTP (much faster than P2P). Torrents work on both providers; Internet Archive downloads are accelerated only via TorBox (Real-Debrid cannot proxy archive.org URLs). Only one provider is active at a time; on any error or timeout the download falls back to the existing torrent/IA source, so Debrid never fails a download. Keys are stored in the app config (like the IA cookie), passed to the backend as `GODSEND_DEBRID_PROVIDER` / `GODSEND_REALDEBRID_KEY` / `GODSEND_TORBOX_KEY` env vars, and never logged; UI inputs are masked. Backend reads them in `app/config.go` (`LoadDebridFromEnv`); provider logic lives in the new `infrastructure/debrid` package (`realdebrid.go`, `torbox.go`).
 - **Settings: Export Aurora DBs (debug).** New Settings action downloads `content.db` and `settings.db` fresh from the console and, if a previous parse failed, also copies the exact cached bytes that errored (`content.cached.db` / `settings.cached.db`) plus an `aurora-db-report.txt` with SQLite header / page-size / page-count / truncation / sha256 diagnostics, so a reporter can share the files that reproduce a malformed-DB error.
