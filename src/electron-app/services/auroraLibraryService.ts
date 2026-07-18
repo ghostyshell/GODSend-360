@@ -3,6 +3,27 @@ import path from "path";
 import fs from "fs";
 import { getSqlJs, sqlRows, filetimeToDateStr } from "../infrastructure/sqlHelper";
 import { backendPost } from "../infrastructure/backendHttp";
+import { diagnoseDb, diagnosticsLine } from "../infrastructure/auroraDbDiagnostics";
+import { addOutputLine } from "./backendClient";
+
+/**
+ * openAuroraDb validates a DB buffer and opens it, turning the opaque
+ * "database disk image is malformed" into an actionable error that names the DB
+ * and the likely cause (truncated download vs mid-write corruption vs not-a-DB).
+ */
+function openAuroraDb(SQL: any, buf: Buffer, label: string): any {
+  const diag = diagnoseDb(buf);
+  if (!diag.sqliteHeaderOk || diag.truncated) {
+    throw new Error(`Aurora ${label} malformed - ${diagnosticsLine(label, diag)}`);
+  }
+  try {
+    return new SQL.Database(new Uint8Array(buf));
+  } catch (err: any) {
+    throw new Error(
+      `Aurora ${label} malformed (${err?.message || err}) - ${diagnosticsLine(label, diag)}`
+    );
+  }
+}
 
 export interface AuroraGame {
   contentId: number;
@@ -38,16 +59,52 @@ export async function buildAuroraGamesFromDbBuffers(
   scanDriveMap: Map<number, string>
 ): Promise<AuroraGame[]> {
   const SQL = await getSqlJs();
-  const cdb = new SQL.Database(new Uint8Array(contentBuf));
-  const sdb = new SQL.Database(new Uint8Array(settingsBuf));
+  const cdb = openAuroraDb(SQL, contentBuf, "content.db");
+  const sdb = openAuroraDb(SQL, settingsBuf, "settings.db");
 
   const queryDb = (db: any, sql: string): Record<string, any>[] => {
-    // Use prepare/step API directly here — avoids shell-exec false-positive patterns
+    // Use prepare/step API directly here - avoids shell-exec false-positive patterns
     const stmt = db.prepare(sql);
     const rows: Record<string, any>[] = [];
     while (stmt.step()) rows.push(stmt.getAsObject());
     stmt.free();
     return rows;
+  };
+
+  // Aurora's settings.db can carry a corrupt table (a bad b-tree page / broken
+  // autoindex on disk) while content.db stays intact. The game LIST lives in
+  // content.db; the settings metadata tables only enrich it (hidden / favorites
+  // / recently-played). So read each metadata table tolerantly: if one is
+  // malformed, log the table and degrade to empty rather than failing the whole
+  // library load with "database disk image is malformed".
+  const queryDbTolerant = (db: any, sql: string, table: string): Record<string, any>[] => {
+    try {
+      const stmt = db.prepare(sql);
+      const rows: Record<string, any>[] = [];
+      while (stmt.step()) rows.push(stmt.getAsObject());
+      stmt.free();
+      return rows;
+    } catch (e: any) {
+      // Run PRAGMA integrity_check so the corruption signature (which page /
+      // rowid / index) lands in the log - makes this diagnosable without the
+      // DB file itself. Best-effort: integrity_check walks every page and may
+      // also throw on a badly damaged DB.
+      let integrity = "";
+      try {
+        const ic = db.prepare("PRAGMA integrity_check(8)");
+        const lines: string[] = [];
+        while (ic.step()) lines.push(String(ic.getAsObject().integrity_check || ""));
+        ic.free();
+        integrity = lines.join(" | ");
+      } catch { /* DB too damaged to check */ }
+      addOutputLine(
+        `[WARN] Aurora library: settings.db table "${table}" is corrupt (${e?.message || e})` +
+          (integrity ? ` - integrity_check: ${integrity}` : "") +
+          ` - skipping it (library will load without that metadata). Rebuild the DB in Aurora on the console to restore it.`,
+        "ui"
+      );
+      return [];
+    }
   };
 
   const itemRows   = queryDb(cdb, `
@@ -60,15 +117,15 @@ export async function buildAuroraGamesFromDbBuffers(
   `);
   cdb.close();
 
-  const hiddenRows = queryDb(sdb, "SELECT DISTINCT ContentId FROM UserHidden");
-  const favRows    = queryDb(sdb, "SELECT DISTINCT ContentId FROM UserFavorites");
-  const recentRows = queryDb(sdb, `
+  const hiddenRows = queryDbTolerant(sdb, "SELECT DISTINCT ContentId FROM UserHidden", "UserHidden");
+  const favRows    = queryDbTolerant(sdb, "SELECT DISTINCT ContentId FROM UserFavorites", "UserFavorites");
+  const recentRows = queryDbTolerant(sdb, `
     SELECT ContentId,
            MAX(DateTime)  AS LastPlayed,
            COUNT(*)       AS TimesPlayed
     FROM UserRecentGames
     GROUP BY ContentId
-  `);
+  `, "UserRecentGames");
   sdb.close();
 
   const hiddenIds   = new Set(hiddenRows.map((h) => Number(h.ContentId)));
@@ -122,7 +179,7 @@ export async function buildAuroraGamesFromDbBuffers(
 
 export async function readContentScanRowsFromBuffer(contentBuf: Buffer): Promise<Record<string, any>[]> {
   const SQL = await getSqlJs();
-  const cdb = new SQL.Database(new Uint8Array(contentBuf));
+  const cdb = openAuroraDb(SQL, contentBuf, "content.db");
   const stmt = cdb.prepare("SELECT ScanPathId, Directory FROM ContentItems");
   const rows: Record<string, any>[] = [];
   while (stmt.step()) rows.push(stmt.getAsObject());
@@ -133,7 +190,7 @@ export async function readContentScanRowsFromBuffer(contentBuf: Buffer): Promise
 
 export async function readScanRowsFromSettingsBuffer(settingsBuf: Buffer): Promise<Record<string, any>[]> {
   const SQL = await getSqlJs();
-  const sdb = new SQL.Database(new Uint8Array(settingsBuf));
+  const sdb = openAuroraDb(SQL, settingsBuf, "settings.db");
   const stmt = sdb.prepare("SELECT Id, Path FROM ScanPaths");
   const rows: Record<string, any>[] = [];
   while (stmt.step()) rows.push(stmt.getAsObject());

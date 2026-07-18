@@ -127,7 +127,7 @@ func (s *Service) ProcessGenericGame(gameName string) {
 
 	archivePath := filepath.Join(s.App.ToolsDir, "Temp", safeName+filepath.Ext(entry.FileName))
 	s.App.LogStatus(gameName, "Processing", "Downloading from Internet Archive...")
-	if err := s.Download.DownloadWithProgress(downloadURL, archivePath, gameName, app.IADownloadBase); err != nil {
+	if err := s.downloadIAOrDebrid(downloadURL, archivePath, gameName); err != nil {
 		s.App.Logf("ERROR [%s]: IA download failed: %v", gameName, err)
 		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Download: %v", err))
 		return
@@ -252,7 +252,7 @@ func (s *Service) ProcessDigital(gameName, platform string) {
 	downloadURL := app.IADownloadBase + entry.CollectionID + "/" + url.PathEscape(entry.FileName)
 
 	archivePath := filepath.Join(s.App.ToolsDir, "Temp", safeName+"_digi"+filepath.Ext(entry.FileName))
-	if err := s.Download.DownloadWithProgress(downloadURL, archivePath, gameName, app.IADownloadBase); err != nil {
+	if err := s.downloadIAOrDebrid(downloadURL, archivePath, gameName); err != nil {
 		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Download: %v", err))
 		return
 	}

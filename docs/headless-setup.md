@@ -52,6 +52,9 @@ The backend reads all its settings from environment variables - no config file n
 | `GODSEND_IA_COOKIE` | For IA | `logged-in-user=…; logged-in-sig=…` session cookie from archive.org. |
 | `GODSEND_IA_AUTHORIZATION` | For IA | Bearer token (alternative to cookie). |
 | `GODSEND_IA_MAX_CONNECTIONS` | No | Max concurrent HTTP range requests per large download (default `16`, max `32`). Optional. Legacy: `GODSEND_IA_CONCURRENCY` is accepted as an alias. |
+| `GODSEND_DEBRID_PROVIDER` | For Debrid | Active debrid provider: `none` (default), `realdebrid`, or `torbox`. When set, torrents (both providers) and Internet Archive downloads (TorBox only) first cache on the provider for up to 60s and pull the direct HTTP link, falling back to the native source on timeout/error. |
+| `GODSEND_REALDEBRID_KEY` | For Debrid | Real-Debrid private token. Required when provider is `realdebrid`. |
+| `GODSEND_TORBOX_KEY` | For Debrid | TorBox API key. Required when provider is `torbox`. |
 | `GODSEND_FTP_USER` | For FTP | FTP username for the Xbox (default `xboxftp`). |
 | `GODSEND_FTP_PASS` | For FTP | FTP password for the Xbox (default `xboxftp`). |
 | `GODSEND_ROM_PATH` | No | Drive-relative ROM install path (default `Emulators\RetroArch\roms`). |

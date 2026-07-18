@@ -184,10 +184,29 @@ func torrentBasenameMatches(torrentBase, entryFileName string) bool {
 	return false
 }
 
-// DownloadViaTorrent uses aria2c to download a single file from the Minerva collection torrent.
-// It fetches the .torrent from Minerva's URL, finds the target file's 1-based index, then
-// shells out to aria2c with --select-file so only that file is downloaded.
-func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry models.MinervaEntry) (string, error) {
+// DebridDownloader attempts to fetch a single file (selectName) from a torrent via
+// a Debrid service into destPath. It returns handled=true when the file was fully
+// downloaded (skip aria2c), or handled=false to fall back to the P2P download.
+// Supplied by the pipeline layer so this package stays decoupled from Debrid.
+type DebridDownloader func(infoHashHex, displayName string, trackers []string, selectName, destPath string) (handled bool, err error)
+
+// torrentTrackers flattens a .torrent's announce URLs for a magnet link.
+func torrentTrackers(mi *metainfo.MetaInfo) []string {
+	var out []string
+	if mi.Announce != "" {
+		out = append(out, mi.Announce)
+	}
+	for _, tier := range mi.AnnounceList {
+		out = append(out, tier...)
+	}
+	return out
+}
+
+// DownloadViaTorrent downloads a single file from the Minerva collection torrent.
+// It fetches the .torrent, finds the target file's 1-based index, then, when a
+// Debrid downloader is supplied and succeeds, pulls the file over HTTP; otherwise
+// it shells out to aria2c with --select-file so only that file is downloaded.
+func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry models.MinervaEntry, debrid DebridDownloader) (string, error) {
 	aria2c, err := s.Aria2cBinary()
 	if err != nil {
 		return "", err
@@ -214,16 +233,29 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 
 	fileIndex := -1
 	var fileSize int64
+	var selectedBase string
 	for i, f := range info.UpvertedFiles() {
 		torrentBase := filepath.Base(filepath.Join(f.Path...))
 		if torrentBasenameMatches(torrentBase, entry.FileName) {
 			fileIndex = i + 1 // aria2c uses 1-based index
 			fileSize = f.Length
+			selectedBase = torrentBase // real on-disk name (literal apostrophe)
 			break
 		}
 	}
 	if fileIndex < 0 {
 		return "", fmt.Errorf("file %q not found in torrent", entry.FileName)
+	}
+
+	// Try Debrid first (fast HTTP) when configured; fall back to aria2c on miss.
+	if debrid != nil {
+		destFile := filepath.Join(destDir, selectedBase)
+		handled, derr := debrid(mi.HashInfoBytes().HexString(), info.Name, torrentTrackers(mi), selectedBase, destFile)
+		if derr != nil {
+			s.App.Logf("TORRENT [%s]: Debrid attempt failed (%v) - falling back to torrent", gameName, derr)
+		} else if handled {
+			return destFile, nil
+		}
 	}
 
 	s.App.Logf("TORRENT [%s]: aria2c downloading %s (%.0f MB) file-index=%d", gameName, entry.FileName, float64(fileSize)/1048576, fileIndex)
@@ -279,6 +311,9 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 	_ = torrentURL // URL was used to fetch; aria2c gets the temp file
 
 	cmd := exec.Command(aria2c, args...)
+	// aria2c has no need for the Debrid keys / IA cookie; scrub secret-bearing
+	// env vars so they can't leak via the child's environ (crash dump, /proc).
+	cmd.Env = scrubChildEnv(os.Environ())
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", fmt.Errorf("aria2c pipe: %w", err)
@@ -418,4 +453,33 @@ func isCrossDeviceRenameErr(err error) bool {
 		strings.Contains(msg, "cross-device") ||
 		strings.Contains(msg, "cross device") ||
 		strings.Contains(msg, "exdev")
+}
+
+// scrubChildEnv drops secret-bearing env vars (anything whose name ends in a
+// secret suffix) so child processes like aria2c never inherit the Debrid keys
+// or IA cookie. PATH/HOME/USER and proxy vars are unaffected.
+func scrubChildEnv(env []string) []string {
+	secretSuffixes := []string{"_KEY", "_SECRET", "_TOKEN", "_PASSWORD", "_PASS", "_COOKIE", "_AUTHORIZATION", "_APIKEY"}
+	isSecret := func(name string) bool {
+		u := strings.ToUpper(name)
+		for _, s := range secretSuffixes {
+			if strings.HasSuffix(u, s) {
+				return true
+			}
+		}
+		return false
+	}
+	out := env[:0:0]
+	for _, kv := range env {
+		eq := strings.IndexByte(kv, '=')
+		name := kv
+		if eq >= 0 {
+			name = kv[:eq]
+		}
+		if isSecret(name) {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
 }

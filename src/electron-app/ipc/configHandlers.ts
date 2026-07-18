@@ -38,6 +38,9 @@ import {
   getConfiguredCustomGodPath,
   getConfiguredCustomXexPath,
   getDefaultFtpScriptsPath,
+  getConfiguredDebridProvider,
+  getConfiguredRealDebridKey,
+  getConfiguredTorboxKey,
   readConfig,
   writeConfig,
 } from "../services/settingsService";
@@ -305,6 +308,65 @@ export function register(ipcMain: IpcMain): void {
     appendAppEvent("IA_LOGIN", "logout; session cleared");
     restartGodsendIfRunning();
     return true;
+  });
+
+  // ── Debrid (Real-Debrid / TorBox) ───────────────────────────────────────────
+  // Keys accelerate torrent + IA downloads. Single active provider is attempted,
+  // then the download falls back to the native torrent/IA source. Keys are stored
+  // in the app config (like the IA cookie) and passed to the backend as env vars.
+  ipcMain.handle("config:get-debrid", () => ({
+    provider:      getConfiguredDebridProvider(),
+    hasRealdebrid: Boolean(getConfiguredRealDebridKey()),
+    hasTorbox:     Boolean(getConfiguredTorboxKey()),
+  }));
+
+  ipcMain.handle("config:set-debrid", (_event, payload) => {
+    const p = payload || {};
+    const provider =
+      p.provider === "realdebrid" || p.provider === "torbox" ? p.provider : "none";
+    const patch: Record<string, string> = { debridProvider: provider };
+    // Only overwrite a key when the field is explicitly provided (string), so the
+    // UI can save provider changes without resending secrets it never displays.
+    if (typeof p.realdebridKey === "string") patch.realdebridKey = p.realdebridKey.trim();
+    if (typeof p.torboxKey === "string") patch.torboxKey = p.torboxKey.trim();
+    writeConfig(patch);
+    appendAppEvent("DEBRID", `provider=${provider}`);
+    restartGodsendIfRunning();
+    return {
+      provider,
+      hasRealdebrid: Boolean(getConfiguredRealDebridKey()),
+      hasTorbox:     Boolean(getConfiguredTorboxKey()),
+    };
+  });
+
+  // Validate a key against the provider's account endpoint. Uses the key from the
+  // payload if present, else the stored one.
+  ipcMain.handle("config:test-debrid", async (_event, payload) => {
+    const p = payload || {};
+    const provider = p.provider === "torbox" ? "torbox" : "realdebrid";
+    const key =
+      typeof p.key === "string" && p.key.trim()
+        ? p.key.trim()
+        : provider === "torbox"
+        ? getConfiguredTorboxKey()
+        : getConfiguredRealDebridKey();
+    if (!key) return { ok: false, error: "No API key provided." };
+    try {
+      const url =
+        provider === "torbox"
+          ? "https://api.torbox.app/v1/api/user/me"
+          : "https://api.real-debrid.com/rest/1.0/user";
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+      const data: any = await res.json().catch(() => ({}));
+      const username =
+        provider === "torbox"
+          ? data?.data?.email || data?.data?.username || "account"
+          : data?.username || "account";
+      return { ok: true, username: String(username) };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || String(err) };
+    }
   });
 
   // ── ROM path ────────────────────────────────────────────────────────────────
