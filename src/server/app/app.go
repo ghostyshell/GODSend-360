@@ -40,6 +40,11 @@ type App struct {
 	IAHTTPClient          *http.Client
 	EdgeEmuHTTPClient     *http.Client
 
+	// ── Debrid (Real-Debrid / TorBox) acceleration ────────────────────
+	DebridProvider string // GODSEND_DEBRID_PROVIDER: "", "realdebrid", or "torbox"
+	RealDebridKey  string // GODSEND_REALDEBRID_KEY
+	TorBoxKey      string // GODSEND_TORBOX_KEY
+
 	// ── Shared buffers ────────────────────────────────────────────────
 	CopyBuffer []byte
 

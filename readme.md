@@ -77,6 +77,8 @@ If you want Internet Archive as a fallback (or for titles not on Minerva):
 1. Click the tray icon and open the app window, then click the **⚙ Settings** button.
 2. Under **Internet Archive account**, click **Log in** and enter your [archive.org](https://archive.org) credentials. Your session cookie is stored locally - your password is never saved.
 
+Optional - **Debrid (faster downloads)**: under the same Settings page, pick **Real-Debrid** or **TorBox**, paste your API key, and **Save & restart backend**. Torrents and Internet Archive downloads then try to cache on the provider first and pull a direct HTTP link (much faster than P2P); if it isn't ready in ~60s they fall back to the native source, so nothing breaks without it. Internet Archive acceleration works on TorBox only.
+
 You can also set a **Local Transfer folder** if you want to install from `.iso` files you already have on this machine.
 
 ### 4. Install Aurora scripts on the Xbox
@@ -205,6 +207,7 @@ Open the settings page (⚙ button) to configure:
 - **Launch at login** - registers GODsend with the OS login-item / startup list (Electron **Open at login** on macOS and Windows; Linux depends on the desktop environment)
 - **Local Transfer folder** - directory the backend scans for pre-downloaded ISOs. If unset, defaults to **`runtime/Transfer`** under Electron’s **user data** directory - commonly **`%APPDATA%\GODsend\runtime\Transfer`** on Windows and **`~/Library/Application Support/GODsend/runtime/Transfer`** on macOS. On Linux the config folder name can vary; use **Open logs folder** on the home screen, then open the parent of **`logs/`** to find **`runtime/Transfer`**
 - **Internet Archive account** - log in with your archive.org credentials; session cookies are stored locally, your password is never saved
+- **Debrid (faster downloads)** - pick Real-Debrid or TorBox and paste an API key; torrents (both providers) and Internet Archive downloads (TorBox only) first cache on the provider and pull a direct HTTP link, falling back to the native source on timeout/error. Keys are stored locally and never logged.
 - **Backend server port** - choose the backend listen port used by both Electron and Aurora script patching
 - **Xbox connection** - enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your computer’s LAN IP and selected backend port are detected/applied automatically
 - **Server log files** - the app appends to a daily file under **`logs/`** next to the same user-data root (e.g. **`%APPDATA%\GODsend\logs\`** on Windows): timestamped backend stdout/stderr, session banner (paths, `GODSEND_*` env summary with secrets redacted, host IP), and notable UI actions (FTP upload steps, cache refresh, config changes). On the home screen use **Open logs folder** to reveal that directory in the system file manager

@@ -24,8 +24,10 @@ type Service struct {
 // DownloadWithProgress downloads urlStr to dest. For Internet Archive URLs it uses a
 // Gopeed-style segment queue (fixed-size ranges, worker pool) when Range is supported.
 func (s *Service) DownloadWithProgress(urlStr, dest, name, ref string) error {
-	isIA := strings.Contains(strings.ToLower(urlStr), "archive.org")
-	if isIA && s.App.IADownloadMaxParallel > 1 {
+	// Chunked parallel HTTP works for any range-supporting host (archive.org or a
+	// Debrid CDN direct link), so probe unconditionally. archive.org-only auth
+	// headers are applied host-side by ApplyArchiveOrgHeaders.
+	if s.App.IADownloadMaxParallel > 1 {
 		size, rangeOK, err := s.IAProbeDownload(urlStr, ref)
 		if err != nil {
 			s.App.Logf("WARN [%s]: probe failed (%v), using single stream", name, err)

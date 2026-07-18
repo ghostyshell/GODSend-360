@@ -79,6 +79,9 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 | `GODSEND_IA_AUTHORIZATION` | - | Bearer token as an alternative to cookie auth |
 | `GODSEND_IA_MAX_CONNECTIONS` | `16` | Max concurrent HTTP range requests per large IA / EdgeEmu download (1-32). Optional. |
 | `GODSEND_IA_CONCURRENCY` | - | Legacy alias for `GODSEND_IA_MAX_CONNECTIONS` (same clamp 1-32). |
+| `GODSEND_DEBRID_PROVIDER` | `none` | Active debrid provider: `none`, `realdebrid`, or `torbox`. When not `none`, torrent (both providers) and Internet Archive (TorBox only) downloads first cache on the provider for up to 60s and pull the direct HTTP link, falling back to the native source on timeout or error. |
+| `GODSEND_REALDEBRID_KEY` | - | Real-Debrid API key (private token). Required when provider is `realdebrid`. |
+| `GODSEND_TORBOX_KEY` | - | TorBox API key. Required when provider is `torbox`. |
 | `GODSEND_PORT` | `8080` | Backend listen port |
 | `GODSEND_FTP_USER` | - | FTP username for the Xbox (default `xboxftp`) |
 | `GODSEND_FTP_PASS` | - | FTP password for the Xbox (default `xboxftp`) |

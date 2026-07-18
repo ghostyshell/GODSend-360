@@ -26,6 +26,7 @@ import {
   contentDbPath,
   settingsDbPath,
 } from "../infrastructure/auroraLibraryCache";
+import { diagnoseDb, formatDbReport } from "../infrastructure/auroraDbDiagnostics";
 import {
   xboxAuroraRoot,
   xboxAuroraMediaDir,
@@ -183,6 +184,14 @@ export function register(ipcMain: IpcMain): void {
       const msg = err.message || String(err);
       addOutputLine(`[ERROR] Aurora library: ${msg}`);
       appendAppEvent("AURORA_LIB", `error: ${msg}`);
+      if (/malformed/i.test(msg)) {
+        // The diagnostics are already embedded in msg (size, header, truncation,
+        // sha256). Point the user at the export so they can share the exact bytes.
+        addOutputLine(
+          "[INFO] Aurora library: the console DB looks corrupt or was read mid-write. " +
+            "Use Settings → Export Aurora DBs to save the exact files (incl. the cached copy that failed) for debugging."
+        );
+      }
       return { ok: false, error: msg };
     }
   });
@@ -331,8 +340,32 @@ export function register(ipcMain: IpcMain): void {
         return { ok: false, error: err.trim() || "FTP download failed." };
       }
 
-      addOutputLine(`[INFO] Aurora DBs exported to ${destDir}`);
-      return { ok: true, files: [path.join(destDir, "content.db"), path.join(destDir, "settings.db")] };
+      const files = [path.join(destDir, "content.db"), path.join(destDir, "settings.db")];
+
+      // Also copy the exact cached bytes that failed to parse (if present) — a fresh
+      // re-download may not reproduce an intermittent corruption, but the cached copy
+      // that actually errored will. Then write a diagnostic report over all files.
+      const cacheRoot = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);
+      const report: { label: string; diag: ReturnType<typeof diagnoseDb> }[] = [];
+      const addReport = (label: string, p: string) => {
+        try { report.push({ label, diag: diagnoseDb(fs.readFileSync(p)) }); } catch { /* skip unreadable */ }
+      };
+      addReport("content.db (fresh)", files[0]);
+      addReport("settings.db (fresh)", files[1]);
+      for (const [src, name, label] of [
+        [contentDbPath(cacheRoot), "content.cached.db", "content.cached.db (the copy that failed)"],
+        [settingsDbPath(cacheRoot), "settings.cached.db", "settings.cached.db (the copy that failed)"],
+      ] as const) {
+        if (fs.existsSync(src)) {
+          const dst = path.join(destDir, name);
+          try { fs.copyFileSync(src, dst); files.push(dst); addReport(label, dst); } catch { /* skip */ }
+        }
+      }
+      const reportPath = path.join(destDir, "aurora-db-report.txt");
+      try { fs.writeFileSync(reportPath, formatDbReport(report)); files.push(reportPath); } catch { /* non-fatal */ }
+
+      addOutputLine(`[INFO] Aurora DBs exported to ${destDir} (${files.length} files incl. diagnostic report)`);
+      return { ok: true, files };
     } catch (err: any) {
       const msg = err.message || String(err);
       addOutputLine(`[ERROR] Aurora DB export: ${msg}`);
