@@ -185,10 +185,12 @@ func torrentBasenameMatches(torrentBase, entryFileName string) bool {
 }
 
 // DebridDownloader attempts to fetch a single file (selectName) from a torrent via
-// a Debrid service into destPath. It returns handled=true when the file was fully
-// downloaded (skip aria2c), or handled=false to fall back to the P2P download.
-// Supplied by the pipeline layer so this package stays decoupled from Debrid.
-type DebridDownloader func(infoHashHex, displayName string, trackers []string, selectName, destPath string) (handled bool, err error)
+// a Debrid service into destPath. collectionSize is the full torrent's byte size
+// (sum of all files), letting the implementation skip providers that can't cache a
+// torrent this large. It returns handled=true when the file was fully downloaded
+// (skip aria2c), or handled=false to fall back to the P2P download. Supplied by
+// the pipeline layer so this package stays decoupled from Debrid.
+type DebridDownloader func(infoHashHex, displayName string, trackers []string, selectName, destPath string, collectionSize int64) (handled bool, err error)
 
 // torrentTrackers flattens a .torrent's announce URLs for a magnet link. The
 // primary Announce is often repeated inside AnnounceList, so dedupe (case-
@@ -263,8 +265,14 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 
 	// Try Debrid first (fast HTTP) when configured; fall back to aria2c on miss.
 	if debrid != nil {
+		// Whole-torrent size: TorBox caches the entire torrent (no per-file
+		// selection), so the caller needs this to skip collections over its cap.
+		var collectionSize int64
+		for _, f := range info.UpvertedFiles() {
+			collectionSize += f.Length
+		}
 		destFile := filepath.Join(destDir, selectedBase)
-		handled, derr := debrid(mi.HashInfoBytes().HexString(), info.Name, torrentTrackers(mi), selectedBase, destFile)
+		handled, derr := debrid(mi.HashInfoBytes().HexString(), info.Name, torrentTrackers(mi), selectedBase, destFile, collectionSize)
 		if derr != nil {
 			s.App.Logf("TORRENT [%s]: Debrid attempt failed (%v) - falling back to torrent", gameName, derr)
 		} else if handled {

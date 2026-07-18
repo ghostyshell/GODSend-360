@@ -9,6 +9,15 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.29] - 2026-07-18
+
+### Changed
+- **TorBox: checkcached pre-check skips the 60s wait on a cache miss.** `CacheTorrent` now calls `GET /torrents/checkcached?hash=…&format=list` (no creation-quota cost, ~1h internal cache on TorBox) before `createtorrent`. On a definitive miss it returns immediately and falls back to P2P, instead of burning a `createtorrent` slot (TorBox caps these at 60/hour) and sitting through the full wait polling a torrent that will never be ready. A `success:false` response (transient glitch / rate-limit, which TorBox serves as HTTP 200) is treated as inconclusive and falls through rather than as a miss; any other error or ambiguity likewise falls through to the existing `createtorrent` + poll path, which remains the authority on file presence (a partial cache still bails there via `matchTorBoxFile`).
+- **TorBox: skip collections over its 200 GB torrent limit.** TorBox caches the whole torrent with no per-file selection, so a collection torrent larger than its ~200 GB per-torrent cap is rejected server-side even on premium (after wasting a `createtorrent` slot). `torrent.DebridDownloader` now receives the full collection size, and the pipeline closure short-circuits with a P2P fallback when TorBox is active and the collection exceeds `debrid.TorBoxMaxTorrentSize` (200 GiB, tunable). Real-Debrid selects per file, so the cap does not apply there.
+
+### Added
+- **Minerva: TorBox uncached-section info banner.** When TorBox is the active debrid provider and the user browses a Minerva section whose collection torrent exceeds TorBox's 200 GB limit (every Minerva platform except Games Archive, verified against Minerva v0.3), the Browse page shows an amber notice above the game grid: the section is not cached on TorBox, downloads here use slower P2P, and Real-Debrid is recommended (it caches per file). The set of affected platform IDs is a renderer constant; the banner is informational only.
+
 ## [2.12.28] - 2026-07-18
 
 ### Changed

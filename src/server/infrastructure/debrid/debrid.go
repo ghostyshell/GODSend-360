@@ -20,6 +20,13 @@ import (
 // before giving up and falling back to the native source.
 const DefaultWait = 60 * time.Second
 
+// TorBoxMaxTorrentSize is TorBox's observed per-torrent size cap. TorBox has no
+// per-file selection at createtorrent (it caches the whole torrent or nothing),
+// so a collection torrent larger than this is rejected server-side even on
+// premium. Used to short-circuit before burning a creation slot on one.
+// Tunable if TorBox raises the cap.
+const TorBoxMaxTorrentSize = 200 * 1024 * 1024 * 1024 // 200 GiB
+
 // pollInterval is how often provider status is polled while waiting.
 // A var (not const) so tests can shorten it.
 var pollInterval = 3 * time.Second

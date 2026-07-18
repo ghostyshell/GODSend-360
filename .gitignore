@@ -47,3 +47,6 @@ graphify-out/
 
 # Release-asset upload link manifests (per-release scratch dir)
 .release-*/
+
+# torbox-bulkcachet one-off tool: resumable state + env (never commit the key)
+.torbox-bulkcachet/
