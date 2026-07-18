@@ -9,6 +9,20 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.27] - 2026-07-18
+
+### Fixed
+- **Aurora content.db with a valid header but corrupt body now reports diagnostics.** `openAuroraDb` already rejects bad headers / truncation, but a DB whose header is clean yet has corrupt body pages threw from the strict `ContentItems` query with the opaque "database disk image is malformed" and no diagnostics (the rich `diagnoseDb` report only ran for the `settings.db` metadata tables). The `content.db` item query is now wrapped so any read failure runs `diagnoseDb` and re-throws an error embedding the diagnostic line (size, header, truncation, sha256), so the top-level handler still recognises it as malformed and points the user at Export Aurora DBs.
+- **`queryDbTolerant` no longer leaks a prepared statement on a mid-iteration throw.** `stmt.free()` was inside `try` after the loop, so a `step()` throw on a corrupt page skipped it. `stmt` (and the `integrity_check` statement) are now declared outside `try` and freed in `finally`.
+- **Settings: clear a stored Debrid key.** The Debrid section previously had no way to remove a saved Real-Debrid / TorBox key without pasting a replacement. Each provider's field now shows a "Clear saved key" button (when a key is stored) that sends an empty string through `config:set-debrid`, preserving the active provider.
+- **Debrid key test shows the provider error body.** `config:test-debrid` returned only `HTTP {status}` on a non-OK response, collapsing 401 (bad key), 403 (banned IP / region), and 429 (rate limit) to the same message. It now reads a short body snippet and includes it.
+- **Debrid poll loops stop the instant the wait elapses.** `pollUntil` (Real-Debrid) and `pollItem` (TorBox) fetched one extra API call after the deadline passed during the sleep. The deadline check now leads the loop, so no extra call is made after `wait` expires.
+- **Magnet trackers deduplicated.** `torrentTrackers` flattened the primary `Announce` plus every `AnnounceList` tier, but the primary tracker is commonly repeated inside a tier, so the magnet carried duplicate `&tr=` entries. It now dedupes (case-insensitive, order-preserving).
+- **Chunked-download probe failure names the host.** `DownloadWithProgress` logged `WARN [name]: probe failed (...)` without the host, so a Debrid-CDN probe failure was indistinguishable from an archive.org one. The WARN line now includes the host.
+
+### Changed
+- **AGENTS.md release flow: Intel DMG gotcha.** On an Apple Silicon host, `build:electron:mac` with no arch flag defaults to arm64 and overwrites the arm64 DMG instead of producing the Intel build. The release-flow note now says to run `build:mac:dmg:x64` explicitly for the Intel DMG, so the next release doesn't silently ship a missing x64 DMG.
+
 ## [2.12.26] - 2026-07-18
 
 ### Added

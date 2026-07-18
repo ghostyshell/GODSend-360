@@ -60,7 +60,6 @@ export async function buildAuroraGamesFromDbBuffers(
 ): Promise<AuroraGame[]> {
   const SQL = await getSqlJs();
   const cdb = openAuroraDb(SQL, contentBuf, "content.db");
-  const sdb = openAuroraDb(SQL, settingsBuf, "settings.db");
 
   const queryDb = (db: any, sql: string): Record<string, any>[] => {
     // Use prepare/step API directly here - avoids shell-exec false-positive patterns
@@ -78,11 +77,11 @@ export async function buildAuroraGamesFromDbBuffers(
   // malformed, log the table and degrade to empty rather than failing the whole
   // library load with "database disk image is malformed".
   const queryDbTolerant = (db: any, sql: string, table: string): Record<string, any>[] => {
+    let stmt: any;
     try {
-      const stmt = db.prepare(sql);
+      stmt = db.prepare(sql);
       const rows: Record<string, any>[] = [];
       while (stmt.step()) rows.push(stmt.getAsObject());
-      stmt.free();
       return rows;
     } catch (e: any) {
       // Run PRAGMA integrity_check so the corruption signature (which page /
@@ -90,13 +89,14 @@ export async function buildAuroraGamesFromDbBuffers(
       // DB file itself. Best-effort: integrity_check walks every page and may
       // also throw on a badly damaged DB.
       let integrity = "";
+      let ic: any;
       try {
-        const ic = db.prepare("PRAGMA integrity_check(8)");
+        ic = db.prepare("PRAGMA integrity_check(8)");
         const lines: string[] = [];
         while (ic.step()) lines.push(String(ic.getAsObject().integrity_check || ""));
-        ic.free();
         integrity = lines.join(" | ");
       } catch { /* DB too damaged to check */ }
+      finally { if (ic) { try { ic.free(); } catch { /* best-effort */ } } }
       addOutputLine(
         `[WARN] Aurora library: settings.db table "${table}" is corrupt (${e?.message || e})` +
           (integrity ? ` - integrity_check: ${integrity}` : "") +
@@ -104,18 +104,41 @@ export async function buildAuroraGamesFromDbBuffers(
         "ui"
       );
       return [];
+    } finally {
+      // Free in finally so a mid-iteration throw from step() can't leak the
+      // prepared statement (free was previously inside try, after the loop).
+      if (stmt) { try { stmt.free(); } catch { /* best-effort */ } }
     }
   };
 
-  const itemRows   = queryDb(cdb, `
-    SELECT Id, TitleId, MediaId, TitleName, Description,
-           Publisher, Developer, LiveRating, LiveRaters,
-           ReleaseDate, Directory, ScanPathId,
-           DiscNum, DiscsInSet, FileType, ContentType
-    FROM ContentItems
-    ORDER BY TitleName
-  `);
+  // content.db holds the game LIST, so a read failure can't be skipped like the
+  // settings metadata tables. openAuroraDb already rejects bad headers /
+  // truncation, but a valid-header DB with corrupt body pages throws here. Catch
+  // that and re-throw with diagnostics embedded so the top-level handler still
+  // recognises it as malformed and points the user at the DB export.
+  let itemRows: Record<string, any>[];
+  try {
+    itemRows = queryDb(cdb, `
+      SELECT Id, TitleId, MediaId, TitleName, Description,
+             Publisher, Developer, LiveRating, LiveRaters,
+             ReleaseDate, Directory, ScanPathId,
+             DiscNum, DiscsInSet, FileType, ContentType
+      FROM ContentItems
+      ORDER BY TitleName
+    `);
+  } catch (e: any) {
+    cdb.close();
+    throw new Error(
+      `Aurora content.db malformed (${e?.message || e}) - ${diagnosticsLine("content.db", diagnoseDb(contentBuf))}`
+    );
+  }
   cdb.close();
+
+  // Open settings.db only after content.db's read succeeds: the content.db
+  // item query can throw on a valid-header-but-corrupt-body DB, and the catch
+  // above closes cdb and re-throws - opening sdb earlier would leak it (WASM
+  // page cache) on every Export-Aurora-DBs retry.
+  const sdb = openAuroraDb(SQL, settingsBuf, "settings.db");
 
   const hiddenRows = queryDbTolerant(sdb, "SELECT DISTINCT ContentId FROM UserHidden", "UserHidden");
   const favRows    = queryDbTolerant(sdb, "SELECT DISTINCT ContentId FROM UserFavorites", "UserFavorites");

@@ -146,6 +146,12 @@ func (t *torBox) deleteItem(path string, id int64) {
 // finished/present, the deadline passes (nil,nil), or ctx is cancelled.
 func (t *torBox) pollItem(ctx context.Context, listPath string, id int64, deadline time.Time) (*tbItem, error) {
 	for {
+		// Check the deadline before fetching so we stop the instant wait elapses,
+		// rather than issuing one extra API call after the deadline passes during
+		// the sleep below.
+		if time.Now().After(deadline) {
+			return nil, nil
+		}
 		item, err := t.fetchItem(ctx, listPath, id)
 		if err != nil {
 			return nil, err
@@ -154,9 +160,6 @@ func (t *torBox) pollItem(ctx context.Context, listPath string, id int64, deadli
 			strings.EqualFold(item.DownloadState, "completed") ||
 			strings.EqualFold(item.DownloadState, "cached")) {
 			return item, nil
-		}
-		if time.Now().After(deadline) {
-			return nil, nil
 		}
 		select {
 		case <-ctx.Done():

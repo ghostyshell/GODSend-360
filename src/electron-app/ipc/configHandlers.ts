@@ -357,7 +357,13 @@ export function register(ipcMain: IpcMain): void {
           ? "https://api.torbox.app/v1/api/user/me"
           : "https://api.real-debrid.com/rest/1.0/user";
       const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
-      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+      if (!res.ok) {
+        // Read a short body snippet so a 401 (bad key), 403 (banned IP / region),
+        // or 429 (rate limit) is distinguishable instead of all collapsing to
+        // "HTTP 4xx".
+        const body = (await res.text().catch(() => "")).trim().replace(/\s+/g, " ").slice(0, 200);
+        return { ok: false, error: body ? `HTTP ${res.status}: ${body}` : `HTTP ${res.status}` };
+      }
       const data: any = await res.json().catch(() => ({}));
       const username =
         provider === "torbox"

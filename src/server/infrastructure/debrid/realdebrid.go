@@ -155,6 +155,12 @@ func (r *realDebrid) unrestrict(ctx context.Context, link string) (string, error
 // passes (returns nil,nil), or ctx is cancelled.
 func (r *realDebrid) pollUntil(ctx context.Context, id string, deadline time.Time, pred func(rdTorrentInfo) bool) (*rdTorrentInfo, error) {
 	for {
+		// Check the deadline before fetching so we stop the instant wait elapses,
+		// rather than issuing one extra API call after the deadline passes during
+		// the sleep below.
+		if time.Now().After(deadline) {
+			return nil, nil
+		}
 		var info rdTorrentInfo
 		if err := doJSON(ctx, r.http, "GET", r.baseURL()+"/torrents/info/"+id, r.key, nil, "", &info); err != nil {
 			return nil, err
@@ -162,9 +168,6 @@ func (r *realDebrid) pollUntil(ctx context.Context, id string, deadline time.Tim
 		if pred(info) {
 			out := info
 			return &out, nil
-		}
-		if time.Now().After(deadline) {
-			return nil, nil
 		}
 		select {
 		case <-ctx.Done():
