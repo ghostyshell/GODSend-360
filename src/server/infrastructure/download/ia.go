@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"strings"
 	"sync"
@@ -30,7 +31,20 @@ func (s *Service) DownloadWithProgress(urlStr, dest, name, ref string) error {
 	if s.App.IADownloadMaxParallel > 1 {
 		size, rangeOK, err := s.IAProbeDownload(urlStr, ref)
 		if err != nil {
-			s.App.Logf("WARN [%s]: probe failed (%v), using single stream", name, err)
+			// Name the host so a Debrid-CDN probe failure is distinguishable
+			// from an archive.org one in the log. The raw err is a *url.Error
+			// whose .Error() embeds the full request URL incl. query string, so
+			// a Debrid direct link carrying ?token=... would leak via %v; rebuild
+			// the message as "op host: underlying" to keep the token out.
+			host := urlStr
+			msg := err.Error()
+			if u, perr := neturl.Parse(urlStr); perr == nil && u.Host != "" {
+				host = u.Host
+			}
+			if ue, ok := err.(*neturl.Error); ok {
+				msg = ue.Op + " " + host + ": " + ue.Err.Error()
+			}
+			s.App.Logf("WARN [%s]: probe failed for %s (%v), using single stream", name, host, msg)
 		} else if rangeOK && size >= app.IAParallelThreshold {
 			nSeg := (size + app.IASegmentSize - 1) / app.IASegmentSize
 			s.App.Logf("[%s] Chunked download: %.0f MB, %d segments (~%d MiB each), up to %d parallel HTTP",

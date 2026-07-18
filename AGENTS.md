@@ -188,6 +188,8 @@ Build-script map (run from repo root):
 
 > The Electron Windows build needs `dist/godsend.exe` + `dist/tools/*.exe` present first, so run `build:server` before `build:electron:win:*`. On a non-Windows host the `rcedit` icon-embed step is skipped (it needs `wine64` on `PATH`); this is cosmetic and the installer/exe still carry their icons.
 
+> **macOS Intel DMG gotcha:** on an Apple Silicon host, `build:electron:mac` with no arch flag defaults to arm64 and **overwrites** `dist/godsend-X.Y.Z-arm64.dmg` instead of producing the Intel build. To get the x64 DMG, run `npm run build:mac:dmg:x64` (or `build:electron:mac:arm` for arm64) explicitly. A plain `build:electron:mac && build:electron:mac:arm` on an arm64 host produces two identical arm64 DMGs and silently drops the Intel one.
+
 ### Release assets (GoFile + file.kiwi upload + README links)
 
 **Do NOT create git tags or GitHub releases.** All build assets are uploaded to **GoFile.io** (primary) and **file.kiwi** (backup mirror) and linked directly from `README.md` — the download table has one column per host.

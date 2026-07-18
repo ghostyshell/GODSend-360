@@ -190,14 +190,28 @@ func torrentBasenameMatches(torrentBase, entryFileName string) bool {
 // Supplied by the pipeline layer so this package stays decoupled from Debrid.
 type DebridDownloader func(infoHashHex, displayName string, trackers []string, selectName, destPath string) (handled bool, err error)
 
-// torrentTrackers flattens a .torrent's announce URLs for a magnet link.
+// torrentTrackers flattens a .torrent's announce URLs for a magnet link. The
+// primary Announce is often repeated inside AnnounceList, so dedupe (case-
+// insensitive, order-preserving) to keep the magnet compact.
 func torrentTrackers(mi *metainfo.MetaInfo) []string {
 	var out []string
-	if mi.Announce != "" {
-		out = append(out, mi.Announce)
+	seen := make(map[string]bool)
+	add := func(s string) {
+		if s == "" {
+			return
+		}
+		k := strings.ToLower(s)
+		if seen[k] {
+			return
+		}
+		seen[k] = true
+		out = append(out, s)
 	}
+	add(mi.Announce)
 	for _, tier := range mi.AnnounceList {
-		out = append(out, tier...)
+		for _, u := range tier {
+			add(u)
+		}
 	}
 	return out
 }
