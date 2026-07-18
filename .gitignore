@@ -44,3 +44,6 @@ src/electron-app/out/
 graphify-out/
 .gitlab-token
 .gofile-io-token
+
+# Release-asset upload link manifests (per-release scratch dir)
+.release-*/
