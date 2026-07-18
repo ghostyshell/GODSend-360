@@ -18,7 +18,7 @@ interface UnifiedJob {
   progress: number | null;
   /** Transfer speed string (e.g. "2.4 MB/s") */
   speed?: string;
-  /** "pipeline" | "ftp" — which source this job came from */
+  /** "pipeline" | "ftp" - which source this job came from */
   source: "pipeline" | "ftp";
   /** Original FTP job id (for remove) */
   ftpJobId?: number;
@@ -202,7 +202,7 @@ export default function QueuePage() {
 
   return (
     <div className="flex flex-col h-full p-3 gap-2.5">
-      {/* Header — refresh + summary */}
+      {/* Header - refresh + summary */}
       <header className="flex items-center gap-2.5 shrink-0">
         <span className="text-[13px] text-muted-foreground flex-1">
           {!loading && jobs.length > 0 && (

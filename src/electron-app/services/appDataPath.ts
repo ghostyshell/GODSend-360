@@ -1,5 +1,5 @@
 /**
- * Resolves where the app stores ALL user data — config.json, logs, caches,
+ * Resolves where the app stores ALL user data - config.json, logs, caches,
  * runtime/Ready/Temp/Transfer. Determined once at boot via getAppDataDir(),
  * which is then locked in by app.setPath("userData", …) in main.ts so every
  * subsequent app.getPath("userData") call resolves there.
@@ -27,7 +27,7 @@ interface OverrideMarker {
 /**
  * The location Electron *would* use for userData if we never touched it.
  * Computed without calling app.getPath("userData") because that may have
- * already been overridden — we need the unaltered platform default.
+ * already been overridden - we need the unaltered platform default.
  */
 function getPlatformDefaultUserData(): string {
   const productName = app.getName?.() || "godsend-electron";

@@ -1,4 +1,4 @@
-// app.go — central App struct holding all shared server state.
+// app.go - central App struct holding all shared server state.
 package app
 
 import (

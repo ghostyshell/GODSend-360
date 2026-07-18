@@ -46,7 +46,7 @@ func main() {
 
 	// macOS aria2c bootstrap (no-op on other platforms)
 	if err := ensureAria2cDarwinAtStartup(a, torrentSvc); err != nil {
-		a.Logf("[WARN] Could not ensure aria2c on macOS: %v — Minerva torrents need aria2 (install Homebrew + brew install aria2, or set GODSEND_SKIP_ARIA2_BOOTSTRAP=1 if you use IA only)", err)
+		a.Logf("[WARN] Could not ensure aria2c on macOS: %v - Minerva torrents need aria2 (install Homebrew + brew install aria2, or set GODSEND_SKIP_ARIA2_BOOTSTRAP=1 if you use IA only)", err)
 	}
 
 	// ── Service layer ───────────────────────────────────────────────
@@ -66,7 +66,7 @@ func main() {
 
 	// ── Banner ──────────────────────────────────────────────────────
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.12.27        ║")
+	fmt.Println("║    GODSend Backend Server v2.12.28        ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
@@ -116,7 +116,7 @@ func main() {
 		}
 	}
 
-	// ROM caches (lazy — won't block startup)
+	// ROM caches (lazy - won't block startup)
 	go func() {
 		for sysid := range app.ROMSystems {
 			if romSvc.LoadFromDisk(sysid) {
@@ -142,7 +142,7 @@ func main() {
 	go func() {
 		for _, job := range ftpSvc.LoadAllPendingFTPJobs() {
 			a.Logf("FTP PENDING: Resuming job for %s (from previous session)", job.GameName)
-			a.LogStatus(job.GameName, "Pending FTP", "Resumed from previous session — waiting for Xbox FTP...")
+			a.LogStatus(job.GameName, "Pending FTP", "Resumed from previous session - waiting for Xbox FTP...")
 			go ftpSvc.RetryFTPJobForever(job)
 		}
 	}()

@@ -1,4 +1,4 @@
-// rom.go — EdgeEmu ROM game cache scraping and lookup.
+// rom.go - EdgeEmu ROM game cache scraping and lookup.
 package cache
 
 import (
@@ -65,7 +65,7 @@ func (s *ROMService) Build(sysid string) {
 	s.App.ROMURLMapMu.Unlock()
 
 	s.IA.SetBuildState(platform, "ready", 1, 1)
-	s.App.Logf("ROM CACHE: %s complete — %d games", sysid, len(names))
+	s.App.Logf("ROM CACHE: %s complete - %d games", sysid, len(names))
 
 	// Persist using the existing PlatformCache format.
 	entries := map[string]models.IAGameEntry{}

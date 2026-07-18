@@ -107,7 +107,7 @@ export function register(ipcMain: IpcMain): void {
     return { ok: true, folder: result.filePaths[0] };
   });
 
-  // ── FTP Manager: upload files (proxied to Go backend — async tracked) ──────
+  // ── FTP Manager: upload files (proxied to Go backend - async tracked) ──────
   ipcMain.handle("tools:ftp-upload", async (_event, { localPaths, remotePath }: { localPaths: string[]; remotePath: string }) => {
     const xboxIp = getConfiguredXboxIP();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };
@@ -192,7 +192,7 @@ export function register(ipcMain: IpcMain): void {
     }
   });
 
-  // ── FTP Manager: copy (proxied to Go backend — async tracked) ──────────────
+  // ── FTP Manager: copy (proxied to Go backend - async tracked) ──────────────
   ipcMain.handle("tools:ftp-copy", async (_event, { src, dst, isDir }: { src: string; dst: string; isDir: boolean }) => {
     const xboxIp = getConfiguredXboxIP();
     if (!xboxIp) return { ok: false, error: "No Xbox IP configured." };

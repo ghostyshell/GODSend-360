@@ -1,4 +1,4 @@
-// handlers_ftp_manager.go — HTTP handlers for centralised FTP Manager operations.
+// handlers_ftp_manager.go - HTTP handlers for centralised FTP Manager operations.
 package http
 
 import (
@@ -328,14 +328,14 @@ func (d *Deps) handleFTPUploadScripts(w stdhttp.ResponseWriter, r *stdhttp.Reque
 
 // ── Job management ────────────────────────────────────────────────────
 
-// GET /ftp/jobs — returns all tracked FTP manager jobs
+// GET /ftp/jobs - returns all tracked FTP manager jobs
 func (d *Deps) handleFTPJobs(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	jobs := d.FTPMgr.ListJobs()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "jobs": jobs})
 }
 
-// DELETE /ftp/jobs?id=N — remove a completed/failed job from tracking
+// DELETE /ftp/jobs?id=N - remove a completed/failed job from tracking
 func (d *Deps) handleFTPJobRemove(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)

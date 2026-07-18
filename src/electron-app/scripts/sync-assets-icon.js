@@ -33,7 +33,7 @@ async function main() {
     fs.writeFileSync(trayIco, buf);
     fs.writeFileSync(iconIco, buf);
     console.warn(
-      "sync-assets-icon: using icon.png — prefer assets/tray.ico or tray.png as the canonical logo"
+      "sync-assets-icon: using icon.png - prefer assets/tray.ico or tray.png as the canonical logo"
     );
     return;
   }

@@ -9,7 +9,7 @@
   CreateDirectory "$INSTDIR\Temp"
   CreateDirectory "$INSTDIR\Transfer"
   CreateDirectory "$INSTDIR\Ready"
-  ; Allow inbound HTTP (8080) for any process — covers godsend-backend.exe without a second firewall prompt.
+  ; Allow inbound HTTP (8080) for any process - covers godsend-backend.exe without a second firewall prompt.
   ExecWait 'cmd.exe /c netsh advfirewall firewall delete rule name="GODsend HTTP 8080" 2>nul'
   ExecWait 'cmd.exe /c netsh advfirewall firewall add rule name="GODsend HTTP 8080" dir=in action=allow protocol=TCP localport=8080 profile=any'
   ; Allow aria2c through the firewall for BitTorrent (inbound peers + outbound DHT/tracker).

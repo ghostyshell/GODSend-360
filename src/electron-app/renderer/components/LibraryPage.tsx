@@ -302,12 +302,12 @@ function AssetSlotCard({
             {(currentAsset?.ext || "").toUpperCase()}<br />cached
           </span>
         ) : (
-          <span className="text-[7px] text-muted-foreground">—</span>
+          <span className="text-[7px] text-muted-foreground">-</span>
         )}
         {hasPending && (
           <div
             className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-primary flex items-center justify-center"
-            title="Pending — not yet saved"
+            title="Pending - not yet saved"
           >
             <div className="w-1 h-1 rounded-full bg-primary-foreground" />
           </div>
@@ -535,10 +535,10 @@ function AssetEditorSection({ game, titleVisuals, rxeaSlots, rxeaLoading, onRefr
     const previewUrl = result.thumbnail || result.front || url;
 
     if (isDataUrl(url)) {
-      // Already a data URL (e.g. Xbox CDN results) — use directly at full resolution.
+      // Already a data URL (e.g. Xbox CDN results) - use directly at full resolution.
       setPending((prev) => ({ ...prev, [slotKey]: { url: null, dataUrl: url, previewUrl: url, ext: ".jpg" } }));
     } else {
-      // HTTP URL — show the thumbnail immediately, then fetch the full image in background.
+      // HTTP URL - show the thumbnail immediately, then fetch the full image in background.
       setPending((prev) => ({ ...prev, [slotKey]: { url, dataUrl: null, previewUrl, ext: ".jpg" } }));
       (async () => {
         const fullUrl = isCover
@@ -870,7 +870,7 @@ function ContentSection({ game, visible = true }: ContentSectionProps) {
   }, []);
 
   function itemQueueState(item: ContentItem) {
-    // If already installed on Xbox, always show Installed/Active —
+    // If already installed on Xbox, always show Installed/Active -
     // do not let a stale "Ready" queue job render as "Downloaded".
     if (item.installed) {
       return item.active ? "Active" : "Installed";
@@ -914,7 +914,7 @@ function ContentSection({ game, visible = true }: ContentSectionProps) {
     setLoadingTu(true);
     setError(null);
     // Seed the manifest so each section can render independently as its
-    // endpoint resolves — otherwise a slow FTP scan blocks the TU list.
+    // endpoint resolves - otherwise a slow FTP scan blocks the TU list.
     setManifest({ dlcs: [], title_updates: [] });
 
     // Track each half so a late-arriving response can merge against the other.
@@ -1969,7 +1969,7 @@ function GameDetail({
       if (r?.ok) {
         setMoveJobId(r.jobId ?? null);
         setMoveMessage(r.message || "Move queued successfully.");
-        // Don't set "done" yet — let the polling effect handle final state.
+        // Don't set "done" yet - let the polling effect handle final state.
         // If no jobId was returned, fall back to the old "done" behaviour.
         if (!r.jobId) setMoveStatus("done");
       } else {
@@ -2012,13 +2012,13 @@ function GameDetail({
           setMoveSpeed(null);
           clearInterval(id);
         } else {
-          // Still in progress — build a rich status message
+          // Still in progress - build a rich status message
           const pct = job.progress ?? 0;
           const parts: string[] = [];
           if (job.detail) parts.push(job.detail);
           parts.push(`${pct}%`);
           if (job.speed) parts.push(`(${job.speed})`);
-          setMoveMessage(parts.join(" — "));
+          setMoveMessage(parts.join(" - "));
         }
       } catch { /* ignore poll errors */ }
     }, 1500);
@@ -2105,7 +2105,7 @@ function GameDetail({
                 />
                 {pendingMoveDrive && (
                   <p className="text-[10px] text-amber-400 leading-snug -mt-0.5">
-                    Moved to {pendingMoveDrive}: — path will refresh after Aurora rescans content on the console.
+                    Moved to {pendingMoveDrive}: - path will refresh after Aurora rescans content on the console.
                   </p>
                 )}
                 <MetaRow
@@ -2220,7 +2220,7 @@ function GameDetail({
                       <Loader2 className="h-3 w-3 animate-spin text-accent" />
                       <span className="text-[11px] text-foreground font-medium">
                         {moveProgress > 0 ? `Moving… ${moveProgress}%` : "Moving…"}
-                        {moveSpeed ? ` — ${moveSpeed}` : ""}
+                        {moveSpeed ? ` - ${moveSpeed}` : ""}
                       </span>
                     </div>
                     {moveDetail && (
@@ -2398,10 +2398,10 @@ function CenteredOverlay({ children }: { children: React.ReactNode }) {
 // ── Sort/filter helpers ───────────────────────────────────────────────────────
 
 const SORT_OPTIONS = [
-  { value: "name-asc",        label: "Name A–Z" },
-  { value: "name-desc",       label: "Name Z–A" },
-  { value: "rating-desc",     label: "Rating (high–low)" },
-  { value: "rating-asc",      label: "Rating (low–high)" },
+  { value: "name-asc",        label: "Name A-Z" },
+  { value: "name-desc",       label: "Name Z-A" },
+  { value: "rating-desc",     label: "Rating (high-low)" },
+  { value: "rating-asc",      label: "Rating (low-high)" },
   { value: "last-played",     label: "Last played" },
   { value: "most-played",     label: "Most played" },
   { value: "drive",           label: "Drive" },
@@ -2680,7 +2680,7 @@ export default function LibraryPage({
           </div>
         </div>
 
-        {/* Search + sort/filter toolbar — only when library is ready */}
+        {/* Search + sort/filter toolbar - only when library is ready */}
         {status === "ready" && games.length > 0 && (
           <div className="flex items-center gap-1.5">
             {/* Search */}

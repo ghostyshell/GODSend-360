@@ -1,4 +1,4 @@
-// debrid.go — Debrid (Real-Debrid / TorBox) acceleration for the torrent and IA
+// debrid.go - Debrid (Real-Debrid / TorBox) acceleration for the torrent and IA
 // download paths. Both attempt the active provider first and fall back to the
 // native source (aria2c / direct IA) on any miss, error, or timeout.
 package pipeline
@@ -43,7 +43,7 @@ func (s *Service) debridTorrentDownloader(gameName string) torrent.DebridDownloa
 			return false, err
 		}
 		if direct == "" {
-			s.App.Logf("[INFO] Debrid (%s): torrent not ready in %s — using P2P", prov.Name(), debrid.DefaultWait)
+			s.App.Logf("[INFO] Debrid (%s): torrent not ready in %s - using P2P", prov.Name(), debrid.DefaultWait)
 			return false, nil
 		}
 		s.App.LogStatus(gameName, "Processing", fmt.Sprintf("Debrid (%s): cached, downloading via HTTP…", prov.Name()))
@@ -67,18 +67,18 @@ func (s *Service) downloadIAOrDebrid(srcURL, dest, gameName string) error {
 		direct, err := prov.CacheWebURL(ctx, srcURL, debrid.DefaultWait)
 		switch {
 		case err == debrid.ErrUnsupported:
-			// Provider can't cache arbitrary URLs (Real-Debrid) — use direct IA.
+			// Provider can't cache arbitrary URLs (Real-Debrid) - use direct IA.
 		case err != nil:
-			s.App.Logf("[WARN] Debrid (%s): IA cache failed (%v) — using direct IA", prov.Name(), err)
+			s.App.Logf("[WARN] Debrid (%s): IA cache failed (%v) - using direct IA", prov.Name(), err)
 		case direct == "":
-			s.App.Logf("[INFO] Debrid (%s): IA item not ready in %s — using direct IA", prov.Name(), debrid.DefaultWait)
+			s.App.Logf("[INFO] Debrid (%s): IA item not ready in %s - using direct IA", prov.Name(), debrid.DefaultWait)
 		default:
 			s.App.LogStatus(gameName, "Processing", fmt.Sprintf("Debrid (%s): cached, downloading via HTTP…", prov.Name()))
 			if derr := s.Download.DownloadWithProgress(direct, dest, gameName, ""); derr == nil {
 				s.App.Logf("[INFO] Debrid (%s): downloaded IA item via HTTP", prov.Name())
 				return nil
 			} else {
-				s.App.Logf("[WARN] Debrid (%s): HTTP download failed (%v) — using direct IA", prov.Name(), derr)
+				s.App.Logf("[WARN] Debrid (%s): HTTP download failed (%v) - using direct IA", prov.Name(), derr)
 			}
 		}
 	}

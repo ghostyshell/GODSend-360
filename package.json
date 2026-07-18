@@ -1,8 +1,8 @@
 {
   "name": "godsend-360",
-  "version": "2.12.27",
+  "version": "2.12.28",
   "private": true,
-  "description": "GODsend — Go backend + Electron desktop app",
+  "description": "GODsend - Go backend + Electron desktop app",
   "scripts": {
     "postinstall": "npm install --prefix src/electron-app",
     "build:server": "node scripts/download-aria2.js && node scripts/download-fat32format.js && mkdir -p dist && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -C src/server -o ../../dist/godsend.exe . && node scripts/verify-go-binaries.js windows",

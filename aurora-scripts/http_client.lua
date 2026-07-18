@@ -169,7 +169,7 @@ local function detachHostString(s)
 end
 
 -- Redump titles often end with ")." before ".iso". Aurora sometimes appends another ".",
--- producing ".." at the end — collapse those. Do not strip a single trailing "." (legitimate).
+-- producing ".." at the end - collapse those. Do not strip a single trailing "." (legitimate).
 local function collapseDuplicateTrailingDots(s)
     while #s >= 2 and s:sub(-2, -1) == ".." do
         s = s:sub(1, -2)
@@ -389,7 +389,7 @@ function getXboxIP()
 end
 
 -- ── HTTP Progress Callback ────────────────────────────────────────────────────
--- Must be global — Http.GetEx looks it up by name at call time.
+-- Must be global - Http.GetEx looks it up by name at call time.
 function HttpProgressRoutine(dwTotalFileSize, dwTotalBytesTransferred, dwReason)
     local ok, result = pcall(function()
         if Script.IsCanceled() then

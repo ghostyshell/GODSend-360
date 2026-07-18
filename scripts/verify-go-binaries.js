@@ -5,7 +5,7 @@
  *
  * This catches a class of build bug where someone forgets to set
  * GOOS=windows and the resulting Mach-O binary gets shipped as
- * `godsend.exe` — Windows refuses to load it with
+ * `godsend.exe` - Windows refuses to load it with
  *   "the specified executable is not a valid application for this OS"
  * which surfaces in Electron as `spawn UNKNOWN`.
  *
@@ -21,7 +21,7 @@
  *
  * Add --run to functionally smoke-test the Windows binary by launching it
  * under wine (if available) and confirming the banner prints + the HTTP
- * port comes up. Magic-byte check alone proves "this is a PE" — `--run`
+ * port comes up. Magic-byte check alone proves "this is a PE" - `--run`
  * proves "this actually executes on Windows".
  *
  *   node scripts/verify-go-binaries.js windows --run
@@ -67,12 +67,12 @@ function checkOne(key) {
   if (!spec) throw new Error(`No spec for target ${key}`);
   const full = path.join(DIST, spec.file);
   if (!fs.existsSync(full)) {
-    console.error(`[verify] ✗ ${spec.file} missing — expected at ${full}`);
+    console.error(`[verify] ✗ ${spec.file} missing - expected at ${full}`);
     return false;
   }
   const stat = fs.statSync(full);
   if (stat.size < spec.magic.length + 32) {
-    console.error(`[verify] ✗ ${spec.file} is too small (${stat.size} bytes) — likely a broken build`);
+    console.error(`[verify] ✗ ${spec.file} is too small (${stat.size} bytes) - likely a broken build`);
     return false;
   }
   const fd = fs.openSync(full, "r");
@@ -93,7 +93,7 @@ function checkOne(key) {
     console.error(`         Re-run with explicit GOOS/GOARCH (see scripts/build-go-all.js).`);
     return false;
   }
-  console.log(`[verify] ✓ ${spec.file} (${(stat.size / 1024 / 1024).toFixed(1)} MB) — ${spec.format}`);
+  console.log(`[verify] ✓ ${spec.file} (${(stat.size / 1024 / 1024).toFixed(1)} MB) - ${spec.format}`);
   return true;
 }
 
@@ -110,9 +110,9 @@ function hasWine() {
  */
 function smokeTestWindowsExe(timeoutMs = 15000) {
   if (!hasWine()) {
-    console.warn(`[verify] ⚠ wine not installed — skipping functional smoke test`);
+    console.warn(`[verify] ⚠ wine not installed - skipping functional smoke test`);
     console.warn(`         Install wine to enable: brew install --cask --no-quarantine wine-stable`);
-    return true; // not a failure — opt-in
+    return true; // not a failure - opt-in
   }
   const exe = path.join(DIST, "godsend.exe");
   console.log(`[verify] · launching ${exe} under wine for ${timeoutMs / 1000}s…`);
@@ -142,7 +142,7 @@ function smokeTestWindowsExe(timeoutMs = 15000) {
     child.on("error", (e) => settled(false, `wine spawn error: ${e.message}`));
     const timer = setTimeout(() => {
       if (sawBanner) settled(false, "banner printed but port never came up");
-      else settled(false, "timeout — banner never printed (binary may have crashed at startup)");
+      else settled(false, "timeout - banner never printed (binary may have crashed at startup)");
     }, timeoutMs);
     child.on("exit", () => clearTimeout(timer));
   });

@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* OLED dark palette — GODSend-360 design system */
+    /* OLED dark palette - GODSend-360 design system */
     --background: 229 84% 5%;        /* #020617 */
     --foreground: 210 40% 98%;       /* #F8FAFC */
     --muted: 230 30% 8%;             /* #1A1E2F */

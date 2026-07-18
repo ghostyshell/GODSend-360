@@ -1,4 +1,4 @@
-// content.go — DLC / Title Update discovery and management service.
+// content.go - DLC / Title Update discovery and management service.
 package content
 
 import (
@@ -163,7 +163,7 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		return nil, err
 	}
 	// Closure so a mid-scan reconnect (see below) still cleans up the
-	// currently-held conn on return — `defer s.FTP.QuitConn(conn)` would
+	// currently-held conn on return - `defer s.FTP.QuitConn(conn)` would
 	// capture the original pointer and leak the replacement.
 	defer func() { s.FTP.QuitConn(conn) }()
 
@@ -210,9 +210,9 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		if listErr != nil {
 			// Aurora's FTP server intermittently stalls on consecutive PASV
 			// data-channel opens within the same session. Drop the poisoned
-			// conn and retry the subfolder once with a fresh connection — the
+			// conn and retry the subfolder once with a fresh connection - the
 			// first List on a brand-new conn reliably succeeds.
-			s.App.Logf("CONTENT SCAN: List timeout for %s — reconnecting and retrying", e.Name)
+			s.App.Logf("CONTENT SCAN: List timeout for %s - reconnecting and retrying", e.Name)
 			s.FTP.QuitConn(conn)
 			newConn, rerr := s.FTP.ConnectWithRetry(xboxIP)
 			if rerr != nil {
@@ -264,7 +264,7 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		s.App.Logf("CONTENT SCAN: created item %s (%s)", item.DisplayName, item.ContentType)
 
 		// Read .godsend.json markers only when the directory listing showed
-		// the marker file — otherwise we'd pay an FTP RETR roundtrip per
+		// the marker file - otherwise we'd pay an FTP RETR roundtrip per
 		// subfolder just to learn the file is missing.
 		markersByFile := map[string]contentMarker{}
 		if hasMarker {
@@ -318,7 +318,7 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 		if trueCT == "00005000" || trueCT == "000b0000" {
 			// One row per TU file in the folder so the user can independently
 			// activate / deactivate each one. A file ending in `.disabled` is
-			// treated as installed-but-inactive — Aurora and the Xbox loader
+			// treated as installed-but-inactive - Aurora and the Xbox loader
 			// ignore non-matching filenames, so renaming is a safe toggle.
 			//
 			// Display name + version come from the bare (without `.disabled`)
@@ -367,7 +367,7 @@ func (s *Service) ScanInstalledContent(xboxIP, drive, titleID string) (*models.I
 			// from the UI. Each row carries its own filename so the renderer
 			// can target deletes / moves precisely.
 			// 00009000 is a non-standard content type seen in some Minerva/
-			// No-Intro DLC archives — the file header confirms it.
+			// No-Intro DLC archives - the file header confirms it.
 			for _, sf := range subFiles {
 				if sf.Type != goftp.EntryTypeFile {
 					continue
@@ -445,13 +445,13 @@ func (s *Service) SetTUActive(xboxIP, drive, titleID, contentType, fileName stri
 
 	if setActive {
 		// Rename the target back to bare if it's currently disabled.
-		// (Ignore "550" / file-not-found — the user may have clicked twice.)
+		// (Ignore "550" / file-not-found - the user may have clicked twice.)
 		_ = conn.Rename(disabled, bare)
 
 		// Deactivate every other active TU file in this folder.
 		entries, err := listWithTimeout(conn, 8*time.Second)
 		if err != nil {
-			s.App.Logf("CONTENT SET-ACTIVE: list failed (%v) — reconnecting", err)
+			s.App.Logf("CONTENT SET-ACTIVE: list failed (%v) - reconnecting", err)
 			s.FTP.QuitConn(conn)
 			newConn, rerr := s.FTP.ConnectWithRetry(xboxIP)
 			if rerr != nil {
@@ -501,7 +501,7 @@ func (s *Service) SetTUActive(xboxIP, drive, titleID, contentType, fileName stri
 //
 // On timeout the goroutine running List may continue to leak in the
 // background until the FTP server eventually responds or the connection is
-// closed by the caller's QuitConn — both are bounded by the deferred Quit.
+// closed by the caller's QuitConn - both are bounded by the deferred Quit.
 func listWithTimeout(conn *goftp.ServerConn, d time.Duration) ([]*goftp.Entry, error) {
 	type result struct {
 		entries []*goftp.Entry
@@ -551,7 +551,7 @@ func tuMetaFromFiles(entries []*goftp.Entry) (string, bool) {
 }
 
 // ============================================================
-// Discovery — separated into DLC (Minerva/IA) and TU (XboxUnity)
+// Discovery - separated into DLC (Minerva/IA) and TU (XboxUnity)
 // ============================================================
 
 // DiscoverDLC fetches available DLC for a TitleID from Minerva and IA,
@@ -654,14 +654,14 @@ func (s *Service) containsTU(list []models.ContentItem, candidate models.Content
 		if candidate.DisplayName != "" && strings.EqualFold(it.DisplayName, candidate.DisplayName) {
 			return true
 		}
-		// Source URL match — strongest identifier when both sides know the origin.
+		// Source URL match - strongest identifier when both sides know the origin.
 		if candidate.SourceURL != "" && strings.EqualFold(it.SourceURL, candidate.SourceURL) {
 			return true
 		}
 		// Weak dedup: if the same TU version is already installed for this
 		// TitleID, treat the discovered item as a likely duplicate.
 		// We compare using isTUContentType so 00005000 and 000b0000 are treated
-		// as equivalent — the file header may report one while the candidate guesses the other.
+		// as equivalent - the file header may report one while the candidate guesses the other.
 		if it.Installed && isTUContentType(it.ContentType) && isTUContentType(candidate.ContentType) && it.TitleID == candidate.TitleID && it.Version == candidate.Version {
 			return true
 		}
@@ -680,7 +680,7 @@ func (s *Service) containsDLC(list []models.ContentItem, candidate models.Conten
 		if candidate.DisplayName != "" && strings.EqualFold(it.DisplayName, candidate.DisplayName) {
 			return true
 		}
-		// Source URL match — strongest identifier when both sides know the origin.
+		// Source URL match - strongest identifier when both sides know the origin.
 		if candidate.SourceURL != "" && strings.EqualFold(it.SourceURL, candidate.SourceURL) {
 			return true
 		}
@@ -997,13 +997,13 @@ func guessContentTypeFromName(name string) string {
 
 // QueueContentDownload prepares a content file for download & FTP.
 func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn *models.XboxConnection) error {
-	queueKey := req.GameName + " — " + req.DisplayName
+	queueKey := req.GameName + " - " + req.DisplayName
 	safeName := helpers.SanitizeFilename(req.GameName + "_" + req.DisplayName)
 	gameDir := filepath.Join(s.App.ToolsDir, "Ready", safeName)
 	os.MkdirAll(gameDir, 0755)
 
 	// Minerva sources expose torrent paths (e.g. "./No-Intro/.../foo.zip"),
-	// not HTTP URLs — route them through the aria2 torrent + extract flow.
+	// not HTTP URLs - route them through the aria2 torrent + extract flow.
 	if strings.EqualFold(req.Source, "minerva") {
 		s.App.LogStatus(queueKey, "Queued", fmt.Sprintf("Queued %s", req.DisplayName))
 		s.App.Logf("CONTENT QUEUE (minerva): %s file=%s", req.DisplayName, req.FileName)
@@ -1019,7 +1019,7 @@ func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn 
 		if fileName == "" {
 			fileName = filepath.Base(req.SourceURL)
 			// URLs like http://xboxunity.net/TitleUpdate.php?tuid=123 produce
-			// a basename with query params — strip them.
+			// a basename with query params - strip them.
 			if idx := strings.IndexAny(fileName, "?=&"); idx > 0 {
 				fileName = fileName[:idx]
 			}
@@ -1070,7 +1070,7 @@ func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn 
 			s.App.LogStatus(queueKey, "Ready", "Ready to Install")
 		}
 	} else {
-		s.App.Logf("CONTENT QUEUE: %s has no direct URL — needs manual trigger from browse store", req.DisplayName)
+		s.App.Logf("CONTENT QUEUE: %s has no direct URL - needs manual trigger from browse store", req.DisplayName)
 	}
 	return nil
 }
@@ -1139,7 +1139,7 @@ func (s *Service) queueViaTorrent(req models.ContentQueueRequest, xboxConn *mode
 	// scan on the game's page finds it. The Xbox reads the file header anyway.
 	destTitleID := strings.ToUpper(req.TitleID)
 	if headerTitleID != "" && !strings.EqualFold(headerTitleID, destTitleID) {
-		s.App.Logf("CONTENT QUEUE: header TitleID %s differs from request %s — uploading to request folder", headerTitleID, destTitleID)
+		s.App.Logf("CONTENT QUEUE: header TitleID %s differs from request %s - uploading to request folder", headerTitleID, destTitleID)
 	}
 
 	finalName := filepath.Base(contentFile)
@@ -1155,7 +1155,7 @@ func (s *Service) queueViaTorrent(req models.ContentQueueRequest, xboxConn *mode
 		defer s.FTP.QuitConn(fc)
 		ftp.MkdirAll(fc, base)
 		info, _ := os.Stat(contentFile)
-		// Pre-upload marker — written BEFORE the bytes go up so a stalled or
+		// Pre-upload marker - written BEFORE the bytes go up so a stalled or
 		// aborted upload still leaves a breadcrumb tying the partial file on
 		// the Xbox to its Minerva source. Without it, a half-installed DLC
 		// shows on the library page as a hash-named row that can't be

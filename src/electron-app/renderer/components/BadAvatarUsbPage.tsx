@@ -183,7 +183,7 @@ export default function BadAvatarUsbPage() {
         {drives.length === 0 ? (
           <div className="flex items-center gap-2 text-[12px] text-amber-400/90 py-1">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            No USB drives detected. Insert a USB stick (any filesystem — it can be formatted below).
+            No USB drives detected. Insert a USB stick (any filesystem - it can be formatted below).
           </div>
         ) : (
           <select
@@ -194,7 +194,7 @@ export default function BadAvatarUsbPage() {
           >
             {drives.map((d) => (
               <option key={d.rootPath} value={d.rootPath}>
-                {d.rootPath} ({d.label}{formatBytes(d.sizeBytes) ? ` — ${formatBytes(d.sizeBytes)}` : ""})
+                {d.rootPath} ({d.label}{formatBytes(d.sizeBytes) ? ` - ${formatBytes(d.sizeBytes)}` : ""})
               </option>
             ))}
           </select>
@@ -203,9 +203,9 @@ export default function BadAvatarUsbPage() {
         {!isAdmin && (
           <p className="text-[11px] text-amber-400/90">
             {platform === "linux"
-              ? "Formatting on Linux requires root — run GODsend with sudo, or uncheck format and use an existing FAT32 stick."
+              ? "Formatting on Linux requires root - run GODsend with sudo, or uncheck format and use an existing FAT32 stick."
               : platform === "win32"
-                ? "Not running as Administrator — USB formatting is disabled. Install packages only if the drive is already FAT32, or restart GODsend as Administrator."
+                ? "Not running as Administrator - USB formatting is disabled. Install packages only if the drive is already FAT32, or restart GODsend as Administrator."
                 : null}
           </p>
         )}

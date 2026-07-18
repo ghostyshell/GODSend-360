@@ -1,4 +1,4 @@
-// ini.go — game manifest (INI) writing and GOD folder naming helpers.
+// ini.go - game manifest (INI) writing and GOD folder naming helpers.
 package pipeline
 
 import (

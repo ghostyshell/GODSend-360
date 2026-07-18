@@ -1,4 +1,4 @@
-// content.go — domain types for DLC, Title Updates, and Xbox content packages.
+// content.go - domain types for DLC, Title Updates, and Xbox content packages.
 package models
 
 // ContentItem represents a single downloadable content package (DLC or TU).

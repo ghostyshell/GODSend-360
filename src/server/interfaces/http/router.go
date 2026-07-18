@@ -1,4 +1,4 @@
-// router.go — HTTP route registration.
+// router.go - HTTP route registration.
 package http
 
 import (
@@ -56,7 +56,7 @@ func (d *Deps) NewRouter() *stdhttp.ServeMux {
 	mux.HandleFunc("/tools/iso2god", d.wrap(d.handleToolsISO2GOD))
 	mux.HandleFunc("/tools/iso2xex", d.wrap(d.handleToolsISO2XEX))
 
-	// FTP Manager — synchronous utility operations
+	// FTP Manager - synchronous utility operations
 	mux.HandleFunc("/ftp/ping", d.wrap(d.handleFTPPing))
 	mux.HandleFunc("/ftp/list", d.wrap(d.handleFTPList))
 	mux.HandleFunc("/ftp/mkdir", d.wrap(d.handleFTPMkdir))
@@ -69,13 +69,13 @@ func (d *Deps) NewRouter() *stdhttp.ServeMux {
 	mux.HandleFunc("/ftp/drives", d.wrap(d.handleFTPDrives))
 	mux.HandleFunc("/ftp/batch", d.wrap(d.handleFTPBatch))
 
-	// FTP Manager — async trackable operations
+	// FTP Manager - async trackable operations
 	mux.HandleFunc("/ftp/upload", d.wrap(d.handleFTPUpload))
 	mux.HandleFunc("/ftp/copy", d.wrap(d.handleFTPCopy))
 	mux.HandleFunc("/ftp/move-game", d.wrap(d.handleFTPMoveGame))
 	mux.HandleFunc("/ftp/upload-scripts", d.wrap(d.handleFTPUploadScripts))
 
-	// FTP Manager — job management
+	// FTP Manager - job management
 	mux.HandleFunc("/ftp/jobs", d.wrap(d.handleFTPJobs))
 	mux.HandleFunc("/ftp/jobs/remove", d.wrap(d.handleFTPJobRemove))
 

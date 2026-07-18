@@ -1,4 +1,4 @@
-// digital.go — content install, generic game, and digital/XBLA/DLC/XBLIG processing.
+// digital.go - content install, generic game, and digital/XBLA/DLC/XBLIG processing.
 package pipeline
 
 import (
@@ -40,7 +40,7 @@ func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath strin
 			s.App.Logf("Content install: placeholder TitleID %s overridden to %08X from game name", titleID, guessed)
 			titleID = fmt.Sprintf("%08X", guessed)
 		} else {
-			s.App.Logf("Content install: WARNING — TitleID %s is a known placeholder; could not resolve parent title from content packages or game name %q — content may install to wrong folder", titleID, gameName)
+			s.App.Logf("Content install: WARNING - TitleID %s is a known placeholder; could not resolve parent title from content packages or game name %q - content may install to wrong folder", titleID, gameName)
 		}
 	}
 	s.App.Logf("Content install: TitleID=%s disc=%d/%d", titleID, info.DiscNumber, info.DiscCount)
@@ -58,7 +58,7 @@ func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath strin
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
 		s.App.LogStatus(gameName, "Processing", "FTP Transfer starting...")
 		if err := s.FTP.TransferContent(contentDir, xboxConn, gameName, titleID); err != nil {
-			s.App.Logf("FTP: initial content transfer failed for %s: %v — scheduling for retry", gameName, err)
+			s.App.Logf("FTP: initial content transfer failed for %s: %v - scheduling for retry", gameName, err)
 			gameDir := filepath.Join(s.App.ToolsDir, "Ready", safeName)
 			job := ftp.PendingFTPJob{
 				ID:        helpers.SanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
@@ -157,7 +157,7 @@ func (s *Service) ProcessGenericGame(gameName string) {
 		s.App.LogStatus(gameName, "Processing", fmt.Sprintf("XEX folder: %s", folderName))
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			if err := s.FTP.TransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-				s.App.Logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+				s.App.Logf("FTP: initial XEX transfer failed for %s: %v - scheduling for retry", gameName, err)
 				job := ftp.PendingFTPJob{
 					ID:         helpers.SanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
 					GameName:   gameName,

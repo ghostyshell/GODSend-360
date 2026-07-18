@@ -12,7 +12,7 @@ High-level data flow:
 - Go backend ⇄ **FTP** ⇄ Xbox content drives (via Aurora's FTP server; GOD/XEX/DLC layout)
 - Electron app ⇄ **child process & IPC** ⇄ Go backend and local config
 
-External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts** – refactors must preserve them unless explicitly requested otherwise.
+External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts** - refactors must preserve them unless explicitly requested otherwise.
 
 **Aurora Lua host (agents):** When editing `aurora-scripts/`, read [`docs/reference/aurora.md`](docs/reference/aurora.md) for supported APIs, path rules (relative vs absolute), known limits (Zip extraction, large downloads), and patterns that avoid crashes on-console.
 
@@ -24,33 +24,33 @@ External behaviour, HTTP routes, and Lua-facing protocols are **stable contracts
 
 The backend uses a **DDD-style package layout** with an `App` struct for dependency injection. All shared state lives in `*app.App`; services hold an `App` pointer and expose methods instead of free functions.
 
-- **`main.go`** (~180 lines) — entry point only: constructs `*app.App`, all services, the HTTP `Deps` struct, wires the router, and starts the server. No business logic.
-- **`embed_titles.go`** + `data/iso2god_titles.jsonl` — embeds the iso2god-rs title list and registers it with `services` at init.
-- **`aria2c_darwin.go`** / **`aria2c_stub.go`** — build-tagged macOS aria2c bootstrap; accepts `*app.App` + `*torrent.Service` parameters.
+- **`main.go`** (~180 lines) - entry point only: constructs `*app.App`, all services, the HTTP `Deps` struct, wires the router, and starts the server. No business logic.
+- **`embed_titles.go`** + `data/iso2god_titles.jsonl` - embeds the iso2god-rs title list and registers it with `services` at init.
+- **`aria2c_darwin.go`** / **`aria2c_stub.go`** - build-tagged macOS aria2c bootstrap; accepts `*app.App` + `*torrent.Service` parameters.
 
-#### `models/` — pure domain types (no dependencies)
+#### `models/` - pure domain types (no dependencies)
   - `types.go`: all exported domain types (`IAGameEntry`, `PlatformCache`, `BuildState`, `MinervaEntry`, `MinervaPlatformCache`, `XboxConnection`, `GameStatus`, `PendingFTPJob`, `ROMSystemDef`, etc.).
   - `compat.go`: disc compatibility table and `DiscCompat()` lookup.
   - `game.go`: `Platform`, `JobStatus` enums; `Game`, `GameRepository`, `QueueRepository` interfaces.
 
-#### `app/` — central App struct and configuration
+#### `app/` - central App struct and configuration
   - `app.go`: `App` struct holding all shared state (config/paths, mutex-guarded caches, sync.Maps for job queue / connections / install types), `NewApp()` constructor, logging methods (`Logf`, `LogStatus`, `LogFTPComplete`), `LookupInstallType`, `FmtDuration`.
   - `config.go`: constants, IA/Minerva collection maps, ROM system definitions, `SetupPaths`, `LoadIAAuthFromEnv`, `ApplyArchiveOrgHeaders`, `CleanupEmptyReadyDirs`.
   - `listen.go`: `IsTCPAddrInUse`, `ListenOnAvailablePort` TCP helpers.
 
-#### `infrastructure/` — side-effect adapters (filesystem, network, external processes)
+#### `infrastructure/` - side-effect adapters (filesystem, network, external processes)
   - `helpers/helpers.go`: utility functions (`GetOutboundIP`, `SanitizeFilename`, `CopyFileBuffered`, `DetectGodStructure`, `IsHexString`, `ParseXboxHeader`, `BucketAndZip`, `DecodeMinervaName`).
   - `download/ia.go`: IA download `Service` with chunked/parallel range-request support.
   - `download/edgeemu.go`: EdgeEmu download `Service` with chunked/parallel support.
   - `download/progress.go`: `ProgressWriter` for download progress tracking.
-  - `ftp/client.go`: FTP `Service` — Xbox connection, upload, GOD/XEX/content transfer functions, pending-job persistence and retry, `MkdirAll` package-level helper.
-  - `torrent/torrent.go`: torrent/aria2c `Service` — `DownloadViaTorrent`, aria2c detection, `DarwinCandidatesFn` injection point for macOS.
+  - `ftp/client.go`: FTP `Service` - Xbox connection, upload, GOD/XEX/content transfer functions, pending-job persistence and retry, `MkdirAll` package-level helper.
+  - `torrent/torrent.go`: torrent/aria2c `Service` - `DownloadViaTorrent`, aria2c detection, `DarwinCandidatesFn` injection point for macOS.
 
-#### `services/` — application-layer logic
-  - `cache/ia.go`: IA cache `IAService` — build, load, save, find, persistence.
-  - `cache/minerva.go`: Minerva cache `MinervaService` — scrape, build, load, save, find.
-  - `cache/rom.go`: ROM/EdgeEmu cache `ROMService` — build, load, find.
-  - `local/scanner.go`: local Transfer-folder `Service` — ISO scanning, matching, `NormalizeClientGameName` (package-level function).
+#### `services/` - application-layer logic
+  - `cache/ia.go`: IA cache `IAService` - build, load, save, find, persistence.
+  - `cache/minerva.go`: Minerva cache `MinervaService` - scrape, build, load, save, find.
+  - `cache/rom.go`: ROM/EdgeEmu cache `ROMService` - build, load, find.
+  - `local/scanner.go`: local Transfer-folder `Service` - ISO scanning, matching, `NormalizeClientGameName` (package-level function).
   - `pipeline/pipeline.go`: pipeline `Service` struct (holds references to all other services), `ProcessLocalISO`, `ProcessGame`, `FinalizeGOD`.
   - `pipeline/digital.go`: `ProcessContentInstallFromISO`, `ProcessGenericGame`, `ProcessDigital`, XEX/DLC transfer helpers.
   - `pipeline/minerva.go`: `ProcessMinervaGame`, `ProcessMinervaGenericGame`, `ProcessMinervaDigital`.
@@ -58,16 +58,16 @@ The backend uses a **DDD-style package layout** with an `App` struct for depende
   - `pipeline/ini.go`: `UpdateGameINI_Parts`, `UpdateGameINI_Raw`, `UpdateGameINI_XEX`, `Iso2GodResolveDisplayTitle`, `GodFolderName`.
   - `title_lookup.go`: `LookupTitleName` (XboxUnity → XboxDB → embedded iso2god-rs list).
   - `game_service.go`: `GameService` interface.
-  - `saves/saves.go`, `saves/account.go`: save-game `Service` — FTP-walk profiles + per-title saves, profile-package STFS parsing, `Account` blob RC4 decrypt, gamertag extraction (retail + devkit keys), `BackupAllProfiles` bulk pull. Backup folder layout `Saves/<gamertag> (<XUID>)/<gameName> - <titleID>/<files>`.
+  - `saves/saves.go`, `saves/account.go`: save-game `Service` - FTP-walk profiles + per-title saves, profile-package STFS parsing, `Account` blob RC4 decrypt, gamertag extraction (retail + devkit keys), `BackupAllProfiles` bulk pull. Backup folder layout `Saves/<gamertag> (<XUID>)/<gameName> - <titleID>/<files>`.
 
-#### `interfaces/http/` — HTTP delivery layer
+#### `interfaces/http/` - HTTP delivery layer
   - `middleware.go`: `Deps` struct (holds `*app.App` + service references), `jsonError`, `jsonSuccess`, `RecoverMiddleware`.
   - `handlers.go`: all main HTTP handlers as methods on `*Deps` (browse, cache, trigger, status, queue, register, debug, file serving, range parsing, `/disc-info`, etc.).
   - `handlers_rxea.go`: `/rxea/decode`, `/rxea/encode`, `/rxea/encode-multi` handlers.
   - `handlers_tools.go`: `/tools/probe-iso`, `/tools/iso2god`, `/tools/iso2xex` handlers.
-  - `handlers_content.go`: `/content/discover`, `/content/tu`, `/content/installed`, `/content/queue`, `/content/sources`, `/content/set-active` — DLC / Title Update management.
+  - `handlers_content.go`: `/content/discover`, `/content/tu`, `/content/installed`, `/content/queue`, `/content/sources`, `/content/set-active` - DLC / Title Update management.
   - `handlers_saves.go`: `/saves/discover`, `/saves/list`, `/saves/download`, `/saves/delete`, `/saves/copy`, `/saves/backup-all`, `/saves/keyvault-status`.
-  - `router.go`: `NewRouter()` — registers all routes on `*http.ServeMux`.
+  - `router.go`: `NewRouter()` - registers all routes on `*http.ServeMux`.
 
 #### `utils/` (`package utils`)
   - `iso2god.go`: pure-Go ISO→GOD conversion, archive extract/create, disc metadata probe (`ProbeISODiscInfo`). LIVE CON seed: `utils/data/empty_live.bin`.
@@ -84,11 +84,11 @@ main → everything (wiring only)
 ```
 
 #### Key architectural notes
-- **Pending FTP queue** (`infrastructure/ftp/`) — when an FTP transfer fails after retries (e.g. console launched a game), the backend persists the job to `GODSEND_HOME/pending_ftp/<id>.json` and retries indefinitely (30 s → 5 min backoff). Jobs survive restarts and are resumed at startup. Endpoints: `GET /data/status`, `GET /data/clear`, `GET /config`. Env vars: `GODSEND_DEFAULT_DRIVE`, `GODSEND_TORRENT_TEMP`, `GODSEND_ARIA2_LISTEN_PORT`, `GODSEND_ARIA2_DHT_PORT`.
-- **Minerva source** (`services/cache/minerva.go`, `infrastructure/torrent/`, `services/pipeline/minerva.go`) — Minerva Archive integration alongside IA. Download priority in `/trigger`: **local → Minerva → Internet Archive**. `/browse` merges Minerva + IA lists (Minerva first, deduped). Torrent download via `aria2c` (`--select-file`); macOS uses Homebrew bootstrap (`aria2c_darwin.go`).
+- **Pending FTP queue** (`infrastructure/ftp/`) - when an FTP transfer fails after retries (e.g. console launched a game), the backend persists the job to `GODSEND_HOME/pending_ftp/<id>.json` and retries indefinitely (30 s → 5 min backoff). Jobs survive restarts and are resumed at startup. Endpoints: `GET /data/status`, `GET /data/clear`, `GET /config`. Env vars: `GODSEND_DEFAULT_DRIVE`, `GODSEND_TORRENT_TEMP`, `GODSEND_ARIA2_LISTEN_PORT`, `GODSEND_ARIA2_DHT_PORT`.
+- **Minerva source** (`services/cache/minerva.go`, `infrastructure/torrent/`, `services/pipeline/minerva.go`) - Minerva Archive integration alongside IA. Download priority in `/trigger`: **local → Minerva → Internet Archive**. `/browse` merges Minerva + IA lists (Minerva first, deduped). Torrent download via `aria2c` (`--select-file`); macOS uses Homebrew bootstrap (`aria2c_darwin.go`).
 - **Debrid acceleration** (`infrastructure/debrid/`, `services/pipeline/debrid.go`) - optional Real-Debrid / TorBox caching. Before the native torrent/IA source, the active provider (`GODSEND_DEBRID_PROVIDER`; `GODSEND_REALDEBRID_KEY` / `GODSEND_TORBOX_KEY`) is asked to cache the magnet (both providers) or the IA URL (TorBox only) and polled for up to 60s for a direct HTTP link; on timeout or any error the native source is used, so Debrid never fails a download. `Active()` returns nil when the provider is `none` or the key is empty. Single active provider, no cross-provider fallback. Keys are env vars, never logged. A name-match miss on a multi-file torrent falls back to the native source (never selects "all"/largest and returns a wrong-file link); TorBox best-effort deletes the queued item on timeout/error so the account doesn't accumulate dead entries.
-- **FTP upload overwrite** (`infrastructure/ftp/client.go` `UploadFile`) — Aurora's FtpDll does not overwrite files (`STOR` of an existing name returns `550 Could not create file`), so before `STOR` the remote `FileSize` is checked: equal size means already uploaded (skip, count toward progress), a size mismatch means a partial leftover (delete then re-`STOR`), absent means `STOR` as usual. This is what lets an interrupted GOD transfer resume instead of looping forever on file 1.
-- **Bundled torrent zips** — `cache/minerva_*.zip` in the repo root. Electron `extraFiles` ships `cache/` next to the app; backend seeds `GODSEND_HOME/cache` from that bundle. Pre-scrape: `npm run scrape:minerva`.
+- **FTP upload overwrite** (`infrastructure/ftp/client.go` `UploadFile`) - Aurora's FtpDll does not overwrite files (`STOR` of an existing name returns `550 Could not create file`), so before `STOR` the remote `FileSize` is checked: equal size means already uploaded (skip, count toward progress), a size mismatch means a partial leftover (delete then re-`STOR`), absent means `STOR` as usual. This is what lets an interrupted GOD transfer resume instead of looping forever on file 1.
+- **Bundled torrent zips** - `cache/minerva_*.zip` in the repo root. Electron `extraFiles` ships `cache/` next to the app; backend seeds `GODSEND_HOME/cache` from that bundle. Pre-scrape: `npm run scrape:minerva`.
 
 **Pattern**: treat `models` as pure domain, `app` as shared state container, `services` as application layer, `infrastructure` for side effects, and `interfaces/http` as the delivery mechanism. Keep `main.go` thin: wiring only, no complicated logic.
 
@@ -107,8 +107,8 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
   - `services/auroraVisualService.ts`: syncs Aurora asset files (`.asset` RXEA, flat Media cover JPGs, `GameCoverInfo.bin`, `visual-manifest.json`) between the console and the local cache, emitting `xbox-cover` and `xbox-title-visuals` IPC events.
   - `services/auroraPathHelper.ts`: derives and caches the Aurora install root from the configured FTP scripts path; `discoverAuroraRoot` probes common locations.
   - `services/coverArtService.ts`: multi-source cover art fetching (XboxUnity, Xbox CDN, Microsoft Store autosuggest, Wikipedia); in-memory `browseCoverCache`.
-  - `services/autoSyncService.ts`: post-FTP automation — `autoUploadAuroraAssets` and `doAuroraLibrarySync`.
-  - `services/badAvatarUsbService.ts`: BadAvatar USB build orchestrator — optional FAT32 format step + BadStick payload (Proto / FreestyleDash / Aurora XeUnshackle) install with per-file progress.
+  - `services/autoSyncService.ts`: post-FTP automation - `autoUploadAuroraAssets` and `doAuroraLibrarySync`.
+  - `services/badAvatarUsbService.ts`: BadAvatar USB build orchestrator - optional FAT32 format step + BadStick payload (Proto / FreestyleDash / Aurora XeUnshackle) install with per-file progress.
 - **IPC handlers (`ipc/`)**
   - `configHandlers.ts`: startup, logs, storage path, torrent temp path, app data directory, transfer folder, server port, IA auth, ROM path, cache refresh, Xbox connection, default drive, aria2 ports, Aurora library sources, save-backup folder.
   - `xboxFtpHandlers.ts`: ping, verbose FTP test, port scanner, Aurora scripts upload, drive listing, game listing, cover fetch.
@@ -127,7 +127,7 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
   - `infrastructure/serverLog.ts`: session-structured log file appender for backend stdout/stderr and app events.
   - `infrastructure/auroraLibraryCache.ts`: local Aurora DB cache layout, meta read/write, safe path helper.
   - `infrastructure/sqlHelper.ts`: sql.js wrapper (`getSqlJs`, `sqlRows`, `filetimeToDateStr`).
-  - `infrastructure/fat32Format.ts`: cross-platform FAT32 format for large USB volumes — bundled Ridgecrop `fat32format.exe` on Windows (fetched by `scripts/download-fat32format.js` → `dist/tools/` at build time), `newfs_msdos` / `diskutil` on macOS, `mkfs.vfat` / `mkfs.fat` on Linux.
+  - `infrastructure/fat32Format.ts`: cross-platform FAT32 format for large USB volumes - bundled Ridgecrop `fat32format.exe` on Windows (fetched by `scripts/download-fat32format.js` → `dist/tools/` at build time), `newfs_msdos` / `diskutil` on macOS, `mkfs.vfat` / `mkfs.fat` on Linux.
 - **Renderer bridge**
   - `preload.ts`: exposes a narrow, typed IPC surface to the renderer (`window.godsendApi.*`).
   - React renderer (`renderer/`): `App.jsx` (routing, queue polling every 5 s), page components `HomePage`, `SettingsPage`, `LibraryPage`, `QueuePage`.
@@ -142,10 +142,10 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 
 **Pattern**: keep Electron main process organised as:
 
-- `app/` – lifecycle, IPC registration, top-level composition.
-- `services/` – high-level behaviour, no direct knowledge of Electron window creation.
-- `infrastructure/` – filesystem and OS-specific helpers, no business logic.
-- `preload.ts` – IPC surface only; no business logic.
+- `app/` - lifecycle, IPC registration, top-level composition.
+- `services/` - high-level behaviour, no direct knowledge of Electron window creation.
+- `infrastructure/` - filesystem and OS-specific helpers, no business logic.
+- `preload.ts` - IPC surface only; no business logic.
 
 ### Aurora scripts (`aurora-scripts/`)
 
@@ -168,7 +168,7 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
 
 ### Build tooling
 
-> **Builds are run locally from this repo** with the `npm run build:*` scripts. Cross-platform packaging works from a macOS host: macOS DMGs build natively, and **Windows installers build via Wine** (`wine` must be on `PATH` — `brew install --cask wine-stable`). The Go backend cross-compiles to every target with `CGO_ENABLED=0`, so no platform-specific toolchain is needed for the binaries. (The old `godsend-release-keeper` Sliplane watchdog has been retired — there is no external build service.)
+> **Builds are run locally from this repo** with the `npm run build:*` scripts. Cross-platform packaging works from a macOS host: macOS DMGs build natively, and **Windows installers build via Wine** (`wine` must be on `PATH` - `brew install --cask wine-stable`). The Go backend cross-compiles to every target with `CGO_ENABLED=0`, so no platform-specific toolchain is needed for the binaries. (The old `godsend-release-keeper` Sliplane watchdog has been retired - there is no external build service.)
 
 - `dist/`: consolidated build artifacts (per-OS Go binaries, installers, etc.) produced by the local `npm run build:*` scripts.
 - `tools/`: ignored directory for third-party executables (`7za.exe`, `7za.dll`, `7zxa.dll`) when needed outside the bundled Go pipeline.
@@ -192,7 +192,7 @@ Build-script map (run from repo root):
 
 ### Release assets (GoFile + file.kiwi upload + README links)
 
-**Do NOT create git tags or GitHub releases.** All build assets are uploaded to **GoFile.io** (primary) and **file.kiwi** (backup mirror) and linked directly from `README.md` — the download table has one column per host.
+**Do NOT create git tags or GitHub releases.** All build assets are uploaded to **GoFile.io** (primary) and **file.kiwi** (backup mirror) and linked directly from `README.md` - the download table has one column per host.
 
 #### GoFile upload workflow
 
@@ -218,7 +218,7 @@ FORCE_COLOR=0 npx -y @file-kiwi/node dist/FILENAME --title "FILENAME" 2>&1 \
   | grep -Eo 'https://file\.kiwi/[A-Za-z0-9][A-Za-z0-9#_+/=-]*' | tail -1
 ```
 
-The full URL **including the `#<key>` fragment** is the link to use in the README — without the fragment the file cannot be decrypted.
+The full URL **including the `#<key>` fragment** is the link to use in the README - without the fragment the file cannot be decrypted.
 
 ##### Files to upload
 
@@ -241,7 +241,7 @@ After building on macOS, the following files in `dist/` must be uploaded (to bot
 
 #### Updating README download links
 
-After uploading, update **both** download tables in `README.md` (and `docs/headless-setup.md`). Each table has a **GoFile column** and a **file.kiwi column** — update both per row:
+After uploading, update **both** download tables in `README.md` (and `docs/headless-setup.md`). Each table has a **GoFile column** and a **file.kiwi column** - update both per row:
 
 1. **Quick Installation table** (desktop installers):
    ```markdown
@@ -253,14 +253,14 @@ After uploading, update **both** download tables in `README.md` (and `docs/headl
    | **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/CODE) | [`godsend.exe`](https://file.kiwi/ID#KEY) |
    ```
 
-Each cell gets its own unique link — do **not** point multiple files at the same folder page.
+Each cell gets its own unique link - do **not** point multiple files at the same folder page.
 
 Also update all inline version references in `README.md` (filenames in prose, installer names in instructions).
 
 #### Rules
 
 - **Never** create git tags, GitHub releases, or push tags to the remote.
-- Upload each platform build as a **separate file** — do not zip multiple builds together.
+- Upload each platform build as a **separate file** - do not zip multiple builds together.
 - Each file must have its **own unique GoFile download page** (upload without `folderId`) and its own file.kiwi link (with the `#<key>` fragment).
 - When bumping versions, update `README.md` download links **in the same commit** as the version bump.
 - You only need to rebuild + re-upload the platforms that actually changed; leave links for platforms already published at the current version alone.
@@ -269,7 +269,7 @@ Also update all inline version references in `README.md` (filenames in prose, in
 
 ### Version bump, build & release workflow
 
-**Every non-trivial change must include a version bump.** Agents should never commit functional changes without also bumping the version string in all four places listed below and updating `CHANGELOG.md`. Do not wait for an explicit "bump version" request — it is part of the standard commit workflow.
+**Every non-trivial change must include a version bump.** Agents should never commit functional changes without also bumping the version string in all four places listed below and updating `CHANGELOG.md`. Do not wait for an explicit "bump version" request - it is part of the standard commit workflow.
 
 When asked to **bump the version**, **cut a release**, or **commit changes** that include a version bump, execute the full pipeline below. Do not skip steps.
 
@@ -347,8 +347,8 @@ The active remote is **github** (GitHub). The legacy GitGud remote (`origin`) is
 
 | Remote | URL | Notes |
 |--------|-----|-------|
-| **github** | `https://github.com/ghostyshell/GODSend-360.git` | [GitHub repo](https://github.com/ghostyshell/GODSend-360) — push here |
-| **origin** (legacy) | `git@gitgud.io:ghosty99/godsend-360.git` | GitGud — no longer updated |
+| **github** | `https://github.com/ghostyshell/GODSend-360.git` | [GitHub repo](https://github.com/ghostyshell/GODSend-360) - push here |
+| **origin** (legacy) | `git@gitgud.io:ghosty99/godsend-360.git` | GitGud - no longer updated |
 
 When pushing changes, push to **github** only:
 
@@ -423,7 +423,7 @@ When making changes to Electron or the backend, prefer:
 ### Electron (Node/JS)
 
 - Use modern JS syntax (const/let, arrow functions where appropriate).
-- Keep `main.js` minimal – all real behaviour flows through `app/bootstrap.js` + services.
+- Keep `main.js` minimal - all real behaviour flows through `app/bootstrap.js` + services.
 - Do not import Electron directly from services unless absolutely necessary:
   - Services should be reusable and testable with minimal mocking.
   - Infrastructure modules can depend on Electron APIs (e.g. `app`, `nativeImage`) where needed.
@@ -449,11 +449,11 @@ When making changes to Electron or the backend, prefer:
 Every non-trivial change **must** include a `CHANGELOG.md` update. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full rules; the key points for agents are:
 
 - Add a bullet under `[Unreleased]` at the top of `CHANGELOG.md` (create the section if absent) in the appropriate category (`Added`, `Fixed`, `Changed`, `Removed`).
-- When releasing (cutting a new version), move `[Unreleased]` to the new version number + date and bump versions in **all four places** — see the version-bump table in `CONTRIBUTING.md`.
+- When releasing (cutting a new version), move `[Unreleased]` to the new version number + date and bump versions in **all four places** - see the version-bump table in `CONTRIBUTING.md`.
 
 ## Doc-sync trigger (mandatory)
 
-Before every commit that touches `src/` or `aurora-scripts/`, run the trigger checklist in [`docs/agents/skills/doc-sync.md`](docs/agents/skills/doc-sync.md). It maps each kind of code change (new HTTP route, IPC channel, service, env var, user-facing feature, etc.) to the docs that **must** be updated **in the same commit** — `README.md`, `AGENTS.md`, `CHANGELOG.md`, `docs/features.md`, and `docs/api-reference.md`. Doc drift is treated as a regression; don't ship code that updates only one side.
+Before every commit that touches `src/` or `aurora-scripts/`, run the trigger checklist in [`docs/agents/skills/doc-sync.md`](docs/agents/skills/doc-sync.md). It maps each kind of code change (new HTTP route, IPC channel, service, env var, user-facing feature, etc.) to the docs that **must** be updated **in the same commit** - `README.md`, `AGENTS.md`, `CHANGELOG.md`, `docs/features.md`, and `docs/api-reference.md`. Doc drift is treated as a regression; don't ship code that updates only one side.
 
 ## Keeping docs & instructions in sync
 
@@ -506,7 +506,7 @@ When adding a new skill (agent instructions for a specific task or domain):
    - `.cursor/skills/<skill-name>.md`
    - Shims should contain a pointer banner and a quick-reference summary.
 3. **Update the source-of-truth index** in `docs/agents/skills/docs-source-of-truth.md` (add to `related_skills`).
-4. **Do not** duplicate full instructions in shims — they reference the canonical file so all agents stay in sync.
+4. **Do not** duplicate full instructions in shims - they reference the canonical file so all agents stay in sync.
 
 ### NEVER commit video files
 - `test-results/` is already in `.gitignore` for Playwright video outputs.
@@ -519,18 +519,18 @@ When adding a new skill (agent instructions for a specific task or domain):
 
 Apply to all tasks here, across Claude Code, OpenCode, and Cursor.
 
-## Coding discipline — adapted from Andrej Karpathy's CLAUDE.md
+## Coding discipline - adapted from Andrej Karpathy's CLAUDE.md
 Source: https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md
 
 1. **Think before coding.** State assumptions explicitly; if uncertain, ask. Surface confusion and tradeoffs instead of silently guessing.
-2. **Simplicity first.** Write the minimum code that solves the problem — nothing speculative. If a simpler approach exists, say so. Ask: would a senior engineer find this overcomplicated?
-3. **Surgical changes.** Touch only what the task requires — every changed line should trace directly to the request. Don't refactor or "improve" unrelated code; match the existing style.
+2. **Simplicity first.** Write the minimum code that solves the problem - nothing speculative. If a simpler approach exists, say so. Ask: would a senior engineer find this overcomplicated?
+3. **Surgical changes.** Touch only what the task requires - every changed line should trace directly to the request. Don't refactor or "improve" unrelated code; match the existing style.
 4. **Goal-driven execution.** Turn vague tasks into testable objectives (e.g. "add validation" → write tests for invalid inputs, then make them pass) and verify before finishing.
 
 These favor caution over speed; use judgment on trivial work.
 
-## Minimalist code — Ponytail
-Source: https://github.com/DietrichGebert/ponytail — "the best code is the code you never wrote."
+## Minimalist code - Ponytail
+Source: https://github.com/DietrichGebert/ponytail - "the best code is the code you never wrote."
 Before writing code, walk the ladder and stop at the first that works:
 1. Does this need to exist at all? (YAGNI)
 2. Is it in the standard library?
@@ -541,12 +541,12 @@ Before writing code, walk the ladder and stop at the first that works:
 
 Claude Code plugin: install once with `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail`, then review with `/ponytail-review`, `/ponytail-audit`, `/ponytail-debt`. (Cursor/OpenCode: copy the repo's rules files / add the plugin to `opencode.json`.)
 
-## UI/UX work — ui-ux-pro-max
+## UI/UX work - ui-ux-pro-max
 Source: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
-This repo has user-facing UI. For any UI/UX task (pages, components, layouts, design systems, styling), use the **ui-ux-pro-max** skill — styles, color palettes, font pairings, and per-product design reasoning. In Claude Code it activates automatically; you can also run `python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<product>" --design-system`.
+This repo has user-facing UI. For any UI/UX task (pages, components, layouts, design systems, styling), use the **ui-ux-pro-max** skill - styles, color palettes, font pairings, and per-product design reasoning. In Claude Code it activates automatically; you can also run `python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<product>" --design-system`.
 
 ## Use the specialized agents for quality
-A large library of specialized subagents is installed for each tool — `~/.claude/agents/` (Claude Code), `~/.config/opencode/agents/` (OpenCode), and `~/.cursor/agents/` (Cursor). Use them as part of **every** change to the repos, not as an afterthought: pick the most specific agent for the task and chain them.
+A large library of specialized subagents is installed for each tool - `~/.claude/agents/` (Claude Code), `~/.config/opencode/agents/` (OpenCode), and `~/.cursor/agents/` (Cursor). Use them as part of **every** change to the repos, not as an afterthought: pick the most specific agent for the task and chain them.
 
 - **Review (always):** after any substantive change, run `code-reviewer`; for design/architecture changes, `architect-reviewer`.
 - **Security:** `security-auditor` / `security-engineer` for auth, secrets, input handling, crypto, or user-facing surfaces.

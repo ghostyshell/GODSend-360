@@ -1,4 +1,4 @@
-// account.go — Xbox 360 profile gamertag extraction from STFS Account block.
+// account.go - Xbox 360 profile gamertag extraction from STFS Account block.
 //
 // Walks the STFS file table to find the "Account" file, then RC4+HMAC-SHA1
 // decrypts it to read the gamertag. This is the authoritative method used by
@@ -121,10 +121,10 @@ func blockToOffset(headerSize, blockNum uint32, blockSep byte, totalBlocks uint3
 // HMAC-SHA1 hash that doubles as the RC4 key seed.
 //
 // Decrypted layout (verified empirically against real profiles; matches the
-// "+8 confounder" form used by Microsoft's serializer — Velocity's confounder
+// "+8 confounder" form used by Microsoft's serializer - Velocity's confounder
 // constant is the literal "Velocity" written on re-encryption):
 //
-//	0x00  confounder     (8 bytes — random per-file IV, ignored on read)
+//	0x00  confounder     (8 bytes - random per-file IV, ignored on read)
 //	0x08  reservedFlags  (uint32)
 //	0x0C  liveFlags      (uint32)
 //	0x10  gamertag       (UTF-16BE, 16 chars max, NUL-terminated/padded → 0x20 bytes)
@@ -177,7 +177,7 @@ func readUTF16BE(b []byte) string {
 }
 
 // isPlausibleGamertag rejects decryption failures by checking the result looks
-// like a Microsoft gamertag: 1–16 chars, printable, no control bytes.
+// like a Microsoft gamertag: 1-16 chars, printable, no control bytes.
 func isPlausibleGamertag(s string) bool {
 	if len(s) < 1 || len(s) > 16 {
 		return false

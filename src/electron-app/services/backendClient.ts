@@ -118,7 +118,7 @@ export function startGodsend(): void {
   // Pre-flight: confirm the backend binary is actually there and readable
   // before we hand it to spawn(). On Windows, antivirus quarantine yields
   // `spawn UNKNOWN` (a *synchronous* throw) rather than an ENOENT-style
-  // error event — which used to crash the main process with the generic
+  // error event - which used to crash the main process with the generic
   // "A JavaScript error occurred…" dialog.
   if (!fs.existsSync(godsendExePath)) {
     const msg =
@@ -189,7 +189,7 @@ export function startGodsend(): void {
             for (const cb of _ftpCompleteListeners) {
               try { cb(payload); } catch { /* listener error must not crash stdout handler */ }
             }
-          } catch { /* malformed JSON — ignore */ }
+          } catch { /* malformed JSON - ignore */ }
         }
         addOutputLine(line, "out");
       });

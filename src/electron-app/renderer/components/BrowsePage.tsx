@@ -216,7 +216,7 @@ function QueueDialog({
           </div>
         )}
 
-        {/* Install method (GOD / Content / XEX) — only for applicable platforms */}
+        {/* Install method (GOD / Content / XEX) - only for applicable platforms */}
         {hasMethods && !queued && (
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">

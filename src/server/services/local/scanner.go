@@ -1,4 +1,4 @@
-// scanner.go — local Transfer folder scanning, ISO matching, and ready-state checks.
+// scanner.go - local Transfer folder scanning, ISO matching, and ready-state checks.
 package local
 
 import (

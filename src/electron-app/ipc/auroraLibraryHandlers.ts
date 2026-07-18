@@ -62,11 +62,11 @@ export function register(ipcMain: IpcMain): void {
     setActiveAuroraCacheRoot(cacheRoot);
 
     try {
-      addOutputLine(`[INFO] Aurora library: ${force ? "refresh (forced)" : "loading"} — FTP ${xboxIp}…`);
+      addOutputLine(`[INFO] Aurora library: ${force ? "refresh (forced)" : "loading"} - FTP ${xboxIp}…`);
 
       // Check DB sizes via Go backend batch (1 FTP connection).
       // For the background (unforced) poll, give up quickly if the FTP
-      // lock is busy — a long-running upload shouldn't make the poll
+      // lock is busy - a long-running upload shouldn't make the poll
       // hang for tens of seconds. Forced refresh waits as long as needed.
       const lockWaitMs = force ? 0 : 5000;
       let batchRes = await backendPost("/ftp/batch", { ip: xboxIp, ops: [
@@ -74,7 +74,7 @@ export function register(ipcMain: IpcMain): void {
         { op: "size", path: `${dbDir}/settings.db` },
       ], lock_wait_ms: lockWaitMs });
       if (batchRes && batchRes.busy) {
-        addOutputLine(`[INFO] Aurora library: Xbox FTP busy — serving last known state.`);
+        addOutputLine(`[INFO] Aurora library: Xbox FTP busy - serving last known state.`);
         const cachedMeta = readMeta(cacheRoot);
         if (cachedMeta && fs.existsSync(contentDbPath(cacheRoot)) && fs.existsSync(settingsDbPath(cacheRoot))) {
           const contentBuf  = fs.readFileSync(contentDbPath(cacheRoot));
@@ -93,7 +93,7 @@ export function register(ipcMain: IpcMain): void {
 
       if (contentSz < 0 || settingsSz < 0) {
         addOutputLine(
-          `[INFO] Aurora library: ${auroraRoot}/Data/Databases not found — auto-discovering Aurora install…`
+          `[INFO] Aurora library: ${auroraRoot}/Data/Databases not found - auto-discovering Aurora install…`
         );
         const discovered = await discoverAuroraRoot(xboxIp);
         if (discovered) {
@@ -342,7 +342,7 @@ export function register(ipcMain: IpcMain): void {
 
       const files = [path.join(destDir, "content.db"), path.join(destDir, "settings.db")];
 
-      // Also copy the exact cached bytes that failed to parse (if present) — a fresh
+      // Also copy the exact cached bytes that failed to parse (if present) - a fresh
       // re-download may not reproduce an intermittent corruption, but the cached copy
       // that actually errored will. Then write a diagnostic report over all files.
       const cacheRoot = getAuroraLibraryCacheRoot(app, xboxIp, auroraRoot);

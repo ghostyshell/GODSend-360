@@ -1,4 +1,4 @@
-// rom.go — ROM download, extraction, and delivery pipeline.
+// rom.go - ROM download, extraction, and delivery pipeline.
 package pipeline
 
 import (
@@ -42,7 +42,7 @@ func (s *Service) ProcessROM(gameName, sysid string) {
 	s.App.LogStatus(gameName, "Processing", "Looking up ROM on EdgeEmu...")
 	downloadURL := s.ROM.FindDownloadURL(gameName, sysid)
 	if downloadURL == "" {
-		// Cache might be cold — try building it now and retry
+		// Cache might be cold - try building it now and retry
 		s.ROM.Build(sysid)
 		downloadURL = s.ROM.FindDownloadURL(gameName, sysid)
 	}
