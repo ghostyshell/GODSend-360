@@ -1,4 +1,4 @@
-// compat.go — multi-disc compatibility table and helpers.
+// compat.go - multi-disc compatibility table and helpers.
 package models
 
 import (
@@ -47,7 +47,7 @@ var DiscCompatTable = map[uint32]DiscCompatRec{
 	0x4D53087F: {InstallType: "god", Notes: "Disc 2 contains car/track data"},
 	0x5345200A: {InstallType: "god", Notes: "Disc 2 is game continuation"},
 	0x4D530877: {InstallType: "god", Notes: "Disc 2 is multiplayer disc"},
-	0x4D530830: {InstallType: "god", Notes: "Multi-disc RPG — all discs are GOD"},
+	0x4D530830: {InstallType: "god", Notes: "Multi-disc RPG - all discs are GOD"},
 	0x5345082D: {InstallType: "god", Notes: "Disc 2 is game continuation"},
 	0x4D530810: {InstallType: "god", Notes: "Disc 2 is game continuation"},
 }

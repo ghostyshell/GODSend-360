@@ -1,4 +1,4 @@
-// minerva.go — Minerva Archive download and processing pipelines.
+// minerva.go - Minerva Archive download and processing pipelines.
 package pipeline
 
 import (
@@ -69,7 +69,7 @@ func (s *Service) ProcessMinervaGame(gameName string, entry models.MinervaEntry,
 		folderName := filepath.Base(xexFolder)
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			if err := s.FTP.TransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-				s.App.Logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+				s.App.Logf("FTP: initial XEX transfer failed for %s: %v - scheduling for retry", gameName, err)
 				job := ftp.PendingFTPJob{
 					ID:         helpers.SanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
 					GameName:   gameName,
@@ -201,7 +201,7 @@ func (s *Service) ProcessMinervaGenericGame(gameName string, entry models.Minerv
 	folderName := filepath.Base(xexFolder)
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
 		if err := s.FTP.TransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-			s.App.Logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+			s.App.Logf("FTP: initial XEX transfer failed for %s: %v - scheduling for retry", gameName, err)
 			job := ftp.PendingFTPJob{
 				ID:         helpers.SanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
 				GameName:   gameName,

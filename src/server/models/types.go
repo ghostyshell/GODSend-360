@@ -1,4 +1,4 @@
-// types.go — domain types shared across all packages.
+// types.go - domain types shared across all packages.
 package models
 
 import "time"

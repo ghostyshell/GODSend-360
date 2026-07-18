@@ -1,4 +1,4 @@
-// edgeemu.go — EdgeEmu parallel range downloads for ROM files.
+// edgeemu.go - EdgeEmu parallel range downloads for ROM files.
 package download
 
 import (
@@ -45,7 +45,7 @@ func (s *Service) downloadEdgeEmuSingle(urlStr, dest, name string) error {
 	for attempt := 0; attempt <= app.IAChunkRetries; attempt++ {
 		if attempt > 0 {
 			wait := time.Duration(attempt) * app.IAChunkRetryBase
-			s.App.Logf("RETRY ROM [%s] attempt %d: %v — waiting %s", name, attempt, lastErr, wait)
+			s.App.Logf("RETRY ROM [%s] attempt %d: %v - waiting %s", name, attempt, lastErr, wait)
 			time.Sleep(wait)
 		}
 		req, err := http.NewRequest("GET", urlStr, nil)
@@ -197,7 +197,7 @@ func (s *Service) edgeEmuDownloadRange(ctx context.Context, urlStr string, out *
 	for attempt := 0; attempt <= app.IAChunkRetries; attempt++ {
 		if attempt > 0 {
 			wait := time.Duration(attempt) * app.IAChunkRetryBase
-			s.App.Logf("RETRY ROM chunk bytes=%d-%d attempt %d: %v — waiting %s", start, end, attempt, lastErr, wait)
+			s.App.Logf("RETRY ROM chunk bytes=%d-%d attempt %d: %v - waiting %s", start, end, attempt, lastErr, wait)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()

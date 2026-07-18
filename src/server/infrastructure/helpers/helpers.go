@@ -1,4 +1,4 @@
-// helpers.go — utility functions (network, filesystem, Xbox header parsing).
+// helpers.go - utility functions (network, filesystem, Xbox header parsing).
 package helpers
 
 import (

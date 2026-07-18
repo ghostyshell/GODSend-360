@@ -33,7 +33,7 @@ function PathExplain({ title, path, children }: { title: string; path: string; c
   return (
     <div className="mt-3 rounded border border-[#1e242e] bg-[#0d1117] px-3 py-2.5">
       <p className="text-[12px] font-medium text-[#cad3dc]">{title}</p>
-      <p className="mt-1 font-mono text-[10px] text-[#8b9aab] break-all">{path || "—"}</p>
+      <p className="mt-1 font-mono text-[10px] text-[#8b9aab] break-all">{path || "-"}</p>
       <p className="mt-1.5 text-[11px] text-muted-foreground leading-[1.45]">{children}</p>
     </div>
   );
@@ -273,7 +273,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
         return;
       }
       if (r.restarted) {
-        setAppDataStatus("App data moved — relaunching…");
+        setAppDataStatus("App data moved - relaunching…");
       } else {
         setAppDataStatus("App data path unchanged.");
         setAppDataSaving(false);
@@ -338,7 +338,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
       if (r?.ok && r?.result) {
         const x = r.result;
         const errs = Array.isArray(x.errors) && x.errors.length > 0
-          ? ` (${x.errors.length} skipped — see backend log)` : "";
+          ? ` (${x.errors.length} skipped - see backend log)` : "";
         setBackupAllStatus(
           `Done: ${x.profiles_backed_up}/${x.profiles_processed} profile packages, ` +
           `${x.saves_backed_up} title saves, ${x.files_backed_up} files total${errs}.`
@@ -464,7 +464,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
     const r = await window.godsendApi.refreshCache("all");
     setCacheStatus(
       r.ok
-        ? "Refresh started — running in background. Check server log for progress."
+        ? "Refresh started - running in background. Check server log for progress."
         : `Failed: ${r.error || "unknown error"}`
     );
     setCacheLoading(false);
@@ -607,7 +607,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   async function handleDriveClear() {
     const saved = await window.godsendApi.setDefaultXboxDrive("");
     setDefaultDrive(saved);
-    setDriveStatus("Default drive cleared — Aurora will prompt for drive on each download.");
+    setDriveStatus("Default drive cleared - Aurora will prompt for drive on each download.");
   }
 
   async function handleCustomGodPathSave() {
@@ -791,10 +791,10 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
             <Hint>
               Holds <strong>config.json</strong>, daily server logs, Aurora library
               cache, and (by default) the <code className="mx-1">runtime/</code> folder.
-              This is <em>not</em> Windows <code className="mx-1">%TEMP%</code> — it is
+              This is <em>not</em> Windows <code className="mx-1">%TEMP%</code> - it is
               GODsend&apos;s own application data. Changing this moves existing data and
               relaunches the app. {appDataPortable
-                ? "Portable build — defaults to a folder next to the .exe."
+                ? "Portable build - defaults to a folder next to the .exe."
                 : "Default is the OS application-data folder."}
             </Hint>
           </Section>
@@ -829,7 +829,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               ISO→GOD conversion folders, Minerva post-torrent staging (
               <code>&lt;game&gt;_torrent</code>), FTP Manager copy/move buffers, and save-game
               keyvault downloads. Cleared by <strong>Clear local data</strong> on the Home page.
-              Follows <strong>Local storage path</strong> — not configurable separately.
+              Follows <strong>Local storage path</strong> - not configurable separately.
             </PathExplain>
 
             <div className="mt-4">
@@ -850,7 +850,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
                 <code>gd-dl-*</code> folders and short-lived <code>*.torrent</code> files).
                 Defaults to <code>Temp/torrent-dl</code> under your storage path so downloads stay
                 on the same drive as processing temp. Override to put active torrent
-                downloads on a specific disk — keep it on the <strong>same drive</strong> as
+                downloads on a specific disk - keep it on the <strong>same drive</strong> as
                 Local storage path when possible (cross-drive moves are slower). This setting
                 controls Minerva/aria2c staging; it is <em>not</em> the Windows{" "}
                 <code>%TEMP%</code> / <code>TMP</code> environment variable.
@@ -967,7 +967,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               backend port are patched directly into <code>state.lua</code>{" "}
               automatically. The path must match the folder Aurora actually loads (copy
               it from your FTP client). On USB that is often{" "}
-              <code>/Usb0/Apps/Aurora/User/Scripts/Utility/GODSend</code> &mdash; note{" "}
+              <code>/Usb0/Apps/Aurora/User/Scripts/Utility/GODSend</code> - note{" "}
               <code>Apps</code> and <code>Utility</code> (not <code>Utilities</code>).
               On HDD it is often{" "}
               <code>/Hdd1/Aurora/User/Scripts/Utility/GODSend</code>.
@@ -1024,7 +1024,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
                       onChange={(e) => setFtpScanSubnet(e.target.value)}
                     />
                     <span className="text-[11px] text-muted-foreground">
-                      Port 21 on .1 &ndash; .254
+                      Port 21 on .1 - .254
                     </span>
                   </div>
                 </div>
@@ -1131,7 +1131,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
                   className="mt-1 max-w-[480px]"
                   spellCheck={false}
                   autoComplete="current-password"
-                  placeholder="Not stored — only used to sign in"
+                  placeholder="Not stored - only used to sign in"
                   value={iaPassword}
                   onChange={(e) => setIaPassword(e.target.value)}
                 />
@@ -1309,7 +1309,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
                     value={defaultDrive}
                     onChange={(e) => setDefaultDrive(e.target.value)}
                   >
-                    <option value="">(none — prompt each time)</option>
+                    <option value="">(none - prompt each time)</option>
                     {driveList.map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
@@ -1338,7 +1338,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               and uses this drive automatically. Click{" "}
               <strong>Fetch drives from Xbox</strong> to list available storage
               devices from the console via FTP (Xbox IP must be configured). Click{" "}
-              <strong>Clear</strong> to reset — Aurora will prompt for a drive each
+              <strong>Clear</strong> to reset - Aurora will prompt for a drive each
               time.
             </Hint>
           </Section>
@@ -1389,7 +1389,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
                 <div className="border border-[#1e242e] rounded-lg overflow-hidden bg-[#0d1117]">
                   <div className="px-3 py-2 text-[12px] font-semibold text-muted-foreground bg-muted flex items-center justify-between">
                     <span>
-                      Browse FTP — {ftpPickerTarget === "god" ? "GOD folder" : "XEX folder"}
+                      Browse FTP - {ftpPickerTarget === "god" ? "GOD folder" : "XEX folder"}
                     </span>
                     <Button size="sm" variant="ghost" onClick={() => setFtpPickerOpen(false)}>
                       Close

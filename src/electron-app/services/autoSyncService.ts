@@ -1,11 +1,11 @@
 /**
  * Post-FTP automation helpers.
  *
- * autoUploadAuroraAssets — download Aurora assets (cover, bg, banner, icon)
+ * autoUploadAuroraAssets - download Aurora assets (cover, bg, banner, icon)
  *   from Xbox Live CDN / XboxUnity and upload them to the console's Aurora
  *   Import folder after a successful game FTP transfer.
  *
- * doAuroraLibrarySync — re-download Aurora's content.db and settings.db from
+ * doAuroraLibrarySync - re-download Aurora's content.db and settings.db from
  *   the console and update the local library cache, called after FTP transfers
  *   and game moves to keep the Xbox Library view in sync.
  *
@@ -215,7 +215,7 @@ export async function doAuroraLibrarySync(): Promise<void> {
       }
     }
     if (contentSz < 0 || settingsSz < 0) {
-      addOutputLine(`[WARN] Auto-sync: Aurora DBs unreachable — skipping library sync`);
+      addOutputLine(`[WARN] Auto-sync: Aurora DBs unreachable - skipping library sync`);
       return;
     }
 

@@ -3,8 +3,8 @@
  * Downloads aria2c binaries for Windows and Linux into dist/tools/.
  *
  * Sources:
- *   Windows x64  — official GitHub release zip
- *   Linux x64    — Homebrew Linuxbrew bottle (GHCR OCI blob)
+ *   Windows x64  - official GitHub release zip
+ *   Linux x64    - Homebrew Linuxbrew bottle (GHCR OCI blob)
  *
  * macOS: the Go backend installs Homebrew + aria2 non-interactively at startup
  * (see ensureAria2cDarwinAtStartup); no bundled aria2c in the app.
@@ -78,7 +78,7 @@ function extractFromTarGz(buf, targetName) {
     const chunks = [];
     let found = false;
 
-    // Minimal tar parser — fixed 512-byte blocks, POSIX ustar header.
+    // Minimal tar parser - fixed 512-byte blocks, POSIX ustar header.
     const BLOCK = 512;
     let pos = 0;
     let skipBlocks = 0;
@@ -138,7 +138,7 @@ function extractFromTarGz(buf, targetName) {
             skipBlocks = Math.ceil(size / BLOCK);
           }
         }
-        // Directories / links / etc — skip
+        // Directories / links / etc - skip
       }
     }
 
@@ -180,7 +180,7 @@ async function downloadWindowsZip(destPath) {
   const buf = await get(url, { "User-Agent": "godsend-build/1" });
   console.log(`  downloaded ${(buf.length / 1024 / 1024).toFixed(1)} MB, extracting aria2c.exe...`);
 
-  // Simple ZIP parser — find aria2c.exe (central directory or local file headers).
+  // Simple ZIP parser - find aria2c.exe (central directory or local file headers).
   const sig = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
   let offset = 0;
   let found = null;
@@ -214,7 +214,7 @@ async function downloadWindowsZip(destPath) {
 // ── Homebrew bottle digests from: https://formulae.brew.sh/api/formula/aria2.json ──
 // Run `node scripts/download-aria2.js --refresh` to update these.
 //
-// NOTE: Only Linux uses Homebrew bottles. macOS bottles MUST NOT be used here —
+// NOTE: Only Linux uses Homebrew bottles. macOS bottles MUST NOT be used here -
 // see ensureMacBinary() and the comment in main() for the rationale.
 const HOMEBREW_REPO = "homebrew/core/aria2";
 const BOTTLES = {

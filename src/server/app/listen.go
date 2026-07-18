@@ -1,4 +1,4 @@
-// listen.go — TCP listener helpers for server startup.
+// listen.go - TCP listener helpers for server startup.
 package app
 
 import (
@@ -29,7 +29,7 @@ func IsTCPAddrInUse(err error) bool {
 		strings.Contains(msg, "wsaeaddrinuse")
 }
 
-// ListenOnAvailablePort binds to start, then start+1, … until success or a non–address-in-use error.
+// ListenOnAvailablePort binds to start, then start+1, … until success or a non-address-in-use error.
 func (a *App) ListenOnAvailablePort(start int) (net.Listener, int, error) {
 	if start < 1 || start > 65535 {
 		return nil, 0, fmt.Errorf("invalid start port %d", start)

@@ -450,7 +450,7 @@ export default function FTPManagerPage({}: FTPManagerPageProps) {
             <div className="absolute right-0 top-full mt-1 z-50 min-w-[240px] max-w-[320px] rounded-md border border-border bg-popover shadow-lg">
               <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border">
                 <span className="text-[11px] font-semibold text-foreground">
-                  {clipboard.mode === "cut" ? "Cut" : "Copied"} — {clipboard.items.length} item{clipboard.items.length !== 1 ? "s" : ""}
+                  {clipboard.mode === "cut" ? "Cut" : "Copied"} - {clipboard.items.length} item{clipboard.items.length !== 1 ? "s" : ""}
                 </span>
                 <button
                   className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
@@ -579,7 +579,7 @@ export default function FTPManagerPage({}: FTPManagerPageProps) {
           )}
         </div>
 
-        {/* Upload queue panel — always visible */}
+        {/* Upload queue panel - always visible */}
           <div className="w-[280px] shrink-0 border border-border rounded-lg overflow-auto">
             <div className="px-2 py-1.5 border-b border-border bg-surface">
               <span className="text-[11px] font-semibold text-foreground">Transfers</span>

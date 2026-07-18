@@ -229,7 +229,7 @@ async function decodeRxeaBuffer(
   });
 
   if (!decoded || !Array.isArray(decoded.slots)) {
-    const goErr = decoded?.error ? ` — ${decoded.error}` : "";
+    const goErr = decoded?.error ? ` - ${decoded.error}` : "";
     addOutputLine(`[WARN] RXEA sync ${titleId}/${assetName}: decoder returned no slots${goErr}.`);
     if (Array.isArray(decoded?.diags) && decoded.diags.length > 0) {
       for (const d of decoded.diags) {
@@ -316,7 +316,7 @@ export async function syncAuroraTitleVisualAssets(
   const gameDataPath = `${auroraRoot}/Data/GameData/${gameDataDir}`;
   fs.mkdirSync(vdir, { recursive: true });
 
-  // ── Phase 1: Fingerprint batch (sizes + import listing — 1 FTP connection) ──
+  // ── Phase 1: Fingerprint batch (sizes + import listing - 1 FTP connection) ──
   const fpAssetKeys = [
     `BK${titleId}.asset`, `GC${titleId}.asset`,
     `GL${titleId}.asset`, `SS${titleId}.asset`,
@@ -353,16 +353,16 @@ export async function syncAuroraTitleVisualAssets(
           return cached === current;
         });
         if (allMatch) {
-          if (!force) return;  // unchanged — existing manifest is still valid
+          if (!force) return;  // unchanged - existing manifest is still valid
           // force mode: fingerprints match, verify local cache integrity via content hashes
           if (verifyCacheIntegrity(vdir, prev?._contentHashes)) {
-            addOutputLine(`[INFO] Visual sync ${titleId}: force refresh — fingerprints + hashes match, skipping.`);
+            addOutputLine(`[INFO] Visual sync ${titleId}: force refresh - fingerprints + hashes match, skipping.`);
             return;
           }
-          addOutputLine(`[INFO] Visual sync ${titleId}: force refresh — hash mismatch, re-syncing.`);
+          addOutputLine(`[INFO] Visual sync ${titleId}: force refresh - hash mismatch, re-syncing.`);
         }
       }
-    } catch { /* corrupt manifest — proceed with full sync */ }
+    } catch { /* corrupt manifest - proceed with full sync */ }
   }
 
   // ── Phase 3: Build download batch for all needed files (1 FTP connection) ────
@@ -712,13 +712,13 @@ export async function syncAuroraGameCoverAssets(
   if (force) {
     // force mode: check remote size + local file hash to determine if re-download needed
     if (remoteSz >= 0 && fs.existsSync(binPath) && fs.statSync(binPath).size === remoteSz) {
-      // Size matches — check stored hash against local file
+      // Size matches - check stored hash against local file
       let prevMeta: any = {};
       try { prevMeta = JSON.parse(fs.readFileSync(path.join(gdir, "cover-files.json"), "utf8")); } catch { /* none */ }
       const storedBinHash = prevMeta._binHash;
       const localBinHash = sha256File(binPath);
       if (storedBinHash && localBinHash === storedBinHash) {
-        // GameCoverInfo.bin unchanged — check if cover image is also intact
+        // GameCoverInfo.bin unchanged - check if cover image is also intact
         if (
           prevMeta.primaryFile &&
           fs.existsSync(path.join(gdir, prevMeta.primaryFile)) &&
@@ -726,13 +726,13 @@ export async function syncAuroraGameCoverAssets(
         ) {
           const localCoverHash = sha256File(path.join(gdir, prevMeta.primaryFile));
           if (localCoverHash === prevMeta._coverHash) {
-            addOutputLine(`[INFO] Cover sync ${titleId}: force refresh — hashes match, skipping.`);
+            addOutputLine(`[INFO] Cover sync ${titleId}: force refresh - hashes match, skipping.`);
             emitAuroraCoverEvents(titleId, gameDataDir, cacheRoot);
             return;
           }
         }
       }
-      needBin = true;  // hash mismatch or missing — re-download
+      needBin = true;  // hash mismatch or missing - re-download
     } else {
       needBin = remoteSz >= 0;  // size differs or file missing
     }

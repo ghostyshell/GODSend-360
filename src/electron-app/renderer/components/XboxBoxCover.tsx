@@ -4,10 +4,10 @@ import { useRef, useState, useEffect } from "react";
  * Realistic Xbox 360 game box rendered with CSS 3D transforms.
  *
  * Two input modes:
- *   • `bookletSrc` — single image with the full back-spine-front layout
+ *   • `bookletSrc` - single image with the full back-spine-front layout
  *     (decoded RXEA cover). Each face crops its own UV region via CSS
  *     background-size / background-position.
- *   • `frontSrc`   — flat front-only cover (XboxUnity / CDN image). The
+ *   • `frontSrc`   - flat front-only cover (XboxUnity / CDN image). The
  *     back and spine fall back to a generic dark Xbox 360 case face.
  *
  * Uses pure CSS 3D transforms instead of WebGL to avoid browser limits on

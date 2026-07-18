@@ -1,4 +1,4 @@
-// torrent.go — aria2c probing, Minerva torrent fetching, and torrent-based downloads.
+// torrent.go - aria2c probing, Minerva torrent fetching, and torrent-based downloads.
 package torrent
 
 import (
@@ -82,7 +82,7 @@ func aria2cWorks(path string) error {
 }
 
 // ProbeWorkingAria2c finds a usable aria2c (bundled next to the server binary, PATH,
-// then macOS Homebrew locations). Not cached — used at startup and by Aria2cBinary.
+// then macOS Homebrew locations). Not cached - used at startup and by Aria2cBinary.
 func (s *Service) ProbeWorkingAria2c() (string, error) {
 	name := "aria2c"
 	if runtime.GOOS == "windows" {
@@ -110,7 +110,7 @@ func (s *Service) ProbeWorkingAria2c() (string, error) {
 			return p, nil
 		}
 		if lastErr != nil {
-			s.App.Logf("[WARN] %v — trying PATH / Homebrew locations", lastErr)
+			s.App.Logf("[WARN] %v - trying PATH / Homebrew locations", lastErr)
 		}
 	}
 
@@ -134,9 +134,9 @@ func (s *Service) ProbeWorkingAria2c() (string, error) {
 	}
 
 	if lastErr != nil {
-		return "", fmt.Errorf("aria2c not usable — %v", lastErr)
+		return "", fmt.Errorf("aria2c not usable - %v", lastErr)
 	}
-	return "", fmt.Errorf("aria2c not found — bundled binary missing and not in PATH")
+	return "", fmt.Errorf("aria2c not found - bundled binary missing and not in PATH")
 }
 
 // Aria2cBinary returns the path to a working aria2c executable.
@@ -309,7 +309,7 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 		"--bt-remove-unselected-file=true", // don't keep unselected files
 		"--bt-max-peers=100",
 		"--follow-torrent=false", // torrent file is our input, don't re-fetch
-		"--file-allocation=none", // skip pre-allocation — avoids spurious ENOSPC on large files
+		"--file-allocation=none", // skip pre-allocation - avoids spurious ENOSPC on large files
 		"--console-log-level=warn",
 		"--summary-interval=3", // print progress every 3 s
 		"--human-readable=true",
@@ -404,7 +404,7 @@ func (s *Service) DownloadViaTorrent(platform, destDir, gameName string, entry m
 		if tail == "" {
 			tail = "(no output captured)"
 		}
-		return "", fmt.Errorf("aria2c: %w — last output: %s", waitErr, tail)
+		return "", fmt.Errorf("aria2c: %w - last output: %s", waitErr, tail)
 	}
 
 	// Walk the short temp dir to find the downloaded file.

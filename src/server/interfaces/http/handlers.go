@@ -1,4 +1,4 @@
-// handlers.go — HTTP request handlers for browse, cache, trigger, status, queue, debug, and file serving.
+// handlers.go - HTTP request handlers for browse, cache, trigger, status, queue, debug, and file serving.
 package http
 
 import (
@@ -31,7 +31,7 @@ func (d *Deps) handleBrowse(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	source := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("source"))) // "minerva", "ia", or "" (merged)
 	d.App.Logf("BROWSE: platform=%s source=%s", platform, source)
 
-	// ROM platforms — served from edgeemu.net scrape cache
+	// ROM platforms - served from edgeemu.net scrape cache
 	if strings.HasPrefix(platform, "rom_") {
 		sysid := strings.TrimPrefix(platform, "rom_")
 		if _, ok := app.ROMSystems[sysid]; !ok {
@@ -60,7 +60,7 @@ func (d *Deps) handleBrowse(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		return
 	}
 
-	// Local — scan Transfer folder immediately, no IA needed
+	// Local - scan Transfer folder immediately, no IA needed
 	if platform == "local" {
 		games := d.Local.ScanTransferFolder()
 		d.App.Logf("BROWSE: %d local ISOs found", len(games))
@@ -69,7 +69,7 @@ func (d *Deps) handleBrowse(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		return
 	}
 
-	// Source-specific browse — return only the requested source's list.
+	// Source-specific browse - return only the requested source's list.
 	d.App.MinervaGameCacheMu.RLock()
 	minervaCached := d.App.MinervaGameCache[platform]
 	d.App.MinervaGameCacheMu.RUnlock()
@@ -116,7 +116,7 @@ func (d *Deps) handleBrowse(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		return
 	}
 
-	// No source specified — merged fallback (backward compat).
+	// No source specified - merged fallback (backward compat).
 	if len(minervaCached) > 0 || len(iaCached) > 0 {
 		seen := make(map[string]bool, len(minervaCached)+len(iaCached))
 		merged := make([]string, 0, len(minervaCached)+len(iaCached))
@@ -140,7 +140,7 @@ func (d *Deps) handleBrowse(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		return
 	}
 
-	// Nothing ready yet — trigger both builds and return a loading marker.
+	// Nothing ready yet - trigger both builds and return a loading marker.
 	go d.IA.Build(platform)
 	go d.Minerva.Build(platform)
 
@@ -374,7 +374,7 @@ func (d *Deps) handleTrigger(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		return
 	}
 
-	// Minerva — check before IA (source priority: local → Minerva → Internet Archive)
+	// Minerva - check before IA (source priority: local → Minerva → Internet Archive)
 	// Skipped when source=="ia" (user explicitly chose Internet Archive).
 	if source != "ia" {
 		if _, hasMinervaPage := app.MinervaPageURLs[platform]; hasMinervaPage {
@@ -399,14 +399,14 @@ func (d *Deps) handleTrigger(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		}
 	}
 
-	// source=="minerva" but platform has no Minerva page — treat as not found
+	// source=="minerva" but platform has no Minerva page - treat as not found
 	if source == "minerva" {
 		d.App.LogStatus(gameName, "Error", "Not found in Minerva Archive")
 		jsonSuccess(w, map[string]string{"status": "minerva_unavailable", "message": "Game not found in Minerva Archive."})
 		return
 	}
 
-	// Internet Archive — fallback when Minerva has no match, or source=="ia"
+	// Internet Archive - fallback when Minerva has no match, or source=="ia"
 	switch platform {
 	case "digital", "xbla", "dlc", "xblig":
 		launcher(func() { d.Pipeline.ProcessDigital(gameName, platform) })
@@ -459,7 +459,7 @@ func (d *Deps) handleDiscInfo(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		})
 		return
 	}
-	// No Transfer-folder ISO yet (typical for IA-only installs) — filename-based hint for Disc 2+.
+	// No Transfer-folder ISO yet (typical for IA-only installs) - filename-based hint for Disc 2+.
 	if !models.IsMultiDiscGameName(gameName) {
 		jsonError(w, 404, "No local ISO found for this game")
 		return
@@ -468,7 +468,7 @@ func (d *Deps) handleDiscInfo(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	rec := models.DiscCompat(tid, 2)
 	note := rec.Notes
 	if tid == 0 {
-		note = note + " (Title ID unknown from name — optional: copy ISO to PC Transfer for an exact probe)"
+		note = note + " (Title ID unknown from name - optional: copy ISO to PC Transfer for an exact probe)"
 	} else {
 		note = note + " (Title ID guessed from game name)"
 	}

@@ -1,4 +1,4 @@
-// Package utils — Pure-Go RXEA codec.
+// Package utils - Pure-Go RXEA codec.
 //
 // Aurora (Xbox 360 dashboard) stores game artwork in a proprietary GPU-texture
 // container whose magic bytes spell "RXEA".  Each file holds up to 25 asset
@@ -9,10 +9,10 @@
 // but the on-disk layout is linear, not Xenos-swizzled).
 //
 // Naming convention used by Aurora:
-//   BK{TitleId}.asset — background  (slot 4)
-//   GC{TitleId}.asset — game cover  (slot 2)
-//   GL{TitleId}.asset — icon+banner (slots 0+1)
-//   SS{TitleId}.asset — screenshots (slots 5–24)
+//   BK{TitleId}.asset - background  (slot 4)
+//   GC{TitleId}.asset - game cover  (slot 2)
+//   GL{TitleId}.asset - icon+banner (slots 0+1)
+//   SS{TitleId}.asset - screenshots (slots 5-24)
 //
 // This codec implements both directions:
 //   Decode: RXEA bytes  →  []image.NRGBA  (to be cached as PNG)
@@ -20,7 +20,7 @@
 //
 // References:
 //   • 010-Editor binary template by MaesterRowen & Swizzy (AuroraAssetEditor repo)
-//   • Xenia GPU emulator  — TextureFormat enum & texture_address.h tiling description
+//   • Xenia GPU emulator  - TextureFormat enum & texture_address.h tiling description
 //   • BC/DXT specification (Microsoft D3D10 compressed texture spec)
 package utils
 
@@ -48,7 +48,7 @@ const (
 	SlotBoxart     AssetSlot = 2
 	SlotSlot       AssetSlot = 3 // reserved / unused
 	SlotBackground AssetSlot = 4
-	SlotScreenshot AssetSlot = 5 // screenshots 5–24
+	SlotScreenshot AssetSlot = 5 // screenshots 5-24
 	slotMax        AssetSlot = 25
 )
 
@@ -83,14 +83,14 @@ const (
 
 // Xbox 360 GPU texture format codes (Xenia's TextureFormat enum).
 const (
-	gpuFmt8888 = 6  // k_8_8_8_8       – uncompressed ARGB
-	gpuFmtDXT1 = 18 // k_DXT1          – 8 bytes/block
-	gpuFmtDXT3 = 19 // k_DXT2_3        – 16 bytes/block
-	gpuFmtDXT5 = 20 // k_DXT4_5 (BC3)  – 16 bytes/block
+	gpuFmt8888 = 6  // k_8_8_8_8       - uncompressed ARGB
+	gpuFmtDXT1 = 18 // k_DXT1          - 8 bytes/block
+	gpuFmtDXT3 = 19 // k_DXT2_3        - 16 bytes/block
+	gpuFmtDXT5 = 20 // k_DXT4_5 (BC3)  - 16 bytes/block
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
-// DecodeRXEA — RXEA bytes → decoded images
+// DecodeRXEA - RXEA bytes → decoded images
 // ──────────────────────────────────────────────────────────────────────────────
 
 // RXEADiag holds per-slot decode diagnostics (non-fatal errors and raw header fields).
@@ -118,7 +118,7 @@ func DecodeRXEA(data []byte) ([]*RXEAEntry, []RXEADiag, error) {
 		hex16 := fmt.Sprintf("%X", data[:min(16, len(data))])
 		return nil, nil, fmt.Errorf("rxea: bad magic %08X (first 16 bytes: %s)", gotMagic, hex16)
 	}
-	// Accept any version — Aurora has shipped files with both version 1 and 2.
+	// Accept any version - Aurora has shipped files with both version 1 and 2.
 
 	slotMask := binary.BigEndian.Uint32(data[12:])
 
@@ -206,7 +206,7 @@ func DecodeRXEASlot(data []byte, slot AssetSlot) (*image.NRGBA, error) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// EncodeRXEA — image → RXEA bytes
+// EncodeRXEA - image → RXEA bytes
 // ──────────────────────────────────────────────────────────────────────────────
 
 // EncodeRXEA encodes a single image into a minimal RXEA file with only the
@@ -261,7 +261,7 @@ func EncodeRXEA(slot AssetSlot, img image.Image) ([]byte, error) {
 	binary.BigEndian.PutUint32(buf[0x0C:], uint32(1)<<uint(slot)) // populated-slot bitmask
 	// [0x10..0x1B] zero padding (screenshot count only set for SS files).
 
-	// Entry at slot index — matches Aurora's native per-entry layout.
+	// Entry at slot index - matches Aurora's native per-entry layout.
 	eBase := rxeaTableOff + int(slot)*rxeaEntryLen
 	// [0..3]   zero marker/hash
 	binary.BigEndian.PutUint32(buf[eBase+4:],  0x00000003)
@@ -272,7 +272,7 @@ func EncodeRXEA(slot AssetSlot, img image.Image) ([]byte, error) {
 
 	// GPU fetch constants (dw7/dw8/dw9) at entry offsets 32/36/40.
 	pitchField := uint32(alignedBW * blockSz / 128)
-	dw7 := uint32(2) | (pitchField << 22) // bit1=tiled, pitch at bits 22–30
+	dw7 := uint32(2) | (pitchField << 22) // bit1=tiled, pitch at bits 22-30
 	dw8 := uint32(gpuFmtDXT5) | (uint32(1) << 6) // fmt + endian=8-in-16
 	dw9 := uint32(widthPx-1) | (uint32(heightPx-1) << 13)
 	binary.BigEndian.PutUint32(buf[eBase+32:], dw7)
@@ -428,7 +428,7 @@ func EncodeRXEAToPNG(entry *RXEAEntry) ([]byte, error) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Internal — slot decoder
+// Internal - slot decoder
 // ──────────────────────────────────────────────────────────────────────────────
 
 // tiledSizeFromFetch derives the on-disk tiled data size from the GPU fetch
@@ -548,27 +548,27 @@ func dxtBlockSize(gpuFmt int) (int, error) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 // buildTextureHeader constructs the 52-byte ASSET_PACK_TEXTURE_HEADER for a
-// tiled DXT5 texture.  The D3DResource base fields (DWORDs 0–6) are left zero;
+// tiled DXT5 texture.  The D3DResource base fields (DWORDs 0-6) are left zero;
 // Aurora's asset loader only requires the GPU_FETCH_CONSTANT fields.
 func buildTextureHeader(widthPx, heightPx, fmtCode, blockSz, alignedBW int) [52]byte {
 	var h [52]byte
 
 	// GPUTEXTURE_FETCH_CONSTANT_0 (DWORD 7, offset 28):
 	//   bit  1     : Tiled = 1
-	//   bits 22–30 : Pitch = alignedBW * blockSz / 128
+	//   bits 22-30 : Pitch = alignedBW * blockSz / 128
 	pitchField := uint32(alignedBW * blockSz / 128)
 	dw7 := uint32(2) | (pitchField << 22) // bit1=tiled, pitch at bits 22-30
 	binary.BigEndian.PutUint32(h[28:], dw7)
 
 	// GPUTEXTURE_FETCH_CONSTANT_1 (DWORD 8, offset 32):
-	//   bits  0–5 : DataFormat
-	//   bits  6–7 : Endian = 1 (8-in-16, matches real Aurora .asset files)
+	//   bits  0-5 : DataFormat
+	//   bits  6-7 : Endian = 1 (8-in-16, matches real Aurora .asset files)
 	dw8 := uint32(fmtCode) | (uint32(1) << 6)
 	binary.BigEndian.PutUint32(h[32:], dw8)
 
 	// GPUTEXTURE_FETCH_CONSTANT_2 (DWORD 9, offset 36):
-	//   bits  0–12 : Width  – 1
-	//   bits 13–25 : Height – 1
+	//   bits  0-12 : Width  - 1
+	//   bits 13-25 : Height - 1
 	dw9 := uint32(widthPx-1) | (uint32(heightPx-1) << 13)
 	binary.BigEndian.PutUint32(h[36:], dw9)
 
@@ -713,15 +713,15 @@ func decodeDXT5(linear []byte, widthPx, heightPx, bw, bh int) *image.NRGBA {
 			off   := (by*bw + bx) * 16
 			block := linear[off : off+16]
 
-			// Alpha block (bytes 0–7)
+			// Alpha block (bytes 0-7)
 			a0 := block[0]
 			a1 := block[1]
 			ap := dxt5AlphaPalette(a0, a1)
-			// Alpha indices: 48 bits (bytes 2–7), 3 bits per pixel, LE order
+			// Alpha indices: 48 bits (bytes 2-7), 3 bits per pixel, LE order
 			alphaBits := uint64(block[2]) | uint64(block[3])<<8 | uint64(block[4])<<16 |
 				uint64(block[5])<<24 | uint64(block[6])<<32 | uint64(block[7])<<40
 
-			// Color block (bytes 8–15) — always 4-color mode in DXT5
+			// Color block (bytes 8-15) - always 4-color mode in DXT5
 			decodeDXT1Block(block[8:], out, bx*4, by*4, widthPx, heightPx, true)
 
 			// Overlay alpha
@@ -865,7 +865,7 @@ func encodeDXT5AlphaBlock(px []color.NRGBA) [8]byte {
 		}
 		bits |= uint64(best) << uint(i*3)
 	}
-	// Pack 48-bit index into bytes 2–7 (little-endian).
+	// Pack 48-bit index into bytes 2-7 (little-endian).
 	b[2] = byte(bits)
 	b[3] = byte(bits >> 8)
 	b[4] = byte(bits >> 16)

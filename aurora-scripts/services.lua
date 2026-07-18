@@ -155,9 +155,9 @@ end
 
 -- waitForProcessing polls the server until the job is Ready or fails.
 -- Returns:
---   true           — job finished, proceed to install
---   false          — error or user chose to abort
---   "backgrounded" — user dismissed the window; server keeps running
+--   true           - job finished, proceed to install
+--   false          - error or user chose to abort
+--   "backgrounded" - user dismissed the window; server keeps running
 function waitForProcessing(gameName)
     Script.ShowNotification("Initializing...")
     Thread.Sleep(2000)
@@ -175,9 +175,9 @@ function waitForProcessing(gameName)
             local promptBody =
                 "The server is still transferring '" .. gameName .. "' via FTP.\n\n" ..
                 "  Status: " .. liveMsg .. "\n\n" ..
-                "Background — the FTP transfer continues automatically.\n" ..
+                "Background - the FTP transfer continues automatically.\n" ..
                 "  When it finishes, run Aurora's Scan Content so the title shows up.\n\n" ..
-                "Back — return to menu (transfer still runs, install later)."
+                "Back - return to menu (transfer still runs, install later)."
 
             local choice = Script.ShowMessageBox(promptTitle, promptBody, "Background", "Back")
 
@@ -324,7 +324,7 @@ function installGame(gameName)
         "your game library.", "OK")
 end
 
--- (HTTP mode removed — all transfers now go via FTP)
+-- (HTTP mode removed - all transfers now go via FTP)
 local function _installGame_http_unused(gameName)
     -- HTTP MODE: download logic with full error handling.
     Script.SetStatus("Fetching Manifest...")

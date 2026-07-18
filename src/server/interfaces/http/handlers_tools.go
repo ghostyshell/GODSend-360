@@ -1,4 +1,4 @@
-// handlers_tools.go — ISO conversion and probing tool HTTP handlers.
+// handlers_tools.go - ISO conversion and probing tool HTTP handlers.
 package http
 
 import (
@@ -36,7 +36,7 @@ func toolsResolveTitleName(titleID, isoPath string) string {
 	if looked != "" && !services.IsTruncatedName(looked) {
 		return looked
 	}
-	// Lookup was empty or truncated — use the ISO filename as a better source.
+	// Lookup was empty or truncated - use the ISO filename as a better source.
 	fromFile := toolsCleanISOFileName(isoPath)
 	if fromFile != "" {
 		return fromFile
@@ -117,7 +117,7 @@ func (d *Deps) handleToolsISO2GOD(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 		jsonError(w, 500, fmt.Sprintf("ISO2GOD failed: %v", err))
 		return
 	}
-	d.App.Logf("[TOOLS] ISO2GOD: Conversion complete — %s", folderName)
+	d.App.Logf("[TOOLS] ISO2GOD: Conversion complete - %s", folderName)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -161,7 +161,7 @@ func (d *Deps) handleToolsISO2XEX(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 		jsonError(w, 500, fmt.Sprintf("ISO2XEX failed: %v", err))
 		return
 	}
-	d.App.Logf("[TOOLS] ISO2XEX: Extraction complete — %s", folderName)
+	d.App.Logf("[TOOLS] ISO2XEX: Extraction complete - %s", folderName)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
