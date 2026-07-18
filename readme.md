@@ -77,7 +77,7 @@ If you want Internet Archive as a fallback (or for titles not on Minerva):
 1. Click the tray icon and open the app window, then click the **⚙ Settings** button.
 2. Under **Internet Archive account**, click **Log in** and enter your [archive.org](https://archive.org) credentials. Your session cookie is stored locally - your password is never saved.
 
-Optional - **Debrid (faster downloads)**: under the same Settings page, pick **Real-Debrid** or **TorBox**, paste your API key, and **Save & restart backend**. Torrents and Internet Archive downloads then try to cache on the provider first and pull a direct HTTP link (much faster than P2P); if it isn't ready in ~60s they fall back to the native source, so nothing breaks without it. Internet Archive acceleration works on TorBox only.
+Optional - **Debrid (faster downloads)**: under the same Settings page, pick **Real-Debrid** or **TorBox**, paste your API key, and **Save & restart backend**. Torrents and Internet Archive downloads then try to cache on the provider first and pull a direct HTTP link (much faster than P2P); if it isn't ready in ~60s they fall back to the native source, so nothing breaks without it. Internet Archive acceleration works on TorBox only. TorBox can't cache Minerva collections larger than its ~200 GB per-torrent limit (every Minerva section except Games Archive) - those fall back to P2P and the Browse page recommends Real-Debrid, which caches per file.
 
 You can also set a **Local Transfer folder** if you want to install from `.iso` files you already have on this machine.
 

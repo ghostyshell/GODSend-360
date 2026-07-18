@@ -2,6 +2,7 @@ package debrid
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -74,6 +75,20 @@ type tbDLResp struct {
 }
 
 func (t *torBox) CacheTorrent(ctx context.Context, magnet, selectName string, wait time.Duration) (string, error) {
+	// Pre-check via checkcached (no creation-quota cost, ~1h internal cache on
+	// TorBox). On a definitive negative we bail immediately so we neither burn a
+	// createtorrent slot (TorBox caps these at 60/hour) nor sit through the full
+	// wait polling a torrent that will never be ready. On any error or ambiguity
+	// we fall through to the normal createtorrent + poll path.
+	if ih := infoHashFromMagnet(magnet); ih != "" {
+		if cached, err := t.checkCached(ctx, ih); err == nil {
+			if !cached {
+				t.log("[INFO] Debrid: TorBox has not cached this torrent - using P2P")
+				return "", nil
+			}
+		}
+	}
+
 	deadline := time.Now().Add(wait)
 	form := url.Values{"magnet": {magnet}}
 	var created tbCreateResp
@@ -226,4 +241,63 @@ func matchTorBoxFile(files []tbFile, selectName string) (int64, bool) {
 		}
 	}
 	return 0, false
+}
+
+// infoHashFromMagnet extracts the lowercase btih info-hash from a magnet URI,
+// or "" if it has none.
+func infoHashFromMagnet(magnet string) string {
+	u, err := url.Parse(magnet)
+	if err != nil {
+		return ""
+	}
+	for _, xt := range u.Query()["xt"] {
+		low := strings.ToLower(xt)
+		if h := strings.TrimPrefix(low, "urn:btih:"); h != low {
+			return h
+		}
+	}
+	return ""
+}
+
+// checkCached asks TorBox whether infoHash is already cached network-wide. A
+// (false, nil) result means definitively not cached; a non-nil error means the
+// check was inconclusive (e.g. success:false on a transient glitch/rate-limit),
+// so the caller falls through to createtorrent rather than assuming a miss.
+// File-presence is left to the createtorrent + mylist path, which is the
+// authoritative check (and handles partial caches by deleting and falling back).
+func (t *torBox) checkCached(ctx context.Context, infoHash string) (bool, error) {
+	u := fmt.Sprintf("%s/torrents/checkcached?hash=%s&format=list",
+		t.baseURL(), url.QueryEscape(infoHash))
+	var resp struct {
+		Success bool            `json:"success"`
+		Data    json.RawMessage `json:"data"`
+	}
+	if err := doJSON(ctx, t.http, "GET", u, t.key, nil, "", &resp); err != nil {
+		return false, err
+	}
+	// TorBox returns HTTP 200 with success:false on transient failures; treat
+	// that as inconclusive so we don't mistake a glitch for a definitive miss.
+	if !resp.Success {
+		return false, fmt.Errorf("checkcached: success=false")
+	}
+	// data is either [{hash,...}] for cached hashes or a list of bare hash
+	// strings; an empty list means not cached.
+	var objs []struct{ Hash string `json:"hash"` }
+	if err := json.Unmarshal(resp.Data, &objs); err == nil {
+		for _, o := range objs {
+			if strings.EqualFold(o.Hash, infoHash) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	var strs []string
+	if err := json.Unmarshal(resp.Data, &strs); err == nil {
+		for _, s := range strs {
+			if strings.EqualFold(s, infoHash) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
