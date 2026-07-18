@@ -1094,7 +1094,10 @@ func (s *Service) queueViaTorrent(req models.ContentQueueRequest, xboxConn *mode
 
 	s.App.LogStatus(queueKey, "Processing", fmt.Sprintf("Torrenting %s…", req.FileName))
 	entry := models.MinervaEntry{FileName: req.FileName, PathParam: req.SourceURL}
-	archivePath, err := s.Torrent.DownloadViaTorrent("dlc", torrentDir, queueKey, entry)
+	// ponytail: Debrid acceleration is wired for the main game-download pipeline
+	// only; this DLC path (small files, no download.Service here) uses P2P. Pass a
+	// debridTorrentDownloader here if DLC acceleration is ever needed.
+	archivePath, err := s.Torrent.DownloadViaTorrent("dlc", torrentDir, queueKey, entry, nil)
 	if err != nil {
 		s.App.LogStatus(queueKey, "Error", fmt.Sprintf("Torrent: %v", err))
 		return err

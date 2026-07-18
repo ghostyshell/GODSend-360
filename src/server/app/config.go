@@ -3,6 +3,7 @@ package app
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -395,15 +396,54 @@ func (a *App) LoadIAAuthFromEnv() {
 	a.Logf("[INFO] Internet Archive: chunked HTTP downloads (max %d parallel range requests)", a.IADownloadMaxParallel)
 }
 
-// ApplyArchiveOrgHeaders adds session/auth headers for archive.org HTTP requests.
-func (a *App) ApplyArchiveOrgHeaders(req *http.Request) {
-	if a.IACookieHeader != "" {
-		req.Header.Set("Cookie", a.IACookieHeader)
+// LoadDebridFromEnv reads optional Real-Debrid / TorBox credentials. Only the
+// selected provider's key is used; downloads fall back to the native torrent/IA
+// source whenever Debrid is unset, unconfigured, or not ready in time.
+func (a *App) LoadDebridFromEnv() {
+	a.DebridProvider = strings.ToLower(strings.TrimSpace(os.Getenv("GODSEND_DEBRID_PROVIDER")))
+	a.RealDebridKey = strings.TrimSpace(os.Getenv("GODSEND_REALDEBRID_KEY"))
+	a.TorBoxKey = strings.TrimSpace(os.Getenv("GODSEND_TORBOX_KEY"))
+	switch a.DebridProvider {
+	case "realdebrid":
+		if a.RealDebridKey != "" {
+			a.Logf("[INFO] Debrid: Real-Debrid active (key %d chars) - torrents accelerated", len(a.RealDebridKey))
+		} else {
+			a.Logf("[WARN] Debrid: provider is real-debrid but no key set - using native downloads")
+		}
+	case "torbox":
+		if a.TorBoxKey != "" {
+			a.Logf("[INFO] Debrid: TorBox active (key %d chars) - torrents + IA accelerated", len(a.TorBoxKey))
+		} else {
+			a.Logf("[WARN] Debrid: provider is torbox but no key set - using native downloads")
+		}
 	}
-	if a.IAAuthorizationHeader != "" {
-		req.Header.Set("Authorization", a.IAAuthorizationHeader)
+}
+
+// ApplyArchiveOrgHeaders adds session/auth headers for archive.org HTTP requests.
+// The IA session Cookie / Authorization are ONLY attached to archive.org hosts so
+// they never leak to a Debrid CDN or other third party when the chunked downloader
+// is reused for non-IA URLs. The generic User-Agent is always safe to set.
+func (a *App) ApplyArchiveOrgHeaders(req *http.Request) {
+	// Label-suffix match so the IA Cookie/Authorization can't leak to a lookalike
+	// host (e.g. evilarchive.org or archive.org.attacker.com).
+	if req.URL != nil && isArchiveOrgHost(req.URL.Host) {
+		if a.IACookieHeader != "" {
+			req.Header.Set("Cookie", a.IACookieHeader)
+		}
+		if a.IAAuthorizationHeader != "" {
+			req.Header.Set("Authorization", a.IAAuthorizationHeader)
+		}
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0")
+}
+
+func isArchiveOrgHost(host string) bool {
+	// strip port
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.ToLower(host)
+	return host == "archive.org" || strings.HasSuffix(host, ".archive.org")
 }
 
 // CleanupEmptyReadyDirs removes any subdirectory under Ready/ that contains no files.

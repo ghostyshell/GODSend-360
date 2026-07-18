@@ -41,7 +41,7 @@ func (s *Service) ProcessMinervaGame(gameName string, entry models.MinervaEntry,
 	defer os.RemoveAll(torrentDir)
 	s.App.Logf("Minerva Torrent: %s → %s", gameName, entry.FileName)
 	s.App.LogStatus(gameName, "Processing", "Starting Minerva torrent download...")
-	archivePath, err := s.Torrent.DownloadViaTorrent(platform, torrentDir, gameName, entry)
+	archivePath, err := s.Torrent.DownloadViaTorrent(platform, torrentDir, gameName, entry, s.debridTorrentDownloader(gameName))
 	if err != nil {
 		s.App.Logf("ERROR [%s]: Minerva torrent failed: %v", gameName, err)
 		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Minerva torrent: %v", err))
@@ -155,7 +155,7 @@ func (s *Service) ProcessMinervaGenericGame(gameName string, entry models.Minerv
 	os.MkdirAll(torrentDir, 0755)
 	defer os.RemoveAll(torrentDir)
 	s.App.LogStatus(gameName, "Processing", "Starting Minerva torrent download...")
-	archivePath, err := s.Torrent.DownloadViaTorrent("games", torrentDir, gameName, entry)
+	archivePath, err := s.Torrent.DownloadViaTorrent("games", torrentDir, gameName, entry, s.debridTorrentDownloader(gameName))
 	if err != nil {
 		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Minerva torrent: %v", err))
 		return
@@ -251,7 +251,7 @@ func (s *Service) ProcessMinervaDigital(gameName string, entry models.MinervaEnt
 	os.MkdirAll(torrentDir, 0755)
 	defer os.RemoveAll(torrentDir)
 	s.App.LogStatus(gameName, "Processing", "Starting Minerva torrent download...")
-	archivePath, err := s.Torrent.DownloadViaTorrent(platform, torrentDir, gameName, entry)
+	archivePath, err := s.Torrent.DownloadViaTorrent(platform, torrentDir, gameName, entry, s.debridTorrentDownloader(gameName))
 	if err != nil {
 		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Minerva torrent: %v", err))
 		return

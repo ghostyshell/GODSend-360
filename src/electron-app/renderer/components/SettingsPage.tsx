@@ -110,6 +110,18 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   const [xboxSaveLoading, setXboxSaveLoading]   = useState(false);
   const [ftpUploadLoading, setFtpUploadLoading] = useState(false);
   const [ftpTestLoading, setFtpTestLoading]     = useState(false);
+
+  // Debrid (Real-Debrid / TorBox) acceleration. Keys are secret, so we only keep
+  // a "key set on the server" flag plus a fresh-typed value that is cleared on
+  // save (mirrors the IA-password pattern).
+  const [debridProvider, setDebridProvider]           = useState<"none" | "realdebrid" | "torbox">("none");
+  const [debridHasRealdebrid, setDebridHasRealdebrid] = useState(false);
+  const [debridHasTorbox, setDebridHasTorbox]         = useState(false);
+  const [realdebridKey, setRealdebridKey]             = useState("");
+  const [torboxKey, setTorboxKey]                     = useState("");
+  const [debridSaving, setDebridSaving]               = useState(false);
+  const [debridTesting, setDebridTesting]             = useState(false);
+  const [debridStatus, setDebridStatus]               = useState("");
   const [ftpScanLoading, setFtpScanLoading]     = useState(false);
   const [cacheLoading, setCacheLoading]         = useState(false);
   const [exportDbLoading, setExportDbLoading]   = useState(false);
@@ -171,6 +183,11 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
       setDefaultDrive(await window.godsendApi.getDefaultXboxDrive());
       setCustomGodPathState(await window.godsendApi.getCustomGodPath());
       setCustomXexPathState(await window.godsendApi.getCustomXexPath());
+
+      const debrid = await window.godsendApi.getDebrid();
+      setDebridProvider(debrid.provider);
+      setDebridHasRealdebrid(Boolean(debrid.hasRealdebrid));
+      setDebridHasTorbox(Boolean(debrid.hasTorbox));
     }
     load();
 
@@ -360,6 +377,54 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
     await window.godsendApi.logoutInternetArchive();
     applyIAStatus(await window.godsendApi.getArchiveAuth());
     onAppendLine("[INFO] Internet Archive: signed out; backend restarted.");
+  }
+
+  // Save the debrid provider + any freshly-typed keys. Only send a key field
+  // when the user typed a non-empty value, so an untouched field never clobbers
+  // the secret already stored on disk.
+  async function handleDebridSave() {
+    setDebridSaving(true);
+    setDebridStatus("Saving…");
+    try {
+      const payload: { provider: string; realdebridKey?: string; torboxKey?: string } = {
+        provider: debridProvider,
+      };
+      if (realdebridKey.trim()) payload.realdebridKey = realdebridKey.trim();
+      if (torboxKey.trim()) payload.torboxKey = torboxKey.trim();
+      const r = await window.godsendApi.setDebrid(payload);
+      setRealdebridKey("");
+      setTorboxKey("");
+      setDebridHasRealdebrid(Boolean(r.hasRealdebrid));
+      setDebridHasTorbox(Boolean(r.hasTorbox));
+      setDebridStatus("Saved. Backend restarted so new downloads use it.");
+      onAppendLine("[INFO] Debrid settings saved; backend restarted if running.");
+    } catch (err: any) {
+      setDebridStatus(`Failed to save: ${err.message || "unknown error"}`);
+    } finally {
+      setDebridSaving(false);
+    }
+  }
+
+  async function handleDebridTest() {
+    if (debridProvider === "none") {
+      setDebridStatus("Select a provider first.");
+      return;
+    }
+    setDebridTesting(true);
+    setDebridStatus("Testing key…");
+    try {
+      const key = debridProvider === "realdebrid" ? realdebridKey.trim() : torboxKey.trim();
+      const r = await window.godsendApi.testDebrid({ provider: debridProvider, key });
+      setDebridStatus(
+        r.ok
+          ? `Key valid (account: ${r.username || "ok"}).`
+          : `Key test failed: ${r.error || "unknown error"}`
+      );
+    } catch (err: any) {
+      setDebridStatus(`Key test failed: ${err.message || "unknown error"}`);
+    } finally {
+      setDebridTesting(false);
+    }
   }
 
   async function handleRomPathSave() {
@@ -1059,6 +1124,79 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
             <Hint>
               Uses archive.org&rsquo;s official login API. Session cookies are saved
               locally; your password is never stored.
+            </Hint>
+          </Section>
+
+          {/* ── Debrid (faster downloads) ── */}
+          <Section title="Debrid (faster downloads)">
+            <div className="space-y-3">
+              {debridStatus && <Status className="mb-0">{debridStatus}</Status>}
+              <div>
+                <Label htmlFor="debridProvider">Active provider</Label>
+                <select
+                  id="debridProvider"
+                  className="mt-1 max-w-[480px] h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  value={debridProvider}
+                  onChange={(e) => setDebridProvider(e.target.value as "none" | "realdebrid" | "torbox")}
+                >
+                  <option value="none">None (use torrent / IA directly)</option>
+                  <option value="realdebrid">Real-Debrid</option>
+                  <option value="torbox">TorBox</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="realdebridKey">
+                  Real-Debrid API key{" "}
+                  {debridHasRealdebrid && !realdebridKey
+                    ? <span className="text-xs text-muted-foreground">(key set)</span>
+                    : null}
+                </Label>
+                <Input
+                  id="realdebridKey"
+                  type="password"
+                  className="mt-1 max-w-[480px]"
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder={debridHasRealdebrid ? "Enter a new key to replace the saved one" : "Paste your Real-Debrid private token"}
+                  value={realdebridKey}
+                  onChange={(e) => setRealdebridKey(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="torboxKey">
+                  TorBox API key{" "}
+                  {debridHasTorbox && !torboxKey
+                    ? <span className="text-xs text-muted-foreground">(key set)</span>
+                    : null}
+                </Label>
+                <Input
+                  id="torboxKey"
+                  type="password"
+                  className="mt-1 max-w-[480px]"
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder={debridHasTorbox ? "Enter a new key to replace the saved one" : "Paste your TorBox API key"}
+                  value={torboxKey}
+                  onChange={(e) => setTorboxKey(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={debridSaving} onClick={handleDebridSave}>
+                  Save &amp; restart backend
+                </Button>
+                <Button disabled={debridTesting || debridProvider === "none"} onClick={handleDebridTest}>
+                  Test key
+                </Button>
+              </div>
+            </div>
+            <Hint>
+              Before falling back to the native torrent or Internet Archive source,
+              downloads first try to cache on the active provider and wait up to a
+              minute for a direct HTTP link (much faster). Torrents work on both
+              Real-Debrid and TorBox; Internet Archive downloads are accelerated
+              only via TorBox. Only one provider is active at a time. Keys are
+              stored locally in the app config (like the IA cookie) and passed to
+              the backend as env vars; they are never logged.
             </Hint>
           </Section>
 

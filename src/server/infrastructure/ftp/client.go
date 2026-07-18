@@ -189,6 +189,30 @@ func (s *Service) UploadFile(conn *goftp.ServerConn, localPath, remotePath, game
 	}
 	now := time.Now()
 	fileMB := float64(info.Size()) / 1048576
+
+	// Aurora's FtpDll does NOT overwrite: STOR of an already-existing remote
+	// filename returns "550 Could not create file". An interrupted GOD transfer
+	// leaves already-uploaded files behind on the console, so every retry
+	// re-STORs from file 1, hits 550 on the first existing file, and the whole
+	// game loops forever (5-min backoff, infinite). Reconcile with the remote
+	// before STOR: equal size -> already done, skip it (count toward progress);
+	// exists but size differs -> partial leftover, delete so STOR recreates;
+	// absent (FileSize errors) -> just store. ponytail: file-granular resume;
+	// byte-granular resume via StorFrom is the upgrade path if re-uploading a
+	// large partial file from byte 0 ever becomes costly.
+	if remoteSize, szErr := conn.FileSize(remotePath); szErr == nil {
+		if remoteSize == info.Size() {
+			*transferred += info.Size()
+			s.App.Logf("FTP [%d/%d] Skip (already uploaded): %s (%.1f MB)", fileNum, totalFiles, filepath.Base(localPath), fileMB)
+			return nil
+		}
+		s.App.Logf("FTP [%d/%d] Replacing partial (%d remote / %.1f MB local): %s",
+			fileNum, totalFiles, remoteSize, fileMB, filepath.Base(localPath))
+		if delErr := conn.Delete(remotePath); delErr != nil {
+			return fmt.Errorf("delete partial %s: %v", filepath.Base(localPath), delErr)
+		}
+	}
+
 	s.App.Logf("FTP [%d/%d] Starting: %s (%.1f MB)", fileNum, totalFiles, filepath.Base(localPath), fileMB)
 	rdr := &ftpProgressReader{
 		reader:       f,

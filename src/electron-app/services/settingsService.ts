@@ -12,6 +12,9 @@ export interface GodsendConfig {
   profileLabels?: Record<string, string>;
   iaCookie?: string;
   iaAuthorization?: string;
+  debridProvider?: "none" | "realdebrid" | "torbox";
+  realdebridKey?: string;
+  torboxKey?: string;
   serverPort?: number | string;
   iaEmail?: string;
   iaScreenname?: string;
@@ -42,7 +45,11 @@ export function readConfig(): GodsendConfig {
 export function writeConfig(partial: Partial<GodsendConfig>): GodsendConfig {
   const next = { ...readConfig(), ...partial };
   ensureDirectory(path.dirname(configFilePath()));
-  fs.writeFileSync(configFilePath(), JSON.stringify(next, null, 2), "utf8");
+  // 0o600: the config holds secrets (IA cookie, Debrid API keys) - owner-only.
+  // writeFileSync only applies `mode` on create, so chmodSync afterward also
+  // tightens perms on a pre-existing world-readable config from an older install.
+  fs.writeFileSync(configFilePath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+  try { fs.chmodSync(configFilePath(), 0o600); } catch { /* best-effort on odd FS */ }
   return next;
 }
 
@@ -86,6 +93,21 @@ export function getConfiguredIACookie(): string {
 
 export function getConfiguredIAAuthorization(): string {
   const v = readConfig().iaAuthorization;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+export function getConfiguredDebridProvider(): "none" | "realdebrid" | "torbox" {
+  const v = readConfig().debridProvider;
+  return v === "realdebrid" || v === "torbox" ? v : "none";
+}
+
+export function getConfiguredRealDebridKey(): string {
+  const v = readConfig().realdebridKey;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+export function getConfiguredTorboxKey(): string {
+  const v = readConfig().torboxKey;
   return typeof v === "string" ? v.trim() : "";
 }
 
@@ -178,6 +200,12 @@ export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   if (iaCookie) env.GODSEND_IA_COOKIE = iaCookie;
   const iaAuth = getConfiguredIAAuthorization();
   if (iaAuth) env.GODSEND_IA_AUTHORIZATION = iaAuth;
+  const debridProvider = getConfiguredDebridProvider();
+  if (debridProvider !== "none") env.GODSEND_DEBRID_PROVIDER = debridProvider;
+  const rdKey = getConfiguredRealDebridKey();
+  if (rdKey) env.GODSEND_REALDEBRID_KEY = rdKey;
+  const tbKey = getConfiguredTorboxKey();
+  if (tbKey) env.GODSEND_TORBOX_KEY = tbKey;
   const romPath = getConfiguredROMPath();
   if (romPath) env.GODSEND_ROM_PATH = romPath;
   env.GODSEND_PORT = String(getConfiguredServerPort());
