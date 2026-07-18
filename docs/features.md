@@ -23,7 +23,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 ## Debrid acceleration (optional, Real-Debrid / TorBox)
 
 - **What:** Speed up torrent and Internet Archive downloads by caching them on a debrid provider and pulling the direct HTTP link (much faster than P2P).
-- **How:** Settings → **Debrid (faster downloads)** → pick one active provider (Real-Debrid or TorBox) and paste your API key → **Save & restart backend**. **Test key** validates the key against the provider's account endpoint.
+- **How:** Settings → **Debrid (faster downloads)** → pick one active provider (Real-Debrid or TorBox) and paste your API key → **Save & restart backend**. **Test key** validates the key against the provider's account endpoint. A **Clear saved key** button appears next to each stored key to remove it without pasting a replacement.
 - **What it covers:** Minerva torrents on both providers; Internet Archive downloads on TorBox only (Real-Debrid cannot proxy archive.org URLs). Only one provider is active at a time.
 - **How it works:** Before falling back to the native torrent/IA source, the backend caches the magnet/URL on the active provider and polls for up to 60s; once the direct link is ready it downloads over plain HTTP. On timeout or any error it falls back to the native source, so Debrid never fails a download. Keys are stored in the app config (like the IA cookie) and passed to the backend as `GODSEND_DEBRID_PROVIDER` / `GODSEND_REALDEBRID_KEY` / `GODSEND_TORBOX_KEY` env vars; they are never logged and the UI inputs are masked.
 

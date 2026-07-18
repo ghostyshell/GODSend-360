@@ -405,6 +405,28 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
     }
   }
 
+  // Clear a stored key by sending an empty string (config:set-debrid writes a
+  // string field verbatim, including ""). Used by the per-provider Clear
+  // buttons so a user can remove a saved key without pasting a replacement.
+  async function handleDebridClear(which: "realdebrid" | "torbox") {
+    setDebridStatus(`Clearing ${which === "realdebrid" ? "Real-Debrid" : "TorBox"} key…`);
+    try {
+      // Send the current provider too: config:set-debrid defaults a missing
+      // provider to "none", so omitting it would silently switch the active
+      // provider off alongside clearing the key.
+      const payload = which === "realdebrid"
+        ? { provider: debridProvider, realdebridKey: "" }
+        : { provider: debridProvider, torboxKey: "" };
+      const r = await window.godsendApi.setDebrid(payload as any);
+      setDebridHasRealdebrid(Boolean(r.hasRealdebrid));
+      setDebridHasTorbox(Boolean(r.hasTorbox));
+      setDebridStatus(`${which === "realdebrid" ? "Real-Debrid" : "TorBox"} key cleared. Backend restarted if running.`);
+      onAppendLine(`[INFO] Debrid: ${which} key cleared.`);
+    } catch (err: any) {
+      setDebridStatus(`Failed to clear: ${err.message || "unknown error"}`);
+    }
+  }
+
   async function handleDebridTest() {
     if (debridProvider === "none") {
       setDebridStatus("Select a provider first.");
@@ -1161,6 +1183,11 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
                   value={realdebridKey}
                   onChange={(e) => setRealdebridKey(e.target.value)}
                 />
+                {debridHasRealdebrid && (
+                  <Button variant="outline" className="mt-2" onClick={() => handleDebridClear("realdebrid")}>
+                    Clear saved Real-Debrid key
+                  </Button>
+                )}
               </div>
               <div>
                 <Label htmlFor="torboxKey">
@@ -1179,6 +1206,11 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
                   value={torboxKey}
                   onChange={(e) => setTorboxKey(e.target.value)}
                 />
+                {debridHasTorbox && (
+                  <Button variant="outline" className="mt-2" onClick={() => handleDebridClear("torbox")}>
+                    Clear saved TorBox key
+                  </Button>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button disabled={debridSaving} onClick={handleDebridSave}>
