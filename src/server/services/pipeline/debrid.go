@@ -33,7 +33,16 @@ func (s *Service) debridTorrentDownloader(gameName string) torrent.DebridDownloa
 	if prov == nil {
 		return nil
 	}
-	return func(infoHashHex, displayName string, trackers []string, selectName, destPath string) (bool, error) {
+	return func(infoHashHex, displayName string, trackers []string, selectName, destPath string, collectionSize int64) (bool, error) {
+		// TorBox caches the whole torrent with no per-file selection, so a
+		// collection over its size cap is rejected server-side (after burning a
+		// createtorrent slot). Skip it up front and use P2P. Real-Debrid selects
+		// per file, so the cap doesn't apply there.
+		if prov.Name() == "TorBox" && collectionSize > debrid.TorBoxMaxTorrentSize {
+			s.App.Logf("[INFO] Debrid (TorBox): collection %.1f GB exceeds TorBox's %d GB torrent limit - using P2P",
+				float64(collectionSize)/1e9, debrid.TorBoxMaxTorrentSize/1e9)
+			return false, nil
+		}
 		magnet := debrid.Magnet(infoHashHex, displayName, trackers)
 		s.App.LogStatus(gameName, "Processing", fmt.Sprintf("Debrid (%s): caching torrent…", prov.Name()))
 		ctx, cancel := debridCtx()

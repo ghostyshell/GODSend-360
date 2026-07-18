@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Search, Loader2, WifiOff, Gamepad2, Download,
-  RefreshCw, ChevronDown, X, HardDrive,
+  RefreshCw, ChevronDown, X, HardDrive, Info,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
@@ -24,6 +24,13 @@ const SOURCES = [
   { id: "ia",      label: "Internet Archive" },
   { id: "local",   label: "Local Library" },
 ];
+
+// Minerva platform IDs whose collection torrent exceeds TorBox's ~200 GB
+// per-torrent cap. TorBox can't select per file, so it rejects the whole
+// collection and downloads here fall back to slower P2P. Verified Jul 2026
+// against Minerva v0.3; "games" (Non-Redump Xbox 360, under 200 GB) is the
+// only TorBox-cacheable Minerva collection.
+const TORBOX_UNCACHED_MINERVA = new Set(["xbox360", "xbox", "xbla", "digital", "dlc", "xblig"]);
 
 const METHODS   = [
   { id: "god",     label: "GOD",     desc: "ISO → Games on Demand" },
@@ -351,6 +358,9 @@ export default function BrowsePage({}: BrowsePageProps) {
 
   const [localCovers, setLocalCovers] = useState<Record<string, string | null | undefined>>({});
 
+  // Active debrid provider, to warn when TorBox can't cache a Minerva section.
+  const [debridProvider, setDebridProvider] = useState("none");
+
   const isLocal = source === "local";
 
   // Load default drive and FTP drive list once
@@ -362,6 +372,13 @@ export default function BrowsePage({}: BrowsePageProps) {
       if (r?.ok && Array.isArray(r.drives) && r.drives.length > 0) {
         setDrives(r.drives);
       }
+    }).catch(() => {});
+  }, []);
+
+  // Load the active debrid provider once, for the TorBox uncached-section banner.
+  useEffect(() => {
+    window.godsendApi.getDebrid().then((d: any) => {
+      if (d?.provider) setDebridProvider(d.provider);
     }).catch(() => {});
   }, []);
 
@@ -467,6 +484,19 @@ export default function BrowsePage({}: BrowsePageProps) {
               {p.label}
             </PillBtn>
           ))}
+        </div>
+      )}
+
+      {/* ── TorBox uncached-section notice (Minerva only) ── */}
+      {!isLocal && source === "minerva" && debridProvider === "torbox" &&
+        TORBOX_UNCACHED_MINERVA.has(platform) && (
+        <div className="flex items-start gap-2 shrink-0 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-[1.45] text-amber-300">
+          <Info className="h-4 w-4 mt-px shrink-0" />
+          <p>
+            Not cached on TorBox - this section's collection exceeds TorBox's
+            200 GB torrent limit, so downloads here use slower P2P. Real-Debrid
+            is recommended for this section (it caches per file).
+          </p>
         </div>
       )}
 
