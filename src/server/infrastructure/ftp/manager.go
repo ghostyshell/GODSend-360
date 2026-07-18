@@ -1,4 +1,4 @@
-// manager.go — FTP Manager: centralised FTP operations for Electron-side tools.
+// manager.go - FTP Manager: centralised FTP operations for Electron-side tools.
 //
 // Provides both synchronous utility operations (list, mkdir, delete, rename, ping,
 // drives, batch) and asynchronous trackable jobs (upload, copy, move-game,
@@ -167,7 +167,7 @@ func (m *Manager) Mkdir(ip, remotePath string) error {
 //
 // Aurora's FTP server replies "550 No such directory" to absolute-path
 // DELE / RMD, so we CWD to the parent first and delete the leaf relatively
-// — same workaround the LIST / RETR paths in ScanInstalledContent use.
+// - same workaround the LIST / RETR paths in ScanInstalledContent use.
 func (m *Manager) Delete(ip, remotePath string) error {
 	c, err := m.connect(ip)
 	if err != nil {
@@ -178,7 +178,7 @@ func (m *Manager) Delete(ip, remotePath string) error {
 	parent, leaf := splitFTPPath(remotePath)
 	if parent != "" {
 		if err := c.ChangeDir(parent); err != nil {
-			m.App.Logf("FTP DELETE: CWD %s failed: %v — falling back to absolute DELE", parent, err)
+			m.App.Logf("FTP DELETE: CWD %s failed: %v - falling back to absolute DELE", parent, err)
 		}
 	}
 	target := leaf
@@ -186,7 +186,7 @@ func (m *Manager) Delete(ip, remotePath string) error {
 		target = remotePath
 	}
 	if err := c.Delete(target); err != nil {
-		m.App.Logf("FTP DELETE: DELE %s failed (%v) — trying as directory", target, err)
+		m.App.Logf("FTP DELETE: DELE %s failed (%v) - trying as directory", target, err)
 		// Maybe it's a directory; recursion still uses absolute path for safety.
 		return m.removeDirRecursive(c, remotePath)
 	}
@@ -236,7 +236,7 @@ func (m *Manager) removeDirRecursive(c *goftp.ServerConn, remotePath string) err
 }
 
 // Rename renames (or moves) a remote file or directory.
-// Same Aurora-FTP absolute-path quirk as Delete — CWD to the source's parent
+// Same Aurora-FTP absolute-path quirk as Delete - CWD to the source's parent
 // then rename leaf → (relative or absolute) target.
 func (m *Manager) Rename(ip, from, to string) error {
 	c, err := m.connect(ip)
@@ -247,7 +247,7 @@ func (m *Manager) Rename(ip, from, to string) error {
 	fromParent, fromLeaf := splitFTPPath(from)
 	if fromParent != "" {
 		if err := c.ChangeDir(fromParent); err != nil {
-			m.App.Logf("FTP RENAME: CWD %s failed: %v — falling back to absolute RNFR", fromParent, err)
+			m.App.Logf("FTP RENAME: CWD %s failed: %v - falling back to absolute RNFR", fromParent, err)
 			return c.Rename(from, to)
 		}
 	}
@@ -726,7 +726,7 @@ func (m *Manager) uploadDirRecursive(c *goftp.ServerConn, localDir, remoteDir st
 }
 
 // Copy starts an async job that copies a remote file/directory to a new location
-// (download to temp + reupload — Xbox FTP has no server-side copy).
+// (download to temp + reupload - Xbox FTP has no server-side copy).
 func (m *Manager) Copy(ip, src, dst string, isDir bool) *ManagerJob {
 	id := m.nextJobID()
 	j := &ManagerJob{
@@ -762,7 +762,7 @@ func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 		j.Detail = "Scanning size…"
 		totalBytes := m.remoteDirSize(c, src)
 
-		// Phase 1: Download (0–50%)
+		// Phase 1: Download (0-50%)
 		j.Progress = 0
 		j.Detail = "Downloading from Xbox…"
 		localDir := filepath.Join(tmpDir, filepath.Base(src))
@@ -773,7 +773,7 @@ func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 			return
 		}
 
-		// Phase 2: Upload (50–100%)
+		// Phase 2: Upload (50-100%)
 		j.Progress = 50
 		j.Detail = "Uploading to Xbox…"
 		j.Speed = ""
@@ -783,12 +783,12 @@ func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 			return
 		}
 	} else {
-		// Single file — measure size for progress
+		// Single file - measure size for progress
 		j.Detail = "Scanning size…"
 		fileSize := m.remoteFileSize(c, src)
 		totalBytes := fileSize
 
-		// Phase 1: Download (0–50%)
+		// Phase 1: Download (0-50%)
 		j.Progress = 0
 		j.Detail = "Downloading " + filepath.Base(src)
 		localFile := filepath.Join(tmpDir, filepath.Base(src))
@@ -799,7 +799,7 @@ func (m *Manager) doCopy(ip, src, dst string, isDir bool, j *ManagerJob) {
 			return
 		}
 
-		// Phase 2: Upload (50–100%)
+		// Phase 2: Upload (50-100%)
 		j.Progress = 50
 		j.Detail = "Uploading " + filepath.Base(src)
 		j.Speed = ""
@@ -880,7 +880,7 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 		j.Progress = 100
 		j.Detail = "Done"
 		j.Speed = ""
-		m.App.Logf("FTP MOVE %s: rename succeeded — done", gameName)
+		m.App.Logf("FTP MOVE %s: rename succeeded - done", gameName)
 		return
 	}
 	m.App.Logf("FTP MOVE %s: rename not supported cross-drive, falling back to download+reupload", gameName)
@@ -895,7 +895,7 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 	os.MkdirAll(tmpDir, 0755)
 	defer os.RemoveAll(tmpDir)
 
-	// Phase 1: Download (progress 0–45%)
+	// Phase 1: Download (progress 0-45%)
 	j.Progress = 0
 	j.Detail = "Downloading from Xbox…"
 	localDir := filepath.Join(tmpDir, filepath.Base(srcPath))
@@ -922,7 +922,7 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 		return
 	}
 
-	// Phase 2: Upload (progress 45–90%)
+	// Phase 2: Upload (progress 45-90%)
 	j.Detail = "Uploading to Xbox…"
 	if err := m.uploadDirTracked(c, localDir, dstPath, j, 45, 90); err != nil {
 		j.State = JobError
@@ -931,7 +931,7 @@ func (m *Manager) doMoveGame(ip, gameName, srcPath, dstPath string, j *ManagerJo
 		return
 	}
 
-	// Phase 3: Cleanup (progress 90–100%)
+	// Phase 3: Cleanup (progress 90-100%)
 	j.Progress = 90
 	j.Detail = "Removing source files…"
 	j.Speed = ""

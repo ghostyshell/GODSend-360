@@ -1,4 +1,4 @@
-// minerva.go — Minerva Archive cache persistence, scraping, build, and lookup.
+// minerva.go - Minerva Archive cache persistence, scraping, build, and lookup.
 package cache
 
 import (
@@ -25,7 +25,7 @@ type MinervaService struct {
 }
 
 // ==========================================
-// MINERVA CACHE — DISK PERSISTENCE
+// MINERVA CACHE - DISK PERSISTENCE
 // ==========================================
 
 func (s *MinervaService) cacheFilePath(platform string) string {
@@ -67,7 +67,7 @@ func (s *MinervaService) LoadCacheFromDisk(platform string) bool {
 	// rebuilds them and surfaces previously-filtered entries (e.g. `(DLC)`
 	// tags in the No-Intro Digital collection).
 	if mc.Schema < app.MinervaCacheSchema {
-		s.App.Logf("MINERVA CACHE: %s schema=%d < %d — rebuilding", platform, mc.Schema, app.MinervaCacheSchema)
+		s.App.Logf("MINERVA CACHE: %s schema=%d < %d - rebuilding", platform, mc.Schema, app.MinervaCacheSchema)
 		return false
 	}
 
@@ -91,7 +91,7 @@ func (s *MinervaService) LoadCacheFromDisk(platform string) bool {
 }
 
 // ==========================================
-// MINERVA CACHE — BUILD STATE
+// MINERVA CACHE - BUILD STATE
 // ==========================================
 
 func (s *MinervaService) GetBuildState(platform string) *models.BuildState {
@@ -115,7 +115,7 @@ func (s *MinervaService) SetBuildState(platform, state string, loaded, total int
 }
 
 // ==========================================
-// MINERVA CACHE — SCRAPE + BUILD
+// MINERVA CACHE - SCRAPE + BUILD
 // ==========================================
 
 // ScrapeMinervaPage fetches one Minerva browse URL and returns file entries.
@@ -231,7 +231,7 @@ func (s *MinervaService) Build(platform string) {
 	}
 	sort.Strings(allGames)
 	s.SetBuildState(platform, "ready", 1, 1)
-	s.App.Logf("MINERVA CACHE: %s complete — %d games", platform, len(allGames))
+	s.App.Logf("MINERVA CACHE: %s complete - %d games", platform, len(allGames))
 
 	s.App.MinervaGameCacheMu.Lock()
 	s.App.MinervaGameCache[platform] = allGames
@@ -247,7 +247,7 @@ func (s *MinervaService) Build(platform string) {
 }
 
 // ==========================================
-// MINERVA CACHE — LOOKUP
+// MINERVA CACHE - LOOKUP
 // ==========================================
 
 // FindEntry looks up a game in the Minerva cache.

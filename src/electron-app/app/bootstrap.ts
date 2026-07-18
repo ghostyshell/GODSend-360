@@ -17,7 +17,7 @@ function installCrashLogging(): void {
     try {
       appendAppEvent("FATAL", `${kind}: ${stack}`);
     } catch {
-      /* logging itself failed — fall through to dialog */
+      /* logging itself failed - fall through to dialog */
     }
   };
 
@@ -155,7 +155,7 @@ export function bootstrapApp(): void {
   });
 
   app.on("window-all-closed", () => {
-    // Intentionally do nothing — prevent default quit so tray keeps the app alive.
+    // Intentionally do nothing - prevent default quit so tray keeps the app alive.
   });
 
   registerIpcHandlers();

@@ -96,7 +96,7 @@ console.log(`\n[build-all] node ${path.relative(root, syncIcon)}`);
     npmRun("build:nsis:x64");
     npmRun("build:portable");
   } else {
-    console.warn(`\n[build-all] Unsupported platform "${platform}" — no Electron target defined.`);
+    console.warn(`\n[build-all] Unsupported platform "${platform}" - no Electron target defined.`);
   }
 }
 

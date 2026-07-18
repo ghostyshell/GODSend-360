@@ -1,4 +1,4 @@
-// handlers_saves.go — HTTP handlers for save-game management.
+// handlers_saves.go - HTTP handlers for save-game management.
 package http
 
 import (
@@ -239,7 +239,7 @@ func (d *Deps) handleSavesCopy(w http.ResponseWriter, r *http.Request) {
 		var err error
 		kv, err = svc.TryFindKeyVaultOnConsole(req.IP)
 		if err != nil {
-			d.App.Logf("SAVES: keyvault not found: %v — copying raw", err)
+			d.App.Logf("SAVES: keyvault not found: %v - copying raw", err)
 			// Continue without keyvault; raw copy may still work same-console
 		}
 	}

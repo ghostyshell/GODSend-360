@@ -48,7 +48,7 @@ export function register(ipcMain: IpcMain): void {
     }
   });
 
-  // ── FTP Test (verbose connection diagnostics — proxied to Go backend) ─────
+  // ── FTP Test (verbose connection diagnostics - proxied to Go backend) ─────
   ipcMain.handle("xbox:ftp-test", async (_event, payload) => {
     const p       = payload || {};
     const xboxIp  = (typeof p.xboxIp  === "string" ? p.xboxIp.trim()  : "") || getConfiguredXboxIP();
@@ -75,7 +75,7 @@ export function register(ipcMain: IpcMain): void {
     }
   });
 
-  // ── FTP Port Scanner (raw TCP — stays Electron-side, no FTP library needed) ─
+  // ── FTP Port Scanner (raw TCP - stays Electron-side, no FTP library needed) ─
   ipcMain.handle("xbox:ftp-scan", async (_event, subnet: string) => {
     if (typeof subnet !== "string" || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(subnet.trim())) {
       return { ok: false, error: "Invalid subnet. Use format like 192.168.1" };
@@ -127,7 +127,7 @@ export function register(ipcMain: IpcMain): void {
     return { ok: true, hosts: found };
   });
 
-  // ── Upload Aurora scripts (proxied to Go backend — async tracked) ──────────
+  // ── Upload Aurora scripts (proxied to Go backend - async tracked) ──────────
   ipcMain.handle("xbox:ftp-scripts", async (_event, payload) => {
     const p           = payload || {};
     const xboxIp      = (typeof p.xboxIp        === "string" ? p.xboxIp.trim()        : "") || getConfiguredXboxIP();
@@ -250,7 +250,7 @@ export function register(ipcMain: IpcMain): void {
                 addGame(id, gameDirs[gi].name, `/Hdd1/Games/${gameDirs[gi].name}`);
               }
             } else {
-              // Content dir unreadable — add with fallback name
+              // Content dir unreadable - add with fallback name
               addGame(
                 gameDirs[gi].name.toUpperCase().padEnd(8, "0").slice(0, 8),
                 gameDirs[gi].name,

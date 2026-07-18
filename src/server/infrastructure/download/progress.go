@@ -1,4 +1,4 @@
-// progress.go — ProgressWriter for tracking download progress.
+// progress.go - ProgressWriter for tracking download progress.
 package download
 
 import (
@@ -13,8 +13,8 @@ type ProgressWriter struct {
 	Total       int64
 	Written     int64
 	GameName    string
-	LastLog     time.Time // logStatus cadence (500 ms — feeds Lua progress)
-	LastConsole time.Time // logf cadence (15 s — feeds Electron terminal)
+	LastLog     time.Time // logStatus cadence (500 ms - feeds Lua progress)
+	LastConsole time.Time // logf cadence (15 s - feeds Electron terminal)
 	StartTime   time.Time
 	App         *app.App
 }

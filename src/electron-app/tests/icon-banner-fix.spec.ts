@@ -180,6 +180,6 @@ test("icon/banner fix demo with live Xbox", async () => {
   expect(iconVisible, "Icon slot should be visible").toBe(true);
   expect(bannerVisible, "Banner slot should be visible").toBe(true);
 
-  console.log("[test] ✅ Fix verified — both Icon and Banner slots present!");
+  console.log("[test] ✅ Fix verified - both Icon and Banner slots present!");
   await electronApp.close();
 });

@@ -1,8 +1,8 @@
-// Package utils — Pure-Go ISO→GOD converter and archive helpers (iso2god.go).
+// Package utils - Pure-Go ISO→GOD converter and archive helpers (iso2god.go).
 //
 // Replaces the bundled iso2god.exe and 7z.exe binaries entirely.
 // Xbox 360/Original disc access uses the game-partition offset (XSF/XGD1/XGD2/XGD3)
-// and XDVDFS (2048-byte sectors) — the same on-disc layout tools like
+// and XDVDFS (2048-byte sectors) - the same on-disc layout tools like
 // [XboxDev/extract-xiso](https://github.com/XboxDev/extract-xiso) read for extract/create;
 // there is no separate “raw ISO” byte read path for console game data.
 //
@@ -21,10 +21,10 @@
 //   Original Xbox: 00005000, folder {TitleID}.data, CON name = TitleID.
 //
 // Archive helpers replace all exec.Command("7z …") calls:
-//   extractArchive   — read ZIP / 7z / RAR archives
-//   extractISO       — extract first .iso from an archive
-//   createZipFromDir — pack a directory into a store-only ZIP
-//   compressROMFile  — pack a single file into a deflated ZIP
+//   extractArchive   - read ZIP / 7z / RAR archives
+//   extractISO       - extract first .iso from an archive
+//   createZipFromDir - pack a directory into a store-only ZIP
+//   compressROMFile  - pack a single file into a deflated ZIP
 
 package utils
 
@@ -75,9 +75,9 @@ const (
 
 	// GOD / STFS constants
 	godBlockSz       = 4096                        // bytes per data block
-	godBlocksPerPart = 41412                       // 0xA1C4 – data blocks per partition
-	godBlocksPerSP   = 204                         // 0xCC   – data blocks per subpart
-	godSPsPerPart    = 203                         // 0xCB   – subparts per partition
+	godBlocksPerPart = 41412                       // 0xA1C4 - data blocks per partition
+	godBlocksPerSP   = 204                         // 0xCC   - data blocks per subpart
+	godSPsPerPart    = 203                         // 0xCB   - subparts per partition
 	godSPSz          = godBlocksPerSP * godBlockSz // subpart data size (835 584 B)
 	godHashListSz    = 4096                        // hash-list block is always 4 096 B
 	godMaxHashes     = 204                         // max SHA-1 entries per hash list
@@ -256,7 +256,7 @@ func detectXGDPartition(f *os.File) (uint64, error) {
 			return xgd.offset, nil
 		}
 	}
-	return 0, fmt.Errorf("XDVDFS magic not found — not a valid Xbox/Xbox 360 ISO")
+	return 0, fmt.Errorf("XDVDFS magic not found - not a valid Xbox/Xbox 360 ISO")
 }
 
 func readXDVDFSVolDesc(f *os.File, partOff uint64) (rootSector, rootSize uint32, err error) {
@@ -621,9 +621,9 @@ func writeConHeader(path string, info *TitleExecInfo, blockCount, partCount uint
 	// Content type  0x0344 (4 B, BE)
 	binary.BigEndian.PutUint32(buf[0x0344:], contentType)
 
-	// Execution info  0x0354–0x0367
+	// Execution info  0x0354-0x0367
 	// Note: version (0x0358) and baseVersion (0x035C) are intentionally left as
-	// zeroed template values — iso2god-rs does not write these from the XEX2 header.
+	// zeroed template values - iso2god-rs does not write these from the XEX2 header.
 	binary.BigEndian.PutUint32(buf[0x0354:], info.MediaID)
 	binary.BigEndian.PutUint32(buf[0x0360:], info.TitleID)
 	buf[0x0364] = info.Platform
@@ -639,7 +639,7 @@ func writeConHeader(path string, info *TitleExecInfo, blockCount, partCount uint
 	buf[0x0393] = byte(blockCount >> 8)
 	buf[0x0394] = byte(blockCount)
 
-	// Blocks not allocated  0x0395 (16-bit BE) — always 0
+	// Blocks not allocated  0x0395 (16-bit BE) - always 0
 	buf[0x0395] = 0
 	buf[0x0396] = 0
 
@@ -659,7 +659,7 @@ func writeConHeader(path string, info *TitleExecInfo, blockCount, partCount uint
 	}
 
 	// Thumbnail: iso2god-rs only touches 0x1712+ when with_game_icon(Some) is used; otherwise
-	// empty_live.bin values remain — do not zero here (would diverge from RS).
+	// empty_live.bin values remain - do not zero here (would diverge from RS).
 
 	// Finalise: match iso2god-rs ConHeaderBuilder::finalize (then SHA-1 over 0x0344..0x0b000).
 	buf[0x035B] = 0
@@ -988,7 +988,7 @@ func CreateZipFromDir(dir, outPath string) error {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Disc-info probe  (lightweight — no conversion, just reads XEX metadata)
+// Disc-info probe  (lightweight - no conversion, just reads XEX metadata)
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ProbeISODiscInfo opens an ISO, reads the XDVDFS, and returns TitleExecInfo
@@ -1015,7 +1015,7 @@ func ProbeISODiscInfo(isoPath string) (*TitleExecInfo, error) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // extractXDVDFSContentToDir extracts the secondary-disc content files from an
-// ISO image into destDir (flat — no enclosing subfolder).
+// ISO image into destDir (flat - no enclosing subfolder).
 //
 // It navigates: content/0000000000000000/{TitleID|FFED2000}/{00000002|first-dir}/
 // and copies every file recursively into destDir.
@@ -1204,7 +1204,7 @@ func findXEXRootDirRecursive(f *os.File, partOff uint64, dirSec, dirSz uint32) (
 }
 
 // ExtractXEXFolderFromISO extracts the XDVDFS directory tree that contains default.xex
-// (Xbox 360) or default.xbe (Original Xbox) into destDir — equivalent to a loose XEX
+// (Xbox 360) or default.xbe (Original Xbox) into destDir - equivalent to a loose XEX
 // folder layout for FTP/HTTP install.
 func ExtractXEXFolderFromISO(isoPath, destDir string) error {
 	f, err := os.Open(isoPath)

@@ -1,4 +1,4 @@
-// handlers_rxea.go — RXEA asset encode/decode HTTP handlers.
+// handlers_rxea.go - RXEA asset encode/decode HTTP handlers.
 package http
 
 import (
@@ -19,7 +19,7 @@ import (
 //
 // POST /rxea/decode
 // Body: raw RXEA bytes (multipart or raw, Content-Type: application/octet-stream)
-// Query: ?slot=0..24  (optional — when absent, returns all non-empty slots)
+// Query: ?slot=0..24  (optional - when absent, returns all non-empty slots)
 //
 // Response JSON:
 //
@@ -96,7 +96,7 @@ func (d *Deps) handleRXEADecode(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 //
 // POST /rxea/encode
 // Body: raw image bytes (PNG, JPEG, or any Go-supported format)
-// Query: ?slot=0..24  (required — which asset slot this image occupies)
+// Query: ?slot=0..24  (required - which asset slot this image occupies)
 //
 // Response: raw RXEA bytes (Content-Type: application/octet-stream)
 func (d *Deps) handleRXEAEncode(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -112,7 +112,7 @@ func (d *Deps) handleRXEAEncode(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	}
 	slotIdx, perr := strconv.Atoi(slotStr)
 	if perr != nil || slotIdx < 0 || slotIdx >= 25 {
-		jsonError(w, stdhttp.StatusBadRequest, "invalid slot (0–24)")
+		jsonError(w, stdhttp.StatusBadRequest, "invalid slot (0-24)")
 		return
 	}
 
@@ -168,7 +168,7 @@ func (d *Deps) handleRXEAEncodeMulti(w stdhttp.ResponseWriter, r *stdhttp.Reques
 	slotImages := make([]utils.SlotImage, 0, len(req.Slots))
 	for _, s := range req.Slots {
 		if s.Slot < 0 || s.Slot >= 25 {
-			jsonError(w, stdhttp.StatusBadRequest, "invalid slot (0–24)")
+			jsonError(w, stdhttp.StatusBadRequest, "invalid slot (0-24)")
 			return
 		}
 		imgBytes, err := base64.StdEncoding.DecodeString(s.PNG)

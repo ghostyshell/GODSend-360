@@ -1,4 +1,4 @@
-// saves.go — Xbox 360 save game management service.
+// saves.go - Xbox 360 save game management service.
 package saves
 
 import (
@@ -231,7 +231,7 @@ func (s *Service) ListSaveFiles(ip, drive, titleID, profileID string) ([]SaveEnt
 		}
 	}
 
-	// No saves found — return empty slice, not error
+	// No saves found - return empty slice, not error
 	s.App.Logf("SAVES: no saves for %s/%s (tried %v)", profileID, titleID, candidates)
 	return saves, nil
 }
@@ -690,7 +690,7 @@ func (s *Service) CopySaveToProfile(ip, drive, titleID, srcProfile, dstProfile, 
 			con, err := ParseCONHeader(data)
 			if err != nil {
 				// Not a CON file? Copy raw.
-				s.App.Logf("SAVES: %s is not CON (%v) — copying raw", name, err)
+				s.App.Logf("SAVES: %s is not CON (%v) - copying raw", name, err)
 			} else {
 				oldPID := fmt.Sprintf("%016X", uint64(con.ProfileID[0])<<56|uint64(con.ProfileID[1])<<48|
 					uint64(con.ProfileID[2])<<40|uint64(con.ProfileID[3])<<32|
@@ -812,7 +812,7 @@ func (s *Service) BackupAllProfiles(ip, drive, localDir string) (*BackupAllResul
 	}
 
 	// Drop any per-profile directory that wound up empty (no Account file +
-	// no saves) — leaving stray empty dirs is just clutter.
+	// no saves) - leaving stray empty dirs is just clutter.
 	if rootDir := filepath.Join(localDir, "Saves"); rootDir != "" {
 		if children, err := os.ReadDir(rootDir); err == nil {
 			for _, c := range children {
@@ -823,7 +823,7 @@ func (s *Service) BackupAllProfiles(ip, drive, localDir string) (*BackupAllResul
 		}
 	}
 
-	s.App.Logf("SAVES: backup-all done — %d profiles, %d saves, %d files (%d errors)",
+	s.App.Logf("SAVES: backup-all done - %d profiles, %d saves, %d files (%d errors)",
 		res.ProfilesProcessed, res.SavesBackedUp, res.FilesBackedUp, len(res.Errors))
 	return res, nil
 }

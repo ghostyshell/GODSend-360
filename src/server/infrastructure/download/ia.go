@@ -1,4 +1,4 @@
-// ia.go — Internet Archive HTTP downloads (single-stream and parallel range).
+// ia.go - Internet Archive HTTP downloads (single-stream and parallel range).
 package download
 
 import (
@@ -190,7 +190,7 @@ func (s *Service) iaDownloadRange(ctx context.Context, urlStr, ref string, out *
 	for attempt := 0; attempt <= app.IAChunkRetries; attempt++ {
 		if attempt > 0 {
 			wait := time.Duration(attempt) * app.IAChunkRetryBase
-			s.App.Logf("RETRY chunk bytes=%d-%d (attempt %d/%d): %v — waiting %s",
+			s.App.Logf("RETRY chunk bytes=%d-%d (attempt %d/%d): %v - waiting %s",
 				start, end, attempt, app.IAChunkRetries, lastErr, wait)
 			select {
 			case <-ctx.Done():
@@ -275,7 +275,7 @@ func (s *Service) IADownloadSingle(urlStr, dest, name, ref string) error {
 	for attempt := 0; attempt <= app.IAChunkRetries; attempt++ {
 		if attempt > 0 {
 			wait := time.Duration(attempt) * app.IAChunkRetryBase
-			s.App.Logf("RETRY download [%s] (attempt %d/%d): %v — waiting %s",
+			s.App.Logf("RETRY download [%s] (attempt %d/%d): %v - waiting %s",
 				name, attempt, app.IAChunkRetries, lastErr, wait)
 			time.Sleep(wait)
 		}

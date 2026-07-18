@@ -1,4 +1,4 @@
-// ia.go — Internet Archive cache persistence, build, and lookup.
+// ia.go - Internet Archive cache persistence, build, and lookup.
 package cache
 
 import (
@@ -22,7 +22,7 @@ type IAService struct {
 }
 
 // ==========================================
-// CACHE — DISK PERSISTENCE
+// CACHE - DISK PERSISTENCE
 // ==========================================
 
 func (s *IAService) cacheFilePath(platform string) string {
@@ -76,7 +76,7 @@ func (s *IAService) LoadCacheFromDisk(platform string) bool {
 }
 
 // ==========================================
-// CACHE — BUILD PROGRESS
+// CACHE - BUILD PROGRESS
 // ==========================================
 
 func (s *IAService) GetBuildState(platform string) *models.BuildState {
@@ -100,7 +100,7 @@ func (s *IAService) SetBuildState(platform, state string, loaded, total int32) {
 }
 
 // ==========================================
-// CACHE — BUILD (PARALLEL FETCH)
+// CACHE - BUILD (PARALLEL FETCH)
 // ==========================================
 
 // iaMetaResponse is the top-level shape of https://archive.org/metadata/<id>
@@ -211,7 +211,7 @@ func (s *IAService) Build(platform string) {
 
 	total := int32(len(colls))
 	s.SetBuildState(platform, "building", 0, total)
-	s.App.Logf("CACHE: Building %s — %d collections...", platform, total)
+	s.App.Logf("CACHE: Building %s - %d collections...", platform, total)
 
 	type result struct {
 		entries      []models.IAGameEntry
@@ -252,7 +252,7 @@ func (s *IAService) Build(platform string) {
 
 	sort.Strings(allGames)
 	s.SetBuildState(platform, "ready", total, total)
-	s.App.Logf("CACHE: %s complete — %d games", platform, len(allGames))
+	s.App.Logf("CACHE: %s complete - %d games", platform, len(allGames))
 
 	s.App.IAGameCacheMu.Lock()
 	s.App.IAGameCache[platform] = allGames
@@ -268,7 +268,7 @@ func (s *IAService) Build(platform string) {
 }
 
 // ==========================================
-// CACHE — LOOKUP
+// CACHE - LOOKUP
 // ==========================================
 
 // FindEntry returns the IAGameEntry for a game, searching cached data.

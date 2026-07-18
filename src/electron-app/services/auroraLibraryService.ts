@@ -302,7 +302,7 @@ export function xboxBuildGameNameMap(): Map<string, string> {
         const name    = String(item.title  || item.name   || item.Title    || item.Name || "").trim();
         if (titleId && name && /^[0-9A-F]{8}$/.test(titleId)) map.set(titleId, name);
       }
-    } catch { /* cache file absent or unparseable — skip */ }
+    } catch { /* cache file absent or unparseable - skip */ }
   }
   return map;
 }

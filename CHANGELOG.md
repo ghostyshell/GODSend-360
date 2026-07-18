@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.28] - 2026-07-18
+
+### Changed
+- **Repo-wide em/en dash sweep.** Replaced every U+2014 (em dash) and U+2013 (en dash) in tracked source with an ASCII hyphen, per the no-em-dashes rule: Go comments and `Logf` strings, Electron main-process TS, renderer TSX UI copy (incl. `&mdash;`/`&ndash;` HTML entities that JSX decodes to real dashes at render time), aurora-scripts Lua screen text, and the developer docs (AGENTS.md, CLAUDE.md). The two lines that document the rule itself (the `rg` quick-check examples that match the forbidden code points, in `CLAUDE.md` and `AGENTS.md`) are intentionally preserved. No behavior change; renderer bundle rebuilt clean.
+
 ## [2.12.27] - 2026-07-18
 
 ### Fixed

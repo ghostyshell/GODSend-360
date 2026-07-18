@@ -32,7 +32,7 @@ function IsoRow({ file, onRemove }: IsoRowProps) {
         <p className="text-[13px] text-foreground truncate" title={file.path}>{name}</p>
         {file.info && (
           <p className="text-[11px] text-muted-foreground">
-            {file.info.displayName || "Unknown"} — {file.info.titleId}
+            {file.info.displayName || "Unknown"} - {file.info.titleId}
           </p>
         )}
         {file.error && (

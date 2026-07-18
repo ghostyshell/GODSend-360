@@ -49,7 +49,7 @@ test("record video of icon/banner fix", async () => {
   await page.waitForSelector("[data-testid='game-card'], .game-card, [class*='cover']", {
     timeout: 30000,
   }).catch(() => {
-    console.log("Game cards not found (FTP may be offline) — continuing for UI demo");
+    console.log("Game cards not found (FTP may be offline) - continuing for UI demo");
   });
 
   // ── Step 3: Click first game card to open detail ──────────────────────────

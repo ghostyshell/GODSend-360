@@ -1,4 +1,4 @@
-// handlers_content.go — DLC / Title Update HTTP handlers.
+// handlers_content.go - DLC / Title Update HTTP handlers.
 package http
 
 import (

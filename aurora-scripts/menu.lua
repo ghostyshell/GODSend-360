@@ -31,7 +31,7 @@ local function parseQueueJSON(json)
     return entries
 end
 
--- State icon prefix for the popup list (ASCII only — no UTF-8).
+-- State icon prefix for the popup list (ASCII only - no UTF-8).
 local stateIcon = {
     Processing = " >> ",
     Ready      = " OK  ",
@@ -170,7 +170,7 @@ function showQueue()
             end
 
         elseif #entries == 0 and sel == 1 then
-            -- Placeholder row — refresh
+            -- Placeholder row - refresh
 
         elseif sel >= 1 and sel <= #entries and entries[sel] then
             local e = entries[sel]
@@ -208,7 +208,7 @@ function showQueue()
     end
 end
 
--- ── ROM browser (EdgeEmu — 62 systems) ───────────────────────────────────────
+-- ── ROM browser (EdgeEmu - 62 systems) ───────────────────────────────────────
 
 -- Ordered system list matching romSystems in the Go backend.
 local romSystemList = {
@@ -330,7 +330,7 @@ function browseROMLibrary(platform, sysName)
     if #bucketKeys == 0 then
         Script.ShowMessageBox("Empty Library",
             "No ROMs found for " .. sysName .. ".\n\n" ..
-            "The list may still be loading — try again shortly.", "OK")
+            "The list may still be loading - try again shortly.", "OK")
         return
     end
 
@@ -450,9 +450,9 @@ end
 local function pickInstallMethod(gameName, platform)
     if platform == "games" or platform == "xbox360" or platform == "xbox" or platform == "local" then
         local rec, notes = getDiscRecommendation(gameName)
-        local g = "GOD  — ISO to Games on Demand"
-        local d = "DLC  — Content folder (from ISO content tree)"
-        local x = "XEX  — Loose folder (default.xex in archive)"
+        local g = "GOD  - ISO to Games on Demand"
+        local d = "DLC  - Content folder (from ISO content tree)"
+        local x = "XEX  - Loose folder (default.xex in archive)"
         if rec == "god" then
             g = g .. "  [Recommended]"
         elseif rec == "content" then

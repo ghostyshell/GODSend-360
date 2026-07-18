@@ -284,12 +284,12 @@ export function register(ipcMain: IpcMain): void {
             }
           }
         }
-      } catch { /* ignore — file may not exist yet */ }
+      } catch { /* ignore - file may not exist yet */ }
 
       const allSlots = [...existingSlots, changedSlot];
       const rxeaBuf = await rxeaEncodeMulti(allSlots, port);
       if (!rxeaBuf || rxeaBuf.length < 2048) {
-        return { ok: false, error: "RXEA multi-slot encoding failed — backend returned no data." };
+        return { ok: false, error: "RXEA multi-slot encoding failed - backend returned no data." };
       }
 
       try {
@@ -312,7 +312,7 @@ export function register(ipcMain: IpcMain): void {
     // ── Single-slot upload (cover, background, screenshots)
     const rxeaBuf = await rxeaEncodeImage(imgBuf, slotInfo.slot, port);
     if (!rxeaBuf || rxeaBuf.length < 2048) {
-      return { ok: false, error: "RXEA encoding failed — backend returned no data." };
+      return { ok: false, error: "RXEA encoding failed - backend returned no data." };
     }
 
     const assetName  = `${slotInfo.prefix}${titleId}.asset`;
@@ -429,7 +429,7 @@ export function register(ipcMain: IpcMain): void {
         });
 
         if (!decoded || !Array.isArray(decoded.slots)) {
-          const goErr = decoded?.error ? ` — ${decoded.error}` : "";
+          const goErr = decoded?.error ? ` - ${decoded.error}` : "";
           addOutputLine(`[WARN] RXEA decode ${titleId}: Go server returned no slots for ${name}${goErr}.`);
           if (Array.isArray(decoded?.diags) && decoded.diags.length > 0) {
             for (const d of decoded.diags) {
@@ -445,7 +445,7 @@ export function register(ipcMain: IpcMain): void {
 
         if (Array.isArray(decoded.diags)) {
           for (const d of decoded.diags.filter((x: any) => x.error)) {
-            addOutputLine(`[DIAG] slot${d.slot} error: fmt=${d.gpu_fmt} w=${d.width} h=${d.height} — ${d.error}`);
+            addOutputLine(`[DIAG] slot${d.slot} error: fmt=${d.gpu_fmt} w=${d.width} h=${d.height} - ${d.error}`);
           }
         }
 
@@ -470,7 +470,7 @@ export function register(ipcMain: IpcMain): void {
         }
       }
 
-      addOutputLine(`[INFO] RXEA decode ${titleId}: done — ${allSlots.length} total slot(s) decoded.`);
+      addOutputLine(`[INFO] RXEA decode ${titleId}: done - ${allSlots.length} total slot(s) decoded.`);
 
       // ── Persist decoded PNGs to the visual cache so disk-only refreshes
       //    (including the quick library reload) can serve them without
@@ -538,7 +538,7 @@ export function register(ipcMain: IpcMain): void {
             addOutputLine(`[INFO] RXEA decode ${titleId}: persisted ${allSlots.length} slot(s) to visual cache.`);
           }
         } catch (cacheErr: any) {
-          // Cache persistence is best-effort — don't fail the decode result.
+          // Cache persistence is best-effort - don't fail the decode result.
           addOutputLine(`[WARN] RXEA decode ${titleId}: cache persist error: ${cacheErr.message || cacheErr}`);
         }
       }
@@ -558,7 +558,7 @@ export function register(ipcMain: IpcMain): void {
     const gameDataDir = typeof p.gameDataDir === "string" ? p.gameDataDir.trim() : "";
     const slotNum     = typeof p.slot === "number" ? p.slot : parseInt(p.slot, 10);
     if (!titleId || !gameDataDir || isNaN(slotNum) || slotNum < 0 || slotNum > 24) {
-      return { ok: false, error: "titleId, gameDataDir, and slot (0–24) required." };
+      return { ok: false, error: "titleId, gameDataDir, and slot (0-24) required." };
     }
 
     const xboxIp = getConfiguredXboxIP();
@@ -589,7 +589,7 @@ export function register(ipcMain: IpcMain): void {
     });
 
     if (!rxeaBuf || rxeaBuf.length < 2048) {
-      return { ok: false, error: "RXEA encoding failed — Go server returned no data." };
+      return { ok: false, error: "RXEA encoding failed - Go server returned no data." };
     }
 
     const prefixMap: Record<number, string> = { 0: "GL", 1: "GL", 2: "GC", 3: "GC", 4: "BK" };
@@ -632,7 +632,7 @@ export function register(ipcMain: IpcMain): void {
     const gameDataPath = `${auroraRoot}/Data/GameData/${gameDataDir}`;
 
     try {
-      // List GameData dir, list Media dir (filtered), download GameCoverInfo.bin — all in one batch
+      // List GameData dir, list Media dir (filtered), download GameCoverInfo.bin - all in one batch
       const results = await batchFtp(xboxIp, [
         { op: "list", path: gameDataPath },
         { op: "list", path: mediaDir },
@@ -747,7 +747,7 @@ export function register(ipcMain: IpcMain): void {
         if (!hasGL)         missing.push({ assetType: "icon",       slotKey: "icon" });
 
         addOutputLine(
-          `[INFO] Download covers: ${gameName} — missing: ${missing.map((m) => m.assetType).join(", ")}. Searching…`
+          `[INFO] Download covers: ${gameName} - missing: ${missing.map((m) => m.assetType).join(", ")}. Searching…`
         );
 
         let didUpload = false;
@@ -788,7 +788,7 @@ export function register(ipcMain: IpcMain): void {
 
             const rxeaBuf = await rxeaEncodeImage(imgBuf, slotInfo.slot, port);
             if (!rxeaBuf || rxeaBuf.length < 2048) {
-              addOutputLine(`[WARN] Download covers: ${titleId}/${assetType} — RXEA encode failed.`);
+              addOutputLine(`[WARN] Download covers: ${titleId}/${assetType} - RXEA encode failed.`);
               continue;
             }
 
@@ -810,7 +810,7 @@ export function register(ipcMain: IpcMain): void {
             }
           } catch (assetErr: any) {
             addOutputLine(
-              `[WARN] Download covers: ${titleId}/${assetType} — ${assetErr.message || assetErr}`
+              `[WARN] Download covers: ${titleId}/${assetType} - ${assetErr.message || assetErr}`
             );
           }
         }
@@ -818,7 +818,7 @@ export function register(ipcMain: IpcMain): void {
         if (didUpload) uploaded++;
         else skipped++;
       } catch (err: any) {
-        addOutputLine(`[ERROR] Download covers: ${gameName} — ${err.message || err}`);
+        addOutputLine(`[ERROR] Download covers: ${gameName} - ${err.message || err}`);
         errors++;
       }
 
@@ -829,7 +829,7 @@ export function register(ipcMain: IpcMain): void {
       processed: games.length, total: games.length, done: true,
     });
     addOutputLine(
-      `[INFO] Download covers: complete — ${uploaded} uploaded, ${skipped} skipped, ${errors} error(s).`
+      `[INFO] Download covers: complete - ${uploaded} uploaded, ${skipped} skipped, ${errors} error(s).`
     );
     appendAppEvent("AURORA_ASSET", `batch download-covers: ${uploaded} uploaded, ${skipped} skipped, ${errors} errors`);
 

@@ -1,4 +1,4 @@
-// client.go — FTP connection, upload, GOD/XEX/Content transfer, and pending FTP job queue.
+// client.go - FTP connection, upload, GOD/XEX/Content transfer, and pending FTP job queue.
 package ftp
 
 import (
@@ -35,7 +35,7 @@ type Service struct {
 	// channels (PASV port collisions); without this gate, parallel ops to the
 	// same console can stall indefinitely on List/Retr.
 	ipSems    sync.Map // map[string]chan struct{} (1-buffered = mutex)
-	connOwner sync.Map // map[*goftp.ServerConn]string — IP that owns each issued conn
+	connOwner sync.Map // map[*goftp.ServerConn]string - IP that owns each issued conn
 }
 
 func (s *Service) ipSem(ip string) chan struct{} {
@@ -58,7 +58,7 @@ func (s *Service) releaseIP(ip string) {
 // tryAcquireIP attempts to grab the per-IP semaphore with a bounded wait.
 // Returns true on success. Background ops (Aurora library refresh, cover
 // prefetch) use this so a long-running upload doesn't make them spin
-// forever — they just skip the tick and try again later.
+// forever - they just skip the tick and try again later.
 func (s *Service) tryAcquireIP(ip string, wait time.Duration) bool {
 	sem := s.ipSem(ip)
 	if wait <= 0 {
@@ -252,7 +252,7 @@ func (s *Service) UploadWithRetry(conn *goftp.ServerConn, xboxIP, localPath, rem
 	if err := s.UploadFile(conn, localPath, remotePath, gameName, transferred, totalSize, fileNum, totalFiles, overallStart, &hwm); err == nil {
 		return nil
 	}
-	s.App.Logf("FTP [%d/%d] Upload failed — reconnecting and retrying: %s", fileNum, totalFiles, filepath.Base(localPath))
+	s.App.Logf("FTP [%d/%d] Upload failed - reconnecting and retrying: %s", fileNum, totalFiles, filepath.Base(localPath))
 	// Release the broken conn's per-IP lock before reconnecting; otherwise
 	// ConnectToXboxFTP would deadlock waiting for the lock we still hold.
 	// The caller's outer `defer QuitConn(conn)` becomes a safe no-op.
@@ -362,7 +362,7 @@ func (s *Service) watchUploadStall(conn *goftp.ServerConn, rdr *ftpProgressReade
 				continue
 			}
 			if time.Since(lastChange) >= FTPUploadStallTimeout {
-				s.App.Logf("FTP STALL: no progress on %s for %s — closing conn to abort", fileName, FTPUploadStallTimeout)
+				s.App.Logf("FTP STALL: no progress on %s for %s - closing conn to abort", fileName, FTPUploadStallTimeout)
 				// Quit closes the underlying TCP socket. The blocked Stor
 				// goroutine will see EOF / write-on-closed and return an
 				// error; the per-IP semaphore is released by QuitConn at
@@ -615,14 +615,14 @@ func (s *Service) ExecutePendingFTPJob(job PendingFTPJob) error {
 func (s *Service) RetryFTPJobForever(job PendingFTPJob) {
 	backoff := 30 * time.Second
 	const maxBackoff = 5 * time.Minute
-	s.App.Logf("FTP PENDING: %s — will retry every %s", job.GameName, backoff)
-	s.App.LogStatus(job.GameName, "Pending FTP", "Xbox unreachable — will retry automatically when FTP comes back online")
+	s.App.Logf("FTP PENDING: %s - will retry every %s", job.GameName, backoff)
+	s.App.LogStatus(job.GameName, "Pending FTP", "Xbox unreachable - will retry automatically when FTP comes back online")
 
 	for {
 		time.Sleep(backoff)
 
 		if _, suppressed := s.App.SuppressedJobs.Load(job.GameName); suppressed {
-			s.App.Logf("FTP PENDING: %s — cancelled, removing", job.GameName)
+			s.App.Logf("FTP PENDING: %s - cancelled, removing", job.GameName)
 			s.DeletePendingFTPJob(job.ID)
 			os.RemoveAll(job.SourceDir)
 			if job.GameDir != "" {
@@ -635,7 +635,7 @@ func (s *Service) RetryFTPJobForever(job PendingFTPJob) {
 		s.App.LogStatus(job.GameName, "Processing", "FTP retry: reconnecting to Xbox...")
 		if err := s.ExecutePendingFTPJob(job); err != nil {
 			s.App.Logf("FTP PENDING: Retry failed for %s: %v", job.GameName, err)
-			s.App.LogStatus(job.GameName, "Pending FTP", fmt.Sprintf("FTP retry failed — will try again: %v", err))
+			s.App.LogStatus(job.GameName, "Pending FTP", fmt.Sprintf("FTP retry failed - will try again: %v", err))
 			backoff *= 2
 			if backoff > maxBackoff {
 				backoff = maxBackoff

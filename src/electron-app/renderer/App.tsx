@@ -174,7 +174,7 @@ export default function App() {
       setLibraryGames(r.games);
       setLibraryConnectedTo(r.connectedTo || "");
       setLibraryStatus(r.games.length === 0 ? "empty" : "ready");
-      // Don't clear covers/titleVisuals here — let push events update
+      // Don't clear covers/titleVisuals here - let push events update
       // them incrementally to avoid flashing empty covers on the grid.
       if (r.games.length > 0) {
         window.godsendApi

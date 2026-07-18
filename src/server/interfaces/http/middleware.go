@@ -1,4 +1,4 @@
-// middleware.go — HTTP middleware and JSON response helpers.
+// middleware.go - HTTP middleware and JSON response helpers.
 package http
 
 import (

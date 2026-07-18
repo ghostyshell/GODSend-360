@@ -1,4 +1,4 @@
-// pipeline.go — ISO processing pipelines (local and online Redump).
+// pipeline.go - ISO processing pipelines (local and online Redump).
 package pipeline
 
 import (
@@ -64,7 +64,7 @@ func (s *Service) ProcessLocalISO(gameName, isoPath string) {
 		folderName := safeName
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			if err := s.FTP.TransferXEX(xexDir, folderName, xboxConn, gameName); err != nil {
-				s.App.Logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+				s.App.Logf("FTP: initial XEX transfer failed for %s: %v - scheduling for retry", gameName, err)
 				job := ftp.PendingFTPJob{
 					ID:         helpers.SanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
 					GameName:   gameName,
@@ -192,14 +192,14 @@ func (s *Service) ProcessGame(gameName, platform string) {
 
 		xexFolder := helpers.FindXEXFolder(extDir)
 		if xexFolder == "" {
-			s.App.LogStatus(gameName, "Error", "No default.xex in archive — XEX needs a loose folder rip. Use GOD or DLC for ISO-only Redump releases.")
+			s.App.LogStatus(gameName, "Error", "No default.xex in archive - XEX needs a loose folder rip. Use GOD or DLC for ISO-only Redump releases.")
 			return
 		}
 		folderName := filepath.Base(xexFolder)
 		s.App.LogStatus(gameName, "Processing", fmt.Sprintf("XEX folder: %s", folderName))
 		if xboxConn != nil && xboxConn.Mode == "ftp" {
 			if err := s.FTP.TransferXEX(xexFolder, folderName, xboxConn, gameName); err != nil {
-				s.App.Logf("FTP: initial XEX transfer failed for %s: %v — scheduling for retry", gameName, err)
+				s.App.Logf("FTP: initial XEX transfer failed for %s: %v - scheduling for retry", gameName, err)
 				job := ftp.PendingFTPJob{
 					ID:         helpers.SanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
 					GameName:   gameName,
@@ -275,7 +275,7 @@ func (s *Service) finalizeGOD(gameName, safeName, gameDir, godDir, titleID, medi
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
 		s.App.LogStatus(gameName, "Processing", "FTP Transfer starting...")
 		if err := s.FTP.TransferGame(godDir, xboxConn, gameName, titleID, mediaID, resolvedName); err != nil {
-			s.App.Logf("FTP: initial transfer failed for %s: %v — scheduling for retry", gameName, err)
+			s.App.Logf("FTP: initial transfer failed for %s: %v - scheduling for retry", gameName, err)
 			job := ftp.PendingFTPJob{
 				ID:           helpers.SanitizeFilename(gameName) + "_" + strconv.FormatInt(time.Now().UnixNano(), 36),
 				GameName:     gameName,

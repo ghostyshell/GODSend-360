@@ -1,4 +1,4 @@
-// config.go — configuration constants, collection maps, ROM systems, and setup/init helpers.
+// config.go - configuration constants, collection maps, ROM systems, and setup/init helpers.
 package app
 
 import (
@@ -147,8 +147,8 @@ var MinervaPageURLs = map[string]string{
 // one collection; we partition them by filename tag.
 //
 // `dlc` accepts both `(Addon)` (the bulk No-Intro tag) and `(DLC)` (the
-// newer alternative) so DLCs published under the `(DLC)` convention — about
-// 4,690 entries as of the v0.3 dataset — show up in the Store's DLC tab.
+// newer alternative) so DLCs published under the `(DLC)` convention - about
+// 4,690 entries as of the v0.3 dataset - show up in the Store's DLC tab.
 // `(Addon for XBLA)` is a rare variant for XBLA-bound add-ons.
 var MinervaTagFilters = map[string][]string{
 	"xbla":  {"(XBLA)"},
@@ -158,7 +158,7 @@ var MinervaTagFilters = map[string][]string{
 
 // MinervaCacheSchema is the cache-file schema version. Bump this whenever the
 // shape of MinervaPlatformCache changes or the filtering rules change in a
-// way that invalidates older caches — on-disk caches with a different schema
+// way that invalidates older caches - on-disk caches with a different schema
 // are rejected at load time and a rebuild is triggered.
 const MinervaCacheSchema = 2
 

@@ -8,7 +8,7 @@ import fs from "fs";
  * https://ghostyshell.github.io/GODSend-360/site/screens/<name>.png).
  *
  * Without a connected Xbox the Library / Queue buttons don't appear, so
- * those shots are skipped automatically — the rest still produces real,
+ * those shots are skipped automatically - the rest still produces real,
  * non-mocked UI captures.
  *
  * Run with:
@@ -116,7 +116,7 @@ test("capture site screenshots", async ({}, testInfo) => {
     await page.waitForTimeout(3000);
     await shoot(page, "08-xbox-library");
   } else {
-    console.log("Xbox not connected — skipping Library shot.");
+    console.log("Xbox not connected - skipping Library shot.");
   }
 
   await electronApp.close();

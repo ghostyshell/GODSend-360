@@ -1,5 +1,5 @@
 /**
- * BadAvatar USB setup — downloads BadStick release packages and extracts them
+ * BadAvatar USB setup - downloads BadStick release packages and extracts them
  * to a FAT32 USB drive. Package URLs mirror LxcyDr0p/BadStick releases.
  * @see https://github.com/LxcyDr0p/BadStick
  */

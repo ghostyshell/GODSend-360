@@ -293,7 +293,7 @@ async function main() {
     }
     await sleep(2000);
   } else {
-    console.warn("[video] ⚠️  Skipping result click — no results");
+    console.warn("[video] ⚠️  Skipping result click - no results");
   }
 
   // ── 13. PENDING state ──────────────────────────────────────────────────
@@ -355,11 +355,11 @@ async function main() {
   await sleep(2000);
 
   // ── 16. AFTER state: Banner survives ─────────────────────────────────
-  console.log("[video] Step 16: AFTER state — verifying Banner survived...");
+  console.log("[video] Step 16: AFTER state - verifying Banner survived...");
   if (await banner.isVisible().catch(() => false)) {
     await banner.scrollIntoViewIfNeeded();
     await sleep(3000);
-    console.log("[video] ✅ Banner still intact — fix verified!");
+    console.log("[video] ✅ Banner still intact - fix verified!");
   }
 
   // ── 17. End card ───────────────────────────────────────────────────────
