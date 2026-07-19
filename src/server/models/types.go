@@ -7,6 +7,12 @@ import "time"
 type IAGameEntry struct {
 	CollectionID string `json:"collection_id"`
 	FileName     string `json:"filename"` // original filename with extension
+	// AccessRestricted is true when the IA item's metadata sets
+	// access-restricted-item (collection "loggedin"), so its files only download
+	// with a logged-in archive.org cookie. TorBox's createwebdownload fetches the
+	// URL unauthenticated and gets a 403, so Debrid can't proxy these - skip it
+	// and use the direct IA path (which sends the user's cookie).
+	AccessRestricted bool `json:"access_restricted,omitempty"`
 }
 
 // PlatformCache is what gets persisted to disk per IA platform.
