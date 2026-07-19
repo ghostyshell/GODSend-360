@@ -9,6 +9,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.12.30] - 2026-07-19
+### Fixed
+- **TorBox: skip login-gated Internet Archive items instead of failing.** The app's IA collections (Xbox 360 / Xbox `microsoft_xbox*` and `XBOX_360_*` items) carry `access-restricted-item: true` (collection `loggedin`), so their files only download with a logged-in archive.org cookie. TorBox's `createwebdownload` fetches the URL unauthenticated and got a 403 from the archive.org CDN, surfacing as `[WARN] Debrid (TorBox): IA cache failed (createwebdownload: HTTP 500: …DOWNLOAD_SERVER_ERROR…) - using direct IA` on every IA download. `IAGameEntry` now carries an `AccessRestricted` flag parsed from the IA metadata (scalar string / bool / array forms, defensively); when it's set, `downloadIAOrDebrid` skips TorBox entirely and logs `[INFO] Debrid (TorBox): IA item is login-gated (access-restricted) - using direct IA`, then uses the cookie-authed direct IA path (which works). TorBox is still attempted for public IA items, and genuine TorBox failures on non-restricted items still warn. Existing on-disk IA caches built before 2.12.30 lack the flag and will skip this optimization (and warn) until the platform cache is rebuilt.
+
 ## [2.12.29] - 2026-07-18
 
 ### Changed

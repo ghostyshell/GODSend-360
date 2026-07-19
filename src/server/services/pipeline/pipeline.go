@@ -169,7 +169,7 @@ func (s *Service) ProcessGame(gameName, platform string) {
 
 	archivePath := filepath.Join(s.App.ToolsDir, "Temp", safeName+filepath.Ext(entry.FileName))
 	s.App.LogStatus(gameName, "Processing", "Downloading from Internet Archive...")
-	if err := s.downloadIAOrDebrid(downloadURL, archivePath, gameName); err != nil {
+	if err := s.downloadIAOrDebrid(downloadURL, archivePath, gameName, entry.AccessRestricted); err != nil {
 		s.App.Logf("ERROR [%s]: IA download failed: %v", gameName, err)
 		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Download: %v", err))
 		return

@@ -68,8 +68,19 @@ func (s *Service) debridTorrentDownloader(gameName string) torrent.DebridDownloa
 // web downloads (TorBox), it first tries to cache srcURL on Debrid and download
 // the direct link; on any miss it downloads srcURL directly. Real-Debrid returns
 // ErrUnsupported and falls straight through to the (already parallel) IA path.
-func (s *Service) downloadIAOrDebrid(srcURL, dest, gameName string) error {
-	if prov := s.activeDebrid(); prov != nil {
+//
+// accessRestricted is true for login-gated IA items (access-restricted-item);
+// TorBox fetches the URL unauthenticated and can't proxy those, so Debrid is
+// skipped and the direct IA path (which sends the user's cookie) is used.
+func (s *Service) downloadIAOrDebrid(srcURL, dest, gameName string, accessRestricted bool) error {
+	prov := s.activeDebrid()
+	if prov != nil && accessRestricted {
+		// Login-gated IA items return 403 to TorBox's unauthenticated fetch,
+		// which TorBox surfaces as a 500 DOWNLOAD_SERVER_ERROR. Don't burn a
+		// createwebdownload slot on a guaranteed failure; go straight to the
+		// cookie-authed IA path.
+		s.App.Logf("[INFO] Debrid (%s): IA item is login-gated (access-restricted) - using direct IA", prov.Name())
+	} else if prov != nil {
 		ctx, cancel := debridCtx()
 		defer cancel()
 		s.App.LogStatus(gameName, "Processing", fmt.Sprintf("Debrid (%s): caching download…", prov.Name()))

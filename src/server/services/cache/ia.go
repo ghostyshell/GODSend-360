@@ -2,6 +2,7 @@
 package cache
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -110,6 +111,41 @@ type iaMetaResponse struct {
 		Source string `json:"source"`
 		Format string `json:"format"`
 	} `json:"files"`
+	Metadata struct {
+		// access-restricted-item is the string "true" for login-gated items
+		// (collection "loggedin"); absent/other for public items. IA occasionally
+		// emits it as an array of strings, so decode as RawMessage and interpret
+		// defensively - a typed string field would fail the whole Decode on the
+		// array form and drop the entire collection's entries.
+		AccessRestricted json.RawMessage `json:"access-restricted-item"`
+	} `json:"metadata"`
+}
+
+// isAccessRestricted reports whether IA's access-restricted-item value marks the
+// item login-gated. Handles the scalar string "true" (any case) and the array
+// form ["true", ...]; any other shape (null, "false", other token) means public.
+func isAccessRestricted(raw json.RawMessage) bool {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || string(raw) == "null" {
+		return false
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return strings.EqualFold(s, "true")
+	}
+	var b bool
+	if json.Unmarshal(raw, &b) == nil {
+		return b
+	}
+	var arr []string
+	if json.Unmarshal(raw, &arr) == nil {
+		for _, e := range arr {
+			if strings.EqualFold(e, "true") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // archiveExts lists the file extensions we treat as downloadable game archives.
@@ -152,6 +188,7 @@ func (s *IAService) DoIAMetaFetch(collectionID string) ([]models.IAGameEntry, er
 	}
 
 	var entries []models.IAGameEntry
+	restricted := isAccessRestricted(meta.Metadata.AccessRestricted)
 	for _, f := range meta.Files {
 		if f.Source != "original" {
 			continue
@@ -161,8 +198,9 @@ func (s *IAService) DoIAMetaFetch(collectionID string) ([]models.IAGameEntry, er
 			continue
 		}
 		entries = append(entries, models.IAGameEntry{
-			CollectionID: collectionID,
-			FileName:     f.Name,
+			CollectionID:     collectionID,
+			FileName:         f.Name,
+			AccessRestricted: restricted,
 		})
 	}
 	return entries, nil
