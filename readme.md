@@ -43,18 +43,18 @@ Download the build for your platform:
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.12.29.exe`](https://gofile.io/d/AFFZo4) | [`godsend-Setup-2.12.29.exe`](https://file.kiwi/80a49646#XjU-Ui9zddWigEBRh6pAqw) |
-| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.12.29.exe`](https://gofile.io/d/9aHIdO) | [`godsend-Portable-2.12.29.exe`](https://file.kiwi/6ac9f050#1LiGak64MEVjoawyzUBKuQ) |
-| **macOS (Apple Silicon)** | [`godsend-2.12.29-arm64.dmg`](https://gofile.io/d/5GMop6) | [`godsend-2.12.29-arm64.dmg`](https://file.kiwi/65a39885#hZtJ_TAYPOCoxN__OrVgLg) |
-| **macOS (Intel)** | [`godsend-2.12.29-x64.dmg`](https://gofile.io/d/IwO8eE) | [`godsend-2.12.29-x64.dmg`](https://file.kiwi/dbfb8a87#B4uQ6qMk6oHub4CFvtxZYw) |
-| **Linux (x64 / amd64)** | [`godsend-2.12.29-x86_64.AppImage`](https://gofile.io/d/1yZmGx) | [`godsend-2.12.29-x86_64.AppImage`](https://file.kiwi/452b471f#AFJQe38g3SYIzFC9mQsxZQ) |
-| **Linux (arm64)** | [`godsend-2.12.29-arm64.AppImage`](https://gofile.io/d/Ua0FfH) | [`godsend-2.12.29-arm64.AppImage`](https://file.kiwi/c0ab5f5f#kIaLCGhS02U8tBRSwpzUTg) |
+| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.12.30.exe`](https://gofile.io/d/Mviv9h) | [`godsend-Setup-2.12.30.exe`](https://file.kiwi/d2b7cac2#ee4RReuu1Yhud5-dge-3hQ) |
+| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.12.30.exe`](https://gofile.io/d/qxaTJs) | [`godsend-Portable-2.12.30.exe`](https://file.kiwi/d2f34919#XHZe9x8C0gbM2a4w4Q2bSQ) |
+| **macOS (Apple Silicon)** | [`godsend-2.12.30-arm64.dmg`](https://gofile.io/d/B1CYUc) | [`godsend-2.12.30-arm64.dmg`](https://file.kiwi/9ce0ba1b#PaZFb9dP_6TCsiXiSh79Tw) |
+| **macOS (Intel)** | [`godsend-2.12.30-x64.dmg`](https://gofile.io/d/KcCrnz) | [`godsend-2.12.30-x64.dmg`](https://file.kiwi/d82ea55d#KnKQnxkyiaDJZpQFdh5qGA) |
+| **Linux (x64 / amd64)** | [`godsend-2.12.30-x86_64.AppImage`](https://gofile.io/d/bVGR4Q) | [`godsend-2.12.30-x86_64.AppImage`](https://file.kiwi/3242af5e#POkA1atU8G3FE8QxFEti0g) |
+| **Linux (arm64)** | [`godsend-2.12.30-arm64.AppImage`](https://gofile.io/d/YZ1hhm) | [`godsend-2.12.30-arm64.AppImage`](https://file.kiwi/df399de6#XxvbQ-2ohkWZGbJ6o0luyw) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.12.29.exe`** and follow the installer (or just run **`godsend-Portable-2.12.29.exe`** directly - no install step needed).
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.12.30.exe`** and follow the installer (or just run **`godsend-Portable-2.12.30.exe`** directly - no install step needed).
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher - the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
@@ -77,7 +77,7 @@ If you want Internet Archive as a fallback (or for titles not on Minerva):
 1. Click the tray icon and open the app window, then click the **⚙ Settings** button.
 2. Under **Internet Archive account**, click **Log in** and enter your [archive.org](https://archive.org) credentials. Your session cookie is stored locally - your password is never saved.
 
-Optional - **Debrid (faster downloads)**: under the same Settings page, pick **Real-Debrid** or **TorBox**, paste your API key, and **Save & restart backend**. Torrents and Internet Archive downloads then try to cache on the provider first and pull a direct HTTP link (much faster than P2P); if it isn't ready in ~60s they fall back to the native source, so nothing breaks without it. Internet Archive acceleration works on TorBox only. TorBox can't cache Minerva collections larger than its ~200 GB per-torrent limit (every Minerva section except Games Archive) - those fall back to P2P and the Browse page recommends Real-Debrid, which caches per file.
+Optional - **Debrid (faster downloads)**: under the same Settings page, pick **Real-Debrid** or **TorBox**, paste your API key, and **Save & restart backend**. Torrents and Internet Archive downloads then try to cache on the provider first and pull a direct HTTP link (much faster than P2P); if it isn't ready in ~60s they fall back to the native source, so nothing breaks without it. Internet Archive acceleration works on TorBox only, and only for public IA items - the Xbox 360 / Xbox IA collections are login-gated (`access-restricted-item`), so TorBox can't proxy them (it fetches unauthenticated) and those downloads skip TorBox and use the direct, cookie-authed IA path. TorBox can't cache Minerva collections larger than its ~200 GB per-torrent limit (every Minerva section except Games Archive) - those fall back to P2P and the Browse page recommends Real-Debrid, which caches per file.
 
 You can also set a **Local Transfer folder** if you want to install from `.iso` files you already have on this machine.
 
@@ -207,7 +207,7 @@ Open the settings page (⚙ button) to configure:
 - **Launch at login** - registers GODsend with the OS login-item / startup list (Electron **Open at login** on macOS and Windows; Linux depends on the desktop environment)
 - **Local Transfer folder** - directory the backend scans for pre-downloaded ISOs. If unset, defaults to **`runtime/Transfer`** under Electron’s **user data** directory - commonly **`%APPDATA%\GODsend\runtime\Transfer`** on Windows and **`~/Library/Application Support/GODsend/runtime/Transfer`** on macOS. On Linux the config folder name can vary; use **Open logs folder** on the home screen, then open the parent of **`logs/`** to find **`runtime/Transfer`**
 - **Internet Archive account** - log in with your archive.org credentials; session cookies are stored locally, your password is never saved
-- **Debrid (faster downloads)** - pick Real-Debrid or TorBox and paste an API key; torrents (both providers) and Internet Archive downloads (TorBox only) first cache on the provider and pull a direct HTTP link, falling back to the native source on timeout/error. Keys are stored locally and never logged.
+- **Debrid (faster downloads)** - pick Real-Debrid or TorBox and paste an API key; torrents (both providers) and Internet Archive downloads (TorBox only, public items) first cache on the provider and pull a direct HTTP link, falling back to the native source on timeout/error. Login-gated IA items (the Xbox 360 / Xbox collections) skip TorBox and download directly with your archive.org cookie. Keys are stored locally and never logged.
 - **Backend server port** - choose the backend listen port used by both Electron and Aurora script patching
 - **Xbox connection** - enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your computer’s LAN IP and selected backend port are detected/applied automatically
 - **Server log files** - the app appends to a daily file under **`logs/`** next to the same user-data root (e.g. **`%APPDATA%\GODsend\logs\`** on Windows): timestamped backend stdout/stderr, session banner (paths, `GODSEND_*` env summary with secrets redacted, host IP), and notable UI actions (FTP upload steps, cache refresh, config changes). On the home screen use **Open logs folder** to reveal that directory in the system file manager
