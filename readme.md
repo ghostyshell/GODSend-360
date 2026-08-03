@@ -43,12 +43,12 @@ Download the build for your platform:
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.12.30.exe`](https://gofile.io/d/Mviv9h) | [`godsend-Setup-2.12.30.exe`](https://file.kiwi/d2b7cac2#ee4RReuu1Yhud5-dge-3hQ) |
-| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.12.30.exe`](https://gofile.io/d/qxaTJs) | [`godsend-Portable-2.12.30.exe`](https://file.kiwi/d2f34919#XHZe9x8C0gbM2a4w4Q2bSQ) |
-| **macOS (Apple Silicon)** | [`godsend-2.12.30-arm64.dmg`](https://gofile.io/d/B1CYUc) | [`godsend-2.12.30-arm64.dmg`](https://file.kiwi/9ce0ba1b#PaZFb9dP_6TCsiXiSh79Tw) |
-| **macOS (Intel)** | [`godsend-2.12.30-x64.dmg`](https://gofile.io/d/KcCrnz) | [`godsend-2.12.30-x64.dmg`](https://file.kiwi/d82ea55d#KnKQnxkyiaDJZpQFdh5qGA) |
-| **Linux (x64 / amd64)** | [`godsend-2.12.30-x86_64.AppImage`](https://gofile.io/d/bVGR4Q) | [`godsend-2.12.30-x86_64.AppImage`](https://file.kiwi/3242af5e#POkA1atU8G3FE8QxFEti0g) |
-| **Linux (arm64)** | [`godsend-2.12.30-arm64.AppImage`](https://gofile.io/d/YZ1hhm) | [`godsend-2.12.30-arm64.AppImage`](https://file.kiwi/df399de6#XxvbQ-2ohkWZGbJ6o0luyw) |
+| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.12.30.exe`](https://gofile.io/d/pK2S31) | [`godsend-Setup-2.12.30.exe`](https://file.kiwi/93b7a8dc#XD3zf7tKbvieBqS5HtcrBQ) |
+| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.12.30.exe`](https://gofile.io/d/BJAQWc) | [`godsend-Portable-2.12.30.exe`](https://file.kiwi/beb31056#o4iTP9_zPm8SSetzZ0W00w) |
+| **macOS (Apple Silicon)** | [`godsend-2.12.30-arm64.dmg`](https://gofile.io/d/H5M9Xw) | [`godsend-2.12.30-arm64.dmg`](https://file.kiwi/ed255cd2#ntXJqfj-5Tfl7C3Mdf3m-g) |
+| **macOS (Intel)** | [`godsend-2.12.30-x64.dmg`](https://gofile.io/d/6DxkQT) | [`godsend-2.12.30-x64.dmg`](https://file.kiwi/f2a4e47f#odbTRkmTm6QTy6PwX9qbgA) |
+| **Linux (x64 / amd64)** | [`godsend-2.12.30-x86_64.AppImage`](https://gofile.io/d/vE6EpS) | [`godsend-2.12.30-x86_64.AppImage`](https://file.kiwi/1678c5f6#PMxKBOzpL3P-3g2U7lS6fw) |
+| **Linux (arm64)** | [`godsend-2.12.30-arm64.AppImage`](https://gofile.io/d/BB8Vv7) | [`godsend-2.12.30-arm64.AppImage`](https://file.kiwi/fff925e7#oOeArJF8TcYa4UK5dbF5Ig) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
@@ -105,12 +105,12 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/rOAqaV) | [`godsend.exe`](https://file.kiwi/6974735a#ae55Cz5TPy81yn8YgYfI_w) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/aWyfzH) | [`godsend-darwin-arm64`](https://file.kiwi/8df1e503#zAuqSXXtpWFz2m_B_Jf2xg) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/WuEkTm) | [`godsend-darwin-amd64`](https://file.kiwi/023b4609#ZfJZCHwCkP11OBHHzIoK3g) |
-| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/EyAIfC) | [`godsend-mac`](https://file.kiwi/688dc567#WtY6LYwjMZRCfyUJVL7rSQ) |
-| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/kkG8WY) | [`godsend-linux-x64`](https://file.kiwi/e7e0267d#q9579AR54BbbVwqgGLqsVA) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/VOGsMA) | [`godsend-linux-arm64`](https://file.kiwi/710ef0a6#xPNfNWOo8qn9hSFvK8hszg) |
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/pcjuOD) | [`godsend.exe`](https://file.kiwi/d6cb7d14#Filrr81wo9hHBh2ptqtTCQ) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/7mRP2G) | [`godsend-darwin-arm64`](https://file.kiwi/99e93408#lfaTi7H63oBccFwhEDeJlg) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/IdzXDG) | [`godsend-darwin-amd64`](https://file.kiwi/c032167f#WbLE7XX0hC18tEwFFJduoQ) |
+| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/czBb5A) | [`godsend-mac`](https://file.kiwi/312373f3#4EtkQCTIew5QNR2avZezIQ) |
+| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/G7mvoM) | [`godsend-linux-x64`](https://file.kiwi/43656d72#kaV_KUvjXLlneM4o2hATTg) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/wNMAcO) | [`godsend-linux-arm64`](https://file.kiwi/8b7fd0c6#-raz2JNxG-KjLdi3kWRieQ) |
 
 **[Full headless setup guide (build, configure, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 
