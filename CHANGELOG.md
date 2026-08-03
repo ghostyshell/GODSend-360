@@ -8,6 +8,8 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ---
 
 ## [Unreleased]
+### Fixed
+- **Refreshed expired release download links.** The GoFile (primary) and file.kiwi (backup) download links for the 2.12.30 build assets (both desktop installers and headless backend binaries) had expired, so all 12 files were re-uploaded to both hosts and the links in `README.md` and `docs/headless-setup.md` were replaced. No code change; the 2.12.30 binaries are unchanged.
 
 ## [2.12.30] - 2026-07-19
 ### Fixed
