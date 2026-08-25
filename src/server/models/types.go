@@ -32,7 +32,7 @@ type BuildState struct {
 // MinervaEntry links a display name to its Minerva download path.
 type MinervaEntry struct {
 	FileName  string `json:"filename"`   // e.g. "007 - Blood Stone (USA, Europe).zip"
-	PathParam string `json:"path_param"` // URL-encoded path for /rom?name= query param
+	PathParam string `json:"path_param"` // percent-encoded ./Collection/file.zip (legacy /rom?name= shape)
 }
 
 // MinervaPlatformCache is persisted to disk per Minerva platform.

@@ -121,6 +121,9 @@ func (s *MinervaService) SetBuildState(platform, state string, loaded, total int
 // ScrapeMinervaPage fetches one Minerva browse URL and returns file entries.
 // tagFilters, if non-empty, restricts results to filenames containing AT LEAST
 // ONE of the listed substrings (any-match).
+//
+// Current Minerva pages list files as data-name="file.zip" with href="/rom?id=…".
+// Older pages used href="/rom?name=./Collection/file.zip"; both shapes are accepted.
 func (s *MinervaService) ScrapeMinervaPage(browseURL string, tagFilters []string) ([]models.MinervaEntry, error) {
 	client := &http.Client{Timeout: 120 * time.Second}
 	req, err := http.NewRequest("GET", browseURL, nil)
@@ -142,9 +145,60 @@ func (s *MinervaService) ScrapeMinervaPage(browseURL string, tagFilters []string
 		return nil, fmt.Errorf("read %s: %w", browseURL, err)
 	}
 
-	matches := app.MinervaHrefRe.FindAllSubmatch(body, -1)
+	// Relative torrent path prefix from the browse URL (…/browse/<dir>/).
+	pathPrefix := minervaPathPrefixFromBrowseURL(browseURL)
+
+	seen := make(map[string]struct{})
 	var entries []models.MinervaEntry
-	for _, m := range matches {
+	add := func(fileName, pathParam string) {
+		ext := strings.ToLower(filepath.Ext(fileName))
+		if ext != ".zip" && ext != ".7z" && ext != ".rar" {
+			return
+		}
+		if len(tagFilters) > 0 {
+			match := false
+			for _, t := range tagFilters {
+				if strings.Contains(fileName, t) {
+					match = true
+					break
+				}
+			}
+			if !match {
+				return
+			}
+		}
+		key := strings.ToLower(fileName)
+		if _, dup := seen[key]; dup {
+			return
+		}
+		seen[key] = struct{}{}
+		entries = append(entries, models.MinervaEntry{
+			FileName:  fileName,
+			PathParam: pathParam,
+		})
+	}
+
+	for _, m := range app.MinervaRomIDLinkRe.FindAllSubmatch(body, -1) {
+		fileName := filepath.Base(strings.TrimSpace(string(m[1])))
+		rel := "./" + fileName
+		if pathPrefix != "" {
+			rel = "./" + pathPrefix + "/" + fileName
+		}
+		add(fileName, url.PathEscape(rel))
+	}
+
+	// data-name is lowercased on current Minerva pages; only use when rom?id text was absent.
+	for _, m := range app.MinervaDataNameRe.FindAllSubmatch(body, -1) {
+		fileName := filepath.Base(string(m[1]))
+		rel := "./" + fileName
+		if pathPrefix != "" {
+			rel = "./" + pathPrefix + "/" + fileName
+		}
+		add(fileName, url.PathEscape(rel))
+	}
+
+	// Legacy /rom?name=./Collection/file.zip pages (pre data-name).
+	for _, m := range app.MinervaHrefRe.FindAllSubmatch(body, -1) {
 		hrefVal := string(m[1])
 		const prefix = "/rom?name="
 		if !strings.HasPrefix(hrefVal, prefix) {
@@ -155,29 +209,32 @@ func (s *MinervaService) ScrapeMinervaPage(browseURL string, tagFilters []string
 		if err != nil {
 			continue
 		}
-		ext := strings.ToLower(filepath.Ext(decoded))
-		if ext != ".zip" && ext != ".7z" && ext != ".rar" {
-			continue
-		}
-		fileName := filepath.Base(decoded)
-		if len(tagFilters) > 0 {
-			match := false
-			for _, t := range tagFilters {
-				if strings.Contains(fileName, t) {
-					match = true
-					break
-				}
-			}
-			if !match {
-				continue
-			}
-		}
-		entries = append(entries, models.MinervaEntry{
-			FileName:  fileName,
-			PathParam: pathParam,
-		})
+		add(filepath.Base(decoded), pathParam)
 	}
 	return entries, nil
+}
+
+// minervaPathPrefixFromBrowseURL returns the decoded directory under /browse/
+// (e.g. "Redump/Microsoft - Xbox 360"), or "" if the URL shape is unexpected.
+func minervaPathPrefixFromBrowseURL(browseURL string) string {
+	u, err := url.Parse(browseURL)
+	if err != nil {
+		return ""
+	}
+	const marker = "/browse/"
+	idx := strings.Index(u.Path, marker)
+	if idx < 0 {
+		return ""
+	}
+	p := strings.Trim(u.Path[idx+len(marker):], "/")
+	if p == "" {
+		return ""
+	}
+	decoded, err := url.PathUnescape(p)
+	if err != nil {
+		return p
+	}
+	return decoded
 }
 
 // Build scrapes the Minerva browse page for one platform and caches results.

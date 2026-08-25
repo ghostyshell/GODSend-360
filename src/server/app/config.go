@@ -91,13 +91,19 @@ var IACollections = map[string][]string{
 	},
 	"xbox": {
 		"microsoft_xbox_numberssymbols",
-		"microsoft_xbox_a", "microsoft_xbox_b", "microsoft_xbox_c",
-		"microsoft_xbox_d", "microsoft_xbox_e", "microsoft_xbox_f",
+		"microsoft_xbox_a", "microsoft_xbox_b",
+		"microsoft_xbox_c_part1", "microsoft_xbox_c_part2",
+		"microsoft_xbox_d_part1", "microsoft_xbox_d_part2",
+		"microsoft_xbox_e", "microsoft_xbox_f",
 		"microsoft_xbox_g", "microsoft_xbox_h", "microsoft_xbox_i",
 		"microsoft_xbox_j", "microsoft_xbox_k", "microsoft_xbox_l",
-		"microsoft_xbox_m", "microsoft_xbox_n", "microsoft_xbox_o",
+		"microsoft_xbox_m_part1", "microsoft_xbox_m_part2",
+		"microsoft_xbox_n_part1", "microsoft_xbox_n_part2",
+		"microsoft_xbox_o_part1", "microsoft_xbox_o_part2",
 		"microsoft_xbox_p", "microsoft_xbox_q", "microsoft_xbox_r",
-		"microsoft_xbox_s", "microsoft_xbox_t", "microsoft_xbox_u",
+		"microsoft_xbox_s_part1", "microsoft_xbox_s_part2",
+		"microsoft_xbox_t_part1", "microsoft_xbox_t_part2",
+		"microsoft_xbox_u",
 		"microsoft_xbox_v", "microsoft_xbox_w", "microsoft_xbox_x",
 		"microsoft_xbox_y", "microsoft_xbox_z",
 	},
@@ -173,8 +179,16 @@ var MinervaTorrentURLs = map[string]string{
 	"games":   "https://minerva-archive.org/assets/Minerva_Myrient_v0.3/Minerva_Myrient%20-%20No-Intro%20-%20Non-Redump%20-%20Microsoft%20-%20Xbox%20360.torrent",
 }
 
-// MinervaHrefRe extracts the value of href="/rom?name=…" from Minerva browse pages.
+// MinervaHrefRe extracts legacy href="/rom?name=…" links from Minerva browse pages.
+// Minerva v0.3+ pages switched to /rom?id=… + data-name; keep this as a fallback.
 var MinervaHrefRe = regexp.MustCompile(`href="(/rom\?name=[^"]+)"`)
+
+// MinervaRomIDLinkRe extracts the properly-cased filename from
+// href="/rom?id=…">File Name.zip</a> (preferred over data-name, which is lowercased).
+var MinervaRomIDLinkRe = regexp.MustCompile(`(?i)href="/rom\?id=\d+"[^>]*>([^<]+\.(?:zip|7z|rar))</a>`)
+
+// MinervaDataNameRe extracts data-name="file.zip" when the rom?id link text is missing.
+var MinervaDataNameRe = regexp.MustCompile(`(?i)data-name="([^"]+\.(?:zip|7z|rar))"`)
 
 // ── ROM Systems (EdgeEmu) ─────────────────────────────────────────────
 
