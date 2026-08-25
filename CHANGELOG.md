@@ -7,9 +7,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
+## [2.12.31] - 2026-08-25
 ### Fixed
-- **Refreshed expired release download links.** The GoFile (primary) and file.kiwi (backup) download links for the 2.12.30 build assets (both desktop installers and headless backend binaries) had expired, so all 12 files were re-uploaded to both hosts and the links in `README.md` and `docs/headless-setup.md` were replaced. No code change; the 2.12.30 binaries are unchanged.
+- **Minerva browse scrape restored.** Minerva pages no longer use `/rom?name=…`; they list files as `/rom?id=…` with `data-name`. The scraper reads the properly-cased rom?id link text (data-name / legacy `/rom?name=` as fallbacks), so a cache rebuild populates the Store again.
+- **Internet Archive OG Xbox collections updated.** Seven letter buckets (`microsoft_xbox_{c,d,m,n,o,s,t}`) had been removed from archive.org after the Redump sets were split; they now point at the live `_part1` / `_part2` item IDs so the Xbox platform cache builds again for those letters.
+- **Refreshed release download links.** Rebuilt and re-uploaded all desktop installers and headless backend binaries to GoFile (primary) and file.kiwi (backup); links in `README.md` and `docs/headless-setup.md` updated.
 
 ## [2.12.30] - 2026-07-19
 ### Fixed
