@@ -112,7 +112,7 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 | **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/Xq0pnr2n) | [`godsend-linux-x64`](https://file.kiwi/36049e15#z58XadO-NhYxqp1FK-_GgQ) |
 | **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/BkRG4JBJ) | [`godsend-linux-arm64`](https://file.kiwi/b93b487f#mtfpHPAa9QJuomPJr1tmcw) |
 
-**[Full headless setup guide (build, configure, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
+**[Full headless setup guide (build, configure, Docker, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 
 ---
 

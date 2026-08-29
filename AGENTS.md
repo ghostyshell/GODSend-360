@@ -181,6 +181,7 @@ Build-script map (run from repo root):
 | `npm run build:server:mac` / `:mac:arm` | `dist/godsend-mac` (Intel / Apple Silicon headless backend) |
 | `npm run build:server:linux` | `dist/godsend-linux-x64` + `dist/godsend-linux-arm64` |
 | `npm run build:server:all` | all headless Go backends in one pass |
+| `docker compose up -d --build` | headless backend as a container (see `Dockerfile`, `docker-compose.yml`, [docs/headless-setup.md#docker](docs/headless-setup.md#docker)) |
 | `npm run build:electron:win:x64` | `dist/godsend-Setup-X.Y.Z.exe` (NSIS installer, via Wine) |
 | `npm run build:electron:win:portable` | `dist/godsend-Portable-X.Y.Z.exe` (portable, via Wine) |
 | `npm run build:electron:mac` / `:mac:arm` | `dist/godsend-X.Y.Z-{x64,arm64}.dmg` |
