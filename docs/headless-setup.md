@@ -183,6 +183,40 @@ launchctl unload ~/Library/LaunchAgents/com.godsend.server.plist
 rm ~/Library/LaunchAgents/com.godsend.server.plist
 ```
 
+### Docker
+
+Good fit for an always-on NAS. The repo root has a `Dockerfile` (Alpine, backend binary + `aria2c` - required for Minerva/BitTorrent downloads) and a `docker-compose.yml` you can copy and adjust.
+
+The image runs as uid 1000, not root, so the bind-mounted data folder needs to be owned by that uid up front - otherwise the backend can't create `Transfer/`, `Ready/`, `Temp/`, `cache/` under it and exits on startup:
+
+```bash
+git clone https://github.com/ghostyshell/GODSend-360.git
+cd GODSend-360
+mkdir -p data && sudo chown -R 1000:1000 data
+docker compose up -d --build
+```
+
+Or with plain `docker run`:
+
+```bash
+mkdir -p /volume1/godsend && sudo chown -R 1000:1000 /volume1/godsend
+docker build -t godsend .
+docker run -d --name godsend --restart unless-stopped \
+  -p 8080:8080 \
+  -v /volume1/godsend:/data \
+  -e GODSEND_PORT=8080 \
+  godsend
+```
+
+Notes:
+
+- The container binds to `0.0.0.0:8080` internally, so only the `-p`/`ports:` mapping controls what's reachable - point `aurora-scripts/state.lua`'s `BRAIN_IP` at the **host's** LAN IP, and its `PORT` at the **host side** of the mapping (the first `8080` in `8080:8080`), not necessarily `GODSEND_PORT` itself if you remap it, e.g. `-p 9000:8080`.
+- The published port isn't behind your NAS's own firewall app (Docker inserts its own iptables/nftables rules ahead of it) and the backend has no auth - bind it to a specific LAN interface if that matters to you, e.g. `-p 192.168.1.50:8080:8080` instead of `-p 8080:8080`.
+- Bridge networking (the default) is enough for the FTP transfer to the Xbox - the container reaches it outbound through normal Docker NAT, no `network_mode: host` needed. Minerva/BitTorrent downloads work the same way but stay outbound-only (no inbound peer connections) unless you also publish `GODSEND_ARIA2_LISTEN_PORT`/`GODSEND_ARIA2_DHT_PORT`, which mostly affects download speed, not correctness.
+- Set env vars from the [configuration table above](#2-configure-via-environment-variables) via `-e` / `environment:` instead of a config file. Prefer a gitignored `.env` file (`env_file: .env` in `docker-compose.yml`) over inline values for `GODSEND_REALDEBRID_KEY` / `GODSEND_TORBOX_KEY` / `GODSEND_IA_COOKIE`.
+- Point `-v` straight at an existing ISO share (e.g. `-v /volume1/isos:/data/Transfer`) if you want GODsend to pick up files you already have, per [Local Transfer folder](features.md#local-transfer-folder-your-own-isos). That path needs the same uid 1000 ownership as `/data` above.
+- No published image yet - `docker compose up -d --build` builds locally from source.
+
 ## 5. Point the Xbox at the server
 
 Edit `aurora-scripts/state.lua` on the Xbox (or before copying the scripts over):

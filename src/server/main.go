@@ -66,7 +66,7 @@ func main() {
 
 	// ── Banner ──────────────────────────────────────────────────────
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.12.32        ║")
+	fmt.Println("║    GODSend Backend Server v2.13.0        ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",

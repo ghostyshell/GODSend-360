@@ -1,0 +1,24 @@
+services:
+  godsend:
+    build: .
+    # Or, once a release image is published:
+    # image: ghcr.io/ghostyshell/godsend-360:latest
+    container_name: godsend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+      # Point straight at an existing ISO library instead of /data/Transfer:
+      # - /volume1/isos:/data/Transfer
+    environment:
+      GODSEND_PORT: "8080"
+      # GODSEND_IA_COOKIE: "logged-in-user=...; logged-in-sig=..."
+      # GODSEND_DEBRID_PROVIDER: "realdebrid"
+      # GODSEND_FTP_USER: "xboxftp"
+      # GODSEND_FTP_PASS: "xboxftp"
+    # Prefer a gitignored env file over inline secrets above, especially for
+    # GODSEND_REALDEBRID_KEY / GODSEND_TORBOX_KEY:
+    # env_file: .env
+    # Image runs as uid 1000; match a bind-mounted host folder's owner:
+    # user: "1000:1000"

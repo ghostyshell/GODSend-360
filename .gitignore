@@ -34,6 +34,10 @@ Ready/
 Temp/
 Transfer/
 
+# Docker bind-mount target (docker-compose.yml's ./data:/data) and its env file
+/data/
+.env
+
 # Electron builder temp artefacts
 src/electron-app/.webpack/
 src/electron-app/out/
