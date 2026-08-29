@@ -3,7 +3,6 @@ package pipeline
 
 import (
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -228,6 +227,119 @@ func (s *Service) ProcessGenericGame(gameName string) {
 // DIGITAL / XBLA / DLC / XBLIG PROCESSING
 // ==========================================
 
+// digitalContentFile is one valid Xbox content package found inside a
+// digital/XBLA/DLC archive, tagged with the titleID/content-type its own
+// LIVE/PIRS/CON header carries.
+type digitalContentFile struct {
+	path    string
+	size    int64
+	titleID string
+	typeDir string
+}
+
+// findDigitalContentFiles walks extDir and returns every file with a valid
+// Xbox content header. An archive can bundle more than one package (base
+// game + title update, or several DLC packs); every one must be returned or
+// callers silently drop everything after the first. Shared by ProcessDigital
+// and ProcessMinervaDigital - Internet Archive and Minerva feed the same
+// archive layout into the same install logic.
+func findDigitalContentFiles(extDir string) []digitalContentFile {
+	var found []digitalContentFile
+	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
+		if e != nil || i.IsDir() || i.Size() < 0x368 {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(p))
+		if ext == ".txt" || ext == ".nfo" || ext == ".jpg" {
+			return nil
+		}
+		if tid, ct := helpers.ParseXboxHeader(p); tid != "" {
+			found = append(found, digitalContentFile{path: p, size: i.Size(), titleID: tid, typeDir: fmt.Sprintf("%08X", ct)})
+		}
+		return nil
+	})
+	return found
+}
+
+// primaryDigitalContentFile picks the file to install when only one can be
+// used (the non-FTP "type=raw" manifest supports a single file per game).
+// Walk order is lexical, so contentFiles[0] can land on a title update or a
+// DLC pack instead of the base game if it happens to sort first; the largest
+// file is a much safer guess at "the game".
+func primaryDigitalContentFile(contentFiles []digitalContentFile) digitalContentFile {
+	best := contentFiles[0]
+	for _, cf := range contentFiles[1:] {
+		if cf.size > best.size {
+			best = cf
+		}
+	}
+	return best
+}
+
+// distinctTitleIDs returns the set of TitleIDs found across contentFiles, for
+// a diagnostic warning when an archive's packages don't all agree.
+func distinctTitleIDs(contentFiles []digitalContentFile) []string {
+	seen := map[string]bool{}
+	var ids []string
+	for _, cf := range contentFiles {
+		if !seen[cf.titleID] {
+			seen[cf.titleID] = true
+			ids = append(ids, cf.titleID)
+		}
+	}
+	return ids
+}
+
+// transferDigitalContentFilesFTP uploads every discovered content package
+// over one connection to its own
+// /<drive>/Content/0000000000000000/<titleID>/<typeDir> folder, derived
+// per-file from that file's own header since a bundle can mix content types.
+// Progress is aggregated across all files.
+func (s *Service) transferDigitalContentFilesFTP(contentFiles []digitalContentFile, xboxConn *models.XboxConnection, gameName string) error {
+	drive := strings.TrimSuffix(xboxConn.Drive, ":")
+	fc, err := s.FTP.ConnectWithRetry(xboxConn.IP)
+	if err != nil {
+		return fmt.Errorf("FTP: %w", err)
+	}
+	defer s.FTP.QuitConn(fc)
+
+	// Create every destination folder up front, while fc is known good.
+	// UploadWithRetry transparently reconnects on a mid-loop failure, and a
+	// MkdirAll issued after that point would silently no-op against the dead
+	// connection - MakeDir errors are intentionally ignored (folder may
+	// already exist), so a missing folder would only surface later as a
+	// confusing STOR failure.
+	made := map[string]bool{}
+	var totalSize int64
+	for _, cf := range contentFiles {
+		base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, cf.titleID, cf.typeDir)
+		if !made[base] {
+			ftp.MkdirAll(fc, base)
+			made[base] = true
+		}
+		totalSize += cf.size
+	}
+
+	seenRemote := map[string]bool{}
+	var xfer int64
+	xferStart := time.Now()
+	for i, cf := range contentFiles {
+		base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, cf.titleID, cf.typeDir)
+		remote := base + "/" + filepath.Base(cf.path)
+		if seenRemote[remote] {
+			s.App.Logf("Digital FTP: skipping %s - remote path %s already used by another package in this archive", cf.path, remote)
+			continue
+		}
+		seenRemote[remote] = true
+		s.App.Logf("Digital FTP [%d/%d]: TitleID=%s Type=%s %s (%.1f MB)",
+			i+1, len(contentFiles), cf.titleID, cf.typeDir, filepath.Base(cf.path), float64(cf.size)/1048576)
+		if err := s.FTP.UploadWithRetry(fc, xboxConn.IP, cf.path, remote, gameName, &xfer, totalSize, i+1, len(contentFiles), xferStart); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) ProcessDigital(gameName, platform string) {
 	s.App.Logf("=== Digital: %s (%s) ===", gameName, platform)
 	safeName := helpers.SanitizeFilename(gameName)
@@ -267,57 +379,48 @@ func (s *Service) ProcessDigital(gameName, platform string) {
 		return
 	}
 
-	var contentFile, titleID, typeDir string
-	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
-		if e != nil || i.IsDir() || i.Size() < 0x368 {
-			return nil
-		}
-		ext := strings.ToLower(filepath.Ext(p))
-		if ext == ".txt" || ext == ".nfo" || ext == ".jpg" {
-			return nil
-		}
-		tid, ct := helpers.ParseXboxHeader(p)
-		if tid != "" {
-			contentFile = p
-			titleID = tid
-			typeDir = fmt.Sprintf("%08X", ct)
-			return io.EOF
-		}
-		return nil
-	})
+	// Digital archives commonly bundle more than one Xbox content package
+	// (e.g. base game + title update, or several DLC packs) - collect every
+	// valid one instead of stopping at the first match, or later packages
+	// are silently dropped (only the first ever gets transferred).
+	contentFiles := findDigitalContentFiles(extDir)
 
-	if contentFile == "" {
+	if len(contentFiles) == 0 {
 		s.App.LogStatus(gameName, "Error", "No valid Xbox content found in archive")
 		return
 	}
-	s.App.Logf("Digital: TitleID=%s Type=%s", titleID, typeDir)
-	finalName := filepath.Base(contentFile)
+	titleID := contentFiles[0].titleID
+	s.App.Logf("Digital: TitleID=%s (%d content file(s))", titleID, len(contentFiles))
+	if ids := distinctTitleIDs(contentFiles); len(ids) > 1 {
+		s.App.Logf("Digital: WARNING - content files carry different TitleIDs: %v", ids)
+	}
 
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
-		drive := strings.TrimSuffix(xboxConn.Drive, ":")
-		base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, typeDir)
-		fc, err := s.FTP.ConnectWithRetry(xboxConn.IP)
-		if err != nil {
-			s.App.LogStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
-			return
-		}
-		defer s.FTP.QuitConn(fc)
-		ftp.MkdirAll(fc, base)
-		info, _ := os.Stat(contentFile)
-		var xfer int64
-		if err := s.FTP.UploadFile(fc, contentFile, base+"/"+finalName, gameName, &xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
+		if err := s.transferDigitalContentFilesFTP(contentFiles, xboxConn, gameName); err != nil {
 			s.App.LogStatus(gameName, "Error", fmt.Sprintf("FTP upload: %v", err))
 		} else {
 			os.RemoveAll(gameDir)
 			s.App.LogFTPComplete(gameName, titleID, xboxConn.IP)
 		}
 	} else {
-		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", titleID, typeDir)
-		if err := helpers.CopyFileBuffered(contentFile, filepath.Join(gameDir, finalName)); err != nil {
+		// ponytail: local-download install only carries a single raw file/path
+		// per manifest (aurora-scripts' "type=raw" installer reads one filename+
+		// path pair). Extra content files are dropped here; upgrade path is a
+		// multi-entry raw manifest + matching Aurora loop if non-FTP
+		// multi-package installs are ever requested.
+		cf := primaryDigitalContentFile(contentFiles)
+		status := "Ready to Install"
+		if len(contentFiles) > 1 {
+			s.App.Logf("Digital: %d content files found but not using FTP - only %s will be installed", len(contentFiles), filepath.Base(cf.path))
+			status = fmt.Sprintf("Ready to Install (1 of %d packages - FTP transfers all of them)", len(contentFiles))
+		}
+		finalName := filepath.Base(cf.path)
+		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", cf.titleID, cf.typeDir)
+		if err := helpers.CopyFileBuffered(cf.path, filepath.Join(gameDir, finalName)); err != nil {
 			s.App.LogStatus(gameName, "Error", fmt.Sprintf("Copy: %v", err))
 		} else {
 			s.updateGameINI_Raw(gameDir, gameName, finalName, relPath, "")
-			s.App.LogStatus(gameName, "Ready", "Ready to Install")
+			s.App.LogStatus(gameName, "Ready", status)
 		}
 	}
 	s.App.Logf("=== Complete (Digital): %s ===", gameName)

@@ -78,7 +78,7 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
   - **GOD** - ISO is converted to Games on Demand format natively; the backend FTPs the content tree directly to `[drive]\GOD\{Name} - {TitleID}\` on the Xbox. If the Xbox goes offline mid-transfer (e.g. a game was launched), the job is saved and retried automatically - no re-download needed.
   - **DLC (Content)** - Content files are extracted from the ISO and FTP'd to `Content\0000000000000000\{TitleID}\00000002\` on the target drive. The correct Title ID is resolved from the disc's content packages automatically (see Multi-disc game support above).
   - **XEX** - The backend walks the XDVDFS filesystem for `default.xex`/`default.xbe`, extracts that game root, and FTPs it to `[drive]\XEX\{folderName}\`.
-  - **Raw** - Package is FTP'd directly to the appropriate content path on the target drive.
+  - **Raw** (XBLA/DLC/XBLIG) - Every valid Xbox content package found in the download (an archive can bundle a base game with a title update or several DLC packs) is FTP'd, each to its own `Content\0000000000000000\{TitleID}\{ContentType}\` path on the target drive. Non-FTP (local download) installs are limited to a single package - the largest one found.
   - **ROM** - Archive is extracted and the ROM file is FTP'd to `[drive]\<ROM root>\<system folder>\` (configurable via Settings).
 
 ## Retro ROMs (EdgeEmu, many systems)
