@@ -1112,6 +1112,10 @@ func (s *Service) queueViaTorrent(req models.ContentQueueRequest, xboxConn *mode
 		return err
 	}
 
+	// ponytail: first-match-wins is correct here, unlike the digital/Minerva
+	// pipelines (see findDigitalContentFiles) - req names one specific DLC
+	// file the user picked from a listing, so the torrent this downloads
+	// contains exactly one package, not a bundle of several.
 	var contentFile, headerTitleID, typeDir string
 	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
 		if e != nil || i.IsDir() || i.Size() < 0x368 {

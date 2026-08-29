@@ -3,11 +3,9 @@ package pipeline
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"godsend/infrastructure/ftp"
@@ -266,57 +264,42 @@ func (s *Service) ProcessMinervaDigital(gameName string, entry models.MinervaEnt
 		return
 	}
 
-	var contentFile, titleID, typeDir string
-	filepath.Walk(extDir, func(p string, i os.FileInfo, e error) error {
-		if e != nil || i.IsDir() || i.Size() < 0x368 {
-			return nil
-		}
-		ext := strings.ToLower(filepath.Ext(p))
-		if ext == ".txt" || ext == ".nfo" || ext == ".jpg" {
-			return nil
-		}
-		tid, ct := helpers.ParseXboxHeader(p)
-		if tid != "" {
-			contentFile = p
-			titleID = tid
-			typeDir = fmt.Sprintf("%08X", ct)
-			return io.EOF
-		}
-		return nil
-	})
-
-	if contentFile == "" {
+	// See findDigitalContentFiles (digital.go): a Minerva digital release can
+	// bundle more than one Xbox content package (base game + title update,
+	// or several DLC packs) - collect every valid one instead of stopping at
+	// the first match.
+	contentFiles := findDigitalContentFiles(extDir)
+	if len(contentFiles) == 0 {
 		s.App.LogStatus(gameName, "Error", "No valid Xbox content found in Minerva archive")
 		return
 	}
-	s.App.Logf("Minerva Digital: TitleID=%s Type=%s", titleID, typeDir)
-	finalName := filepath.Base(contentFile)
+	titleID := contentFiles[0].titleID
+	s.App.Logf("Minerva Digital: TitleID=%s (%d content file(s))", titleID, len(contentFiles))
+	if ids := distinctTitleIDs(contentFiles); len(ids) > 1 {
+		s.App.Logf("Minerva Digital: WARNING - content files carry different TitleIDs: %v", ids)
+	}
 
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
-		drive := strings.TrimSuffix(xboxConn.Drive, ":")
-		base := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s", drive, titleID, typeDir)
-		fc, err := s.FTP.ConnectWithRetry(xboxConn.IP)
-		if err != nil {
-			s.App.LogStatus(gameName, "Error", fmt.Sprintf("FTP: %v", err))
-			return
-		}
-		defer s.FTP.QuitConn(fc)
-		ftp.MkdirAll(fc, base)
-		info, _ := os.Stat(contentFile)
-		var xfer int64
-		if err := s.FTP.UploadFile(fc, contentFile, base+"/"+finalName, gameName, &xfer, info.Size(), 1, 1, time.Now(), new(float64)); err != nil {
+		if err := s.transferDigitalContentFilesFTP(contentFiles, xboxConn, gameName); err != nil {
 			s.App.LogStatus(gameName, "Error", fmt.Sprintf("FTP upload: %v", err))
 		} else {
 			os.RemoveAll(gameDir)
 			s.App.LogFTPComplete(gameName, titleID, xboxConn.IP)
 		}
 	} else {
-		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", titleID, typeDir)
-		if err := helpers.CopyFileBuffered(contentFile, filepath.Join(gameDir, finalName)); err != nil {
+		cf := primaryDigitalContentFile(contentFiles)
+		status := "Ready to Install"
+		if len(contentFiles) > 1 {
+			s.App.Logf("Minerva Digital: %d content files found but not using FTP - only %s will be installed", len(contentFiles), filepath.Base(cf.path))
+			status = fmt.Sprintf("Ready to Install (1 of %d packages - FTP transfers all of them)", len(contentFiles))
+		}
+		finalName := filepath.Base(cf.path)
+		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", cf.titleID, cf.typeDir)
+		if err := helpers.CopyFileBuffered(cf.path, filepath.Join(gameDir, finalName)); err != nil {
 			s.App.LogStatus(gameName, "Error", fmt.Sprintf("Copy: %v", err))
 		} else {
 			s.updateGameINI_Raw(gameDir, gameName, finalName, relPath, "")
-			s.App.LogStatus(gameName, "Ready", "Ready to Install")
+			s.App.LogStatus(gameName, "Ready", status)
 		}
 	}
 	s.App.Logf("=== Complete (Minerva Digital): %s ===", gameName)
