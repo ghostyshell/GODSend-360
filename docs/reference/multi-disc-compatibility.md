@@ -57,6 +57,22 @@ Adapted from [Iso2God by r4dius](https://github.com/r4dius/Iso2God) with additio
 | L.A. Noire (all discs) | 524B4005 | 3 discs; Disc 1 as GOD, Disc 2/3 as Content |
 | The Last Remnant | 5345082D | 2-disc game; both as GOD |
 | Too Human | 4D530810 | 2-disc game |
+| Grand Theft Auto V | 545408A7 | Disc 2 is the bootable "Play" disc; install as GOD. **Reversed from every other row here** - see the callout below for Disc 1. |
+
+---
+
+## Special case: GTA V's executable-less Install disc
+
+GTA V ships on two discs, but unlike every other multi-disc title above, **Disc 1 is the odd one out, not Disc 2**:
+
+- **Disc 1 ("Install" disc)**: pure data, **no `default.xex`/`default.xbe` at all** - the Xbox dashboard auto-installs its `Content/` package without ever booting an executable. GOD is structurally impossible (there's no XEX to pull container metadata from), so this must always be installed as **Content**, regardless of the compat table above.
+- **Disc 2 ("Play" disc)**: the normal bootable disc; install as **GOD**, per the table row above.
+
+Because Disc 1 has no executable, `ProbeISODiscInfo` can't read a TitleID from it the way it does for every other disc. The server resolves it two ways instead, tried in order:
+1. `ProbeContentPackageTitleID` reads the real TitleID straight from the STFS header of the content package embedded in the ISO's `content/0000000000000000/` folder.
+2. If that fails, `GuessTitleIDFromMultiDiscName`/`IsNoExecutableInstallDiscName` recognize the release name ("Grand Theft Auto V" / "GTA V" + "Disc 1") and use the known TitleID `545408A7` directly.
+
+See GODSend-360 issue #4.
 
 ---
 

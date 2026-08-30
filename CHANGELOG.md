@@ -7,6 +7,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.13.1] - 2026-08-30
+### Fixed
+- **Content install of executable-less "Install" discs no longer hard-fails.** `processContentInstallFromISO` required `ProbeISODiscInfo` to find a `default.xex`/`default.xbe` before it would even attempt to place content, so GTA V's Disc 1 - a data-only "Install" disc the Xbox dashboard auto-installs from its `Content/` package without ever booting an executable - errored out immediately after download with "Disc probe: no game executable ... found in ISO root" (issue #4). The probe failure now falls back, in order, to (1) `ProbeContentPackageTitleID` reading the real TitleID straight from the disc's STFS content package header (the same mechanism already used to resolve placeholder TitleIDs like Borderlands GOTY's Add-On disc) and (2) a name-based guess (`GuessTitleIDFromMultiDiscName`/`IsNoExecutableInstallDiscName`), which is now actually consumed as the destination TitleID instead of only steering the on-disc folder lookup. The `/disc-info` endpoint and its filename-only (no-Transfer-ISO) fallback got the equivalent fix, and `GuessTitleIDFromMultiDiscName`'s GTA V match uses a word-boundary regex so it can't collide with "Grand Theft Auto Vice City". Added GTA V (`545408A7`) to `DiscCompatTable` so its real Disc 2 ("Play" disc) is correctly recommended as GOD rather than falling through to the generic Disc 2+ Content default.
+- **Release assets rebuilt and re-uploaded.** All desktop installers and headless backend binaries rebuilt for 2.13.1 and re-uploaded to GoFile (primary) and file.kiwi (backup); links in `README.md` and `docs/headless-setup.md` updated.
+
 ## [2.13.0] - 2026-08-29
 ### Added
 - **Docker support for the headless backend.** New `Dockerfile` (Alpine, multi-stage, bundles `aria2c` which the Minerva/BitTorrent download path requires) and `docker-compose.yml`. Documented in a new [Docker section](docs/headless-setup.md#docker) of the headless setup guide, alongside the existing systemd/launchd instructions - no code changes, packaging only.

@@ -444,7 +444,27 @@ func (d *Deps) handleDiscInfo(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	if iso != "" {
 		info, err := utils.ProbeISODiscInfo(iso)
 		if err != nil {
-			jsonError(w, 500, fmt.Sprintf("Disc probe failed: %v", err))
+			// Some "Install" discs (e.g. GTA V Disc 1) carry no executable at
+			// all - same fallback as processContentInstallFromISO. No
+			// executable also means GOD is structurally impossible (there's
+			// no XEX to pull container metadata from), so the recommendation
+			// is unconditionally Content regardless of the compat table.
+			info = &utils.TitleExecInfo{TitleID: models.GuessTitleIDFromMultiDiscName(gameName)}
+			if probed, perr := utils.ProbeContentPackageTitleID(iso, info); perr == nil && probed != 0 {
+				info.TitleID = probed
+			} else if info.TitleID == 0 {
+				jsonError(w, 500, fmt.Sprintf("Disc probe failed: %v", err))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"disc_number":    1,
+				"disc_count":     0,
+				"title_id":       fmt.Sprintf("%08X", info.TitleID),
+				"recommendation": "content",
+				"notes":          "No executable on disc (data-only Install disc) - GOD is not possible; install as Content",
+				"probed":         true,
+			})
 			return
 		}
 		rec := models.DiscCompat(info.TitleID, info.DiscNumber)
@@ -459,7 +479,21 @@ func (d *Deps) handleDiscInfo(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		})
 		return
 	}
-	// No Transfer-folder ISO yet (typical for IA-only installs) - filename-based hint for Disc 2+.
+	// No Transfer-folder ISO yet (typical for IA-only installs) - filename-based hint.
+	if models.IsNoExecutableInstallDiscName(gameName) {
+		tid := models.GuessTitleIDFromMultiDiscName(gameName)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"disc_number":    1,
+			"disc_count":     0,
+			"title_id":       fmt.Sprintf("%08X", tid),
+			"recommendation": "content",
+			"notes":          "No executable on disc (data-only Install disc) - GOD is not possible; install as Content (Title ID guessed from game name)",
+			"probed":         false,
+		})
+		return
+	}
+	// Filename-based hint for Disc 2+.
 	if !models.IsMultiDiscGameName(gameName) {
 		jsonError(w, 404, "No local ISO found for this game")
 		return
