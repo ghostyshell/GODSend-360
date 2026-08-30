@@ -25,24 +25,37 @@ func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath strin
 	s.App.Logf("=== Content install: %s ===", gameName)
 
 	s.App.LogStatus(gameName, "Processing", "Reading disc info...")
-	info, err := utils.ProbeISODiscInfo(isoPath)
-	if err != nil {
-		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Disc probe: %v", err))
-		return
+	info, probeErr := utils.ProbeISODiscInfo(isoPath)
+	noExec := probeErr != nil
+	if noExec {
+		// Some "Install" discs (e.g. GTA V Disc 1) carry no executable at all -
+		// the Xbox dashboard auto-installs their Content/ package without ever
+		// booting a default.xex/xbe. There's no on-disc TitleID to read, so
+		// seed the navigation hint from the game name (may be 0) and resolve
+		// the real destination TitleID below, same as the placeholder case.
+		info = &utils.TitleExecInfo{TitleID: models.GuessTitleIDFromMultiDiscName(gameName)}
 	}
 	titleID := fmt.Sprintf("%08X", info.TitleID)
-	if models.IsContentDiscPlaceholderTitleID(info.TitleID) {
+	if noExec || models.IsContentDiscPlaceholderTitleID(info.TitleID) {
 		if probed, err := utils.ProbeContentPackageTitleID(isoPath, info); err == nil && probed != 0 {
-			s.App.Logf("Content install: placeholder TitleID %s resolved to %08X from content packages", titleID, probed)
+			s.App.Logf("Content install: TitleID %s resolved to %08X from content packages", titleID, probed)
 			titleID = fmt.Sprintf("%08X", probed)
 		} else if guessed := models.GuessTitleIDFromMultiDiscName(gameName); guessed != 0 {
-			s.App.Logf("Content install: placeholder TitleID %s overridden to %08X from game name", titleID, guessed)
+			s.App.Logf("Content install: TitleID %s overridden to %08X from game name", titleID, guessed)
 			titleID = fmt.Sprintf("%08X", guessed)
+		} else if noExec {
+			s.App.Logf("Content install: no executable on disc and TitleID could not be resolved from content packages or game name: %v", probeErr)
+			s.App.LogStatus(gameName, "Error", fmt.Sprintf("Disc probe: %v", probeErr))
+			return
 		} else {
 			s.App.Logf("Content install: WARNING - TitleID %s is a known placeholder; could not resolve parent title from content packages or game name %q - content may install to wrong folder", titleID, gameName)
 		}
 	}
-	s.App.Logf("Content install: TitleID=%s disc=%d/%d", titleID, info.DiscNumber, info.DiscCount)
+	if noExec {
+		s.App.Logf("Content install: TitleID=%s disc=?/? (no executable on disc)", titleID)
+	} else {
+		s.App.Logf("Content install: TitleID=%s disc=%d/%d", titleID, info.DiscNumber, info.DiscCount)
+	}
 
 	s.App.LogStatus(gameName, "Processing", "Extracting content files from ISO...")
 	contentDir := filepath.Join(s.App.ToolsDir, "Temp", safeName+"_content")

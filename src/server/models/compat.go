@@ -50,6 +50,11 @@ var DiscCompatTable = map[uint32]DiscCompatRec{
 	0x4D530830: {InstallType: "god", Notes: "Multi-disc RPG - all discs are GOD"},
 	0x5345082D: {InstallType: "god", Notes: "Disc 2 is game continuation"},
 	0x4D530810: {InstallType: "god", Notes: "Disc 2 is game continuation"},
+	// GTA V is the reverse of every other row above: Disc 1 is the data-only
+	// "Install" disc (no executable, always Content - see
+	// IsNoExecutableInstallDiscName) and this Disc 2+ row is the bootable
+	// "Play" disc, which needs GOD like a normal single-disc game.
+	0x545408A7: {InstallType: "god", Notes: "Disc 2 (\"Play\" disc) is the bootable disc; install as GOD"},
 }
 
 // DiscCompat returns the compat recommendation for a given TitleID and disc number.
@@ -102,8 +107,26 @@ func GuessTitleIDFromMultiDiscName(name string) uint32 {
 	if strings.Contains(l, "borderlands") && (strings.Contains(l, "goty") || strings.Contains(l, "game of the year") || strings.Contains(l, "triple pack") || strings.Contains(l, "add-on content")) {
 		return 0x545407E7
 	}
+	if IsNoExecutableInstallDiscName(name) {
+		return 0x545408A7
+	}
 	return 0
 }
+
+// IsNoExecutableInstallDiscName reports whether name looks like a Disc 1
+// "Install" disc for a known title that carries no executable at all (e.g.
+// GTA V) - GOD is structurally impossible for these, so callers should
+// recommend Content unconditionally rather than consulting DiscCompatTable.
+func IsNoExecutableInstallDiscName(name string) bool {
+	l := strings.ToLower(name)
+	// \b after "v" rejects "grand theft auto vice city".
+	return gtaVNamePattern.MatchString(l) && disc1NamePattern.MatchString(l)
+}
+
+var (
+	gtaVNamePattern  = regexp.MustCompile(`\b(grand theft auto v|gta v)\b`)
+	disc1NamePattern = regexp.MustCompile(`\b(disc|disk|cd|dvd)\s*1\b`)
+)
 
 // IsContentDiscPlaceholderTitleID returns true when the title ID read from a
 // content disc's XEX is a known publisher placeholder rather than the parent
