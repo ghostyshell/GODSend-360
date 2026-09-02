@@ -299,8 +299,8 @@ func readXDVDFSDirTable(f *os.File, partOff uint64, sector, size uint32) []xdvdf
 }
 
 // parseDirSector extracts directory entries from a raw 2 048-byte sector buffer.
-// Parsing stops when both subtreeLeft and subtreeRight are 0xFFFF (end-of-data
-// / padding marker in the XDVDFS format).
+// Parsing stops at either padding marker: a 0xFFFF subtree pointer (the 0xFF
+// sector tail XDVDFS pads with) or a zero-length filename (zero fill).
 func parseDirSector(data []byte) []xdvdfsDirEntry {
 	var entries []xdvdfsDirEntry
 	pos := 0
@@ -315,12 +315,15 @@ func parseDirSector(data []byte) []xdvdfsDirEntry {
 		}
 		sector := binary.LittleEndian.Uint32(data[pos+4:])
 		size := binary.LittleEndian.Uint32(data[pos+8:])
-		if size == 0 {
-			break
-		}
 		attrs := data[pos+12]
 		nameLen := int(data[pos+13])
-		if pos+14+nameLen > len(data) {
+		// A zero-length name means zero-filled padding past the last entry.
+		// A zero *size* is NOT a terminator: real discs carry empty files
+		// (GTA V Install Disc 1 has a 0-byte disc1.rsn), and because the
+		// table is an AVL tree written root-first, that empty entry can be
+		// the very first one - bailing there hid every sibling, including
+		// default.xex and content/.
+		if nameLen == 0 || pos+14+nameLen > len(data) {
 			break
 		}
 		entries = append(entries, xdvdfsDirEntry{
@@ -1052,8 +1055,10 @@ func ExtractXDVDFSContentToDir(isoPath, destDir string, info *TitleExecInfo) err
 		if sec, sz, ok2 := findInDir(f, partOff, zSec, zSz, "FFED2000"); ok2 {
 			tSec, tSz = sec, sz
 		} else {
+			// size > 0: an empty directory has no table to read, so falling
+			// back onto one would silently "succeed" with nothing extracted.
 			for _, e := range readXDVDFSDirTable(f, partOff, zSec, zSz) {
-				if e.isDir() {
+				if e.isDir() && e.size > 0 {
 					tSec, tSz = e.sector, e.size
 					ok = true
 					break
@@ -1069,7 +1074,7 @@ func ExtractXDVDFSContentToDir(isoPath, destDir string, info *TitleExecInfo) err
 	dSec, dSz, ok := findInDir(f, partOff, tSec, tSz, "00000002")
 	if !ok {
 		for _, e := range readXDVDFSDirTable(f, partOff, tSec, tSz) {
-			if e.isDir() {
+			if e.isDir() && e.size > 0 {
 				dSec, dSz = e.sector, e.size
 				ok = true
 				break
@@ -1128,8 +1133,10 @@ func ProbeContentPackageTitleID(isoPath string, info *TitleExecInfo) (uint32, er
 		if sec, sz, ok2 := findInDir(f, partOff, zSec, zSz, "FFED2000"); ok2 {
 			tSec, tSz = sec, sz
 		} else {
+			// size > 0: an empty directory has no table to read, so falling
+			// back onto one just hides the real TitleID folder behind it.
 			for _, e := range readXDVDFSDirTable(f, partOff, zSec, zSz) {
-				if e.isDir() {
+				if e.isDir() && e.size > 0 {
 					tSec, tSz = e.sector, e.size
 					ok = true
 					break
@@ -1145,7 +1152,7 @@ func ProbeContentPackageTitleID(isoPath string, info *TitleExecInfo) (uint32, er
 	dSec, dSz, ok := findInDir(f, partOff, tSec, tSz, "00000002")
 	if !ok {
 		for _, e := range readXDVDFSDirTable(f, partOff, tSec, tSz) {
-			if e.isDir() {
+			if e.isDir() && e.size > 0 {
 				dSec, dSz = e.sector, e.size
 				ok = true
 				break
