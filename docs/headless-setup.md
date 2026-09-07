@@ -8,11 +8,11 @@ The Go backend works as a standalone headless server - no Electron, no GUI, no d
 
 | Platform | GoFile | file.kiwi backup |
 |----------|--------|--------|
-| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/wvYFFbGM) | [`godsend.exe`](https://file.kiwi/6dfd09c1#l6Yd58qFR3rgse9_uWSwvw) |
-| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gofile.io/d/BltpDvv7) | [`godsend-linux-x64`](https://file.kiwi/0c6b9a8d#qIQfdqBi4Kx0BXgxeTJrAA) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/cmslhgGg) | [`godsend-linux-arm64`](https://file.kiwi/60675e68#tl7z-sDoOTFt6zdp46Ieyg) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/Ta6sKIDG) | [`godsend-darwin-arm64`](https://file.kiwi/eb6b01d9#bVgL3Z_nFzmj6TKJy3G4bQ) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/8LdERTMP) | [`godsend-darwin-amd64`](https://file.kiwi/59435fdf#J0s7HuVcnr1fWbQatl5qSg) |
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/ASJYSCvY) | [`godsend.exe`](https://file.kiwi/7d6bba7f#Mbc9oD6fvIyF89e_xYhERw) |
+| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://gofile.io/d/RrkjgA9G) | [`godsend-linux-x64`](https://file.kiwi/ebc24cf9#BBxJI3aKbvD5yV7fxoezuQ) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/MtClFKDN) | [`godsend-linux-arm64`](https://file.kiwi/e3e8dbe9#jC2hu9UF_Wk1ZLIbfRt1JQ) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/fUntek5I) | [`godsend-darwin-arm64`](https://file.kiwi/c4f77253#5TL16A9Ejtqm_j_HekQkhw) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/bJff3aJ7) | [`godsend-darwin-amd64`](https://file.kiwi/e386f646#UYPHPfaBwncNQH3JR7EeEQ) |
 
 For the **full desktop app** (tray UI + bundled backend), see the download table in the main [README](../readme.md#quick-installation).
 

@@ -426,8 +426,26 @@ func (s *Service) SetTUActive(xboxIP, drive, titleID, contentType, fileName stri
 	if err != nil {
 		return err
 	}
-	defer s.FTP.QuitConn(conn)
+	// Closure so a reconnect below still quits the live connection - a plain
+	// defer evaluated the original pointer and leaked the reconnected slot.
+	defer func() { s.FTP.QuitConn(conn) }()
+	if err := s.setTUActiveWithConn(conn, drive, titleID, contentType, fileName, setActive); err == nil {
+		return nil
+	}
+	// One reconnect retry on a stalled session (Aurora FTP failure mode).
+	s.FTP.QuitConn(conn)
+	retry, rerr := s.FTP.ConnectWithRetry(xboxIP)
+	if rerr != nil {
+		return rerr
+	}
+	conn = retry
+	return s.setTUActiveWithConn(conn, drive, titleID, contentType, fileName, setActive)
+}
 
+// setTUActiveWithConn is the core of SetTUActive on an already-held FTP
+// session. The upload paths use it directly: they already own the console's
+// per-IP connection slot, and ConnectWithRetry would deadlock on it.
+func (s *Service) setTUActiveWithConn(conn *goftp.ServerConn, drive, titleID, contentType, fileName string, setActive bool) error {
 	driveClean := strings.TrimSuffix(drive, ":")
 	folder := fmt.Sprintf("/%s/Content/0000000000000000/%s/%s",
 		driveClean, strings.ToUpper(titleID), strings.ToLower(contentType))
@@ -451,20 +469,7 @@ func (s *Service) SetTUActive(xboxIP, drive, titleID, contentType, fileName stri
 		// Deactivate every other active TU file in this folder.
 		entries, err := listWithTimeout(conn, 8*time.Second)
 		if err != nil {
-			s.App.Logf("CONTENT SET-ACTIVE: list failed (%v) - reconnecting", err)
-			s.FTP.QuitConn(conn)
-			newConn, rerr := s.FTP.ConnectWithRetry(xboxIP)
-			if rerr != nil {
-				return rerr
-			}
-			conn = newConn
-			if cerr := conn.ChangeDir(folder); cerr != nil {
-				return cerr
-			}
-			entries, err = listWithTimeout(conn, 8*time.Second)
-			if err != nil {
-				return err
-			}
+			return err
 		}
 		for _, e := range entries {
 			if e.Type != goftp.EntryTypeFile {
@@ -532,15 +537,8 @@ func tuMetaFromFiles(entries []*goftp.Entry) (string, bool) {
 			continue
 		}
 		fileCount++
-		name := e.Name
-		if strings.HasPrefix(strings.ToLower(name), "tu") {
-			verStr := name[2:]
-			if idx := strings.IndexAny(verStr, "_."); idx > 0 {
-				verStr = verStr[:idx]
-			}
-			if v, err := strconv.Atoi(verStr); err == nil && v > bestVer {
-				bestVer = v
-			}
+		if v := extractTUVersion(e.Name); v > bestVer {
+			bestVer = v
 		}
 	}
 	name := "Title Update"
@@ -703,31 +701,18 @@ func isTitleUpdateEntry(name string) bool {
 // normalizeTUVersions detects version numbers from TU filenames and
 // populates the Version / DisplayName fields for sorting.
 func (s *Service) normalizeTUVersions(tus []models.ContentItem) {
-	type verInfo struct {
-		idx     int
-		version int
-	}
-	var versions []verInfo
-	for i, tu := range tus {
-		v := extractTUVersion(tu.DisplayName)
-		versions = append(versions, verInfo{idx: i, version: v})
+	for i := range tus {
+		v := extractTUVersion(tus[i].DisplayName)
 		tus[i].Version = v
 		if v > 0 {
 			tus[i].DisplayName = fmt.Sprintf("Title Update v%d", v)
 		}
 	}
-	// Mark the highest TU version as active (matching Aurora behaviour).
-	var highestVer = -1
-	var highestIdx = -1
-	for _, vi := range versions {
-		if vi.version > highestVer {
-			highestVer = vi.version
-			highestIdx = vi.idx
-		}
-	}
-	if highestIdx >= 0 {
-		tus[highestIdx].Active = true
-	}
+	// No Active stamping here: the FTP scan derives Active from the
+	// `.disabled` suffix, which is the ground truth for what the console
+	// actually loads. Marking the highest-version row active from a merged
+	// installed+candidate list used to flip "Active" onto a TU that isn't
+	// even installed.
 }
 
 func extractTUVersion(name string) int {
@@ -779,6 +764,35 @@ func extractTUVersion(name string) int {
 		if v, err := strconv.Atoi(numStr); err == nil && v > 0 && v < best {
 			best = v
 			bestVer = v
+		}
+	}
+	// Names like `545408A7_TU27_0C48794E.bin` (the exact name GODSend uploads
+	// for XboxUnity TUs), Horizon-style `TU27…`, or `tu_27…` - every "tu"
+	// occurrence followed by a digit run that ends at a separator or the end
+	// of the name. The end-boundary keeps hex title IDs out of the number
+	// (`TU_4D5307D8` must not parse as v4), the cap keeps junk like a
+	// concatenated hash out (real TU versions are small).
+	if bestVer == 0 {
+		for idx := strings.Index(lower, "tu"); idx >= 0; {
+			start := idx + 2
+			for start < len(lower) && (lower[start] == '_' || lower[start] == '-' || lower[start] == ' ') {
+				start++
+			}
+			end := start
+			for end < len(lower) && lower[end] >= '0' && lower[end] <= '9' {
+				end++
+			}
+			if end > start && (end == len(lower) ||
+				lower[end] == '_' || lower[end] == '-' || lower[end] == '.' || lower[end] == ' ') {
+				if v, err := strconv.Atoi(lower[start:end]); err == nil && v > 0 && v < 1000 && v > bestVer {
+					bestVer = v
+				}
+			}
+			next := strings.Index(lower[idx+2:], "tu")
+			if next < 0 {
+				break
+			}
+			idx = idx + 2 + next
 		}
 	}
 	return bestVer
@@ -1063,6 +1077,16 @@ func (s *Service) QueueContentDownload(req models.ContentQueueRequest, xboxConn 
 				return err
 			}
 			os.RemoveAll(gameDir)
+			// A fresh TU must leave exactly one active file: disable every
+			// existing bare TU sibling so the library page doesn't show two
+			// "Active" rows (the old scan truth: any bare file = active).
+			// Uses the already-held connection - ConnectWithRetry here would
+			// deadlock on this console's per-IP FTP slot.
+			if isTUContentType(req.ContentType) {
+				if aerr := s.setTUActiveWithConn(fc, drive, req.TitleID, req.ContentType, fileName, true); aerr != nil {
+					s.App.Logf("CONTENT QUEUE: post-upload TU activation failed: %v", aerr)
+				}
+			}
 			s.App.LogFTPComplete(queueKey, req.TitleID, xboxConn.IP)
 		} else {
 			relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", strings.ToUpper(req.TitleID), strings.ToLower(req.ContentType))
@@ -1189,6 +1213,13 @@ func (s *Service) queueViaTorrent(req models.ContentQueueRequest, xboxConn *mode
 			Size:        info.Size(),
 		})
 		os.RemoveAll(gameDir)
+		// Same single-active guarantee for the torrent path (Minerva TUs),
+		// reusing the held connection (per-IP slot is already taken).
+		if isTUContentType(typeDir) {
+			if aerr := s.setTUActiveWithConn(fc, drive, destTitleID, typeDir, finalName, true); aerr != nil {
+				s.App.Logf("CONTENT QUEUE: post-upload TU activation failed: %v", aerr)
+			}
+		}
 		s.App.LogFTPComplete(queueKey, destTitleID, xboxConn.IP)
 	} else {
 		relPath := fmt.Sprintf("Content\\0000000000000000\\%s\\%s\\", destTitleID, typeDir)
