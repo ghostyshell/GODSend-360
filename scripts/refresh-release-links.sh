@@ -27,6 +27,13 @@ log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 notify() { osascript -e "display notification \"$1\" with title \"GODsend release refresh\"" >/dev/null 2>&1 || true; }
 die() { log "FAILED: $*"; notify "GODsend link refresh FAILED - $*"; exit 1; }
 
+# Fail fast on a missing tool rather than deep inside the build. launchd gets a much
+# thinner PATH than an interactive shell: `go` lives in /usr/local/go/bin, which no
+# shell profile on this machine exports, so the plist has to list it.
+for tool in node npm go python3 jq curl git; do
+  command -v "$tool" >/dev/null 2>&1 || die "$tool not found on PATH ($PATH)"
+done
+
 # Manifest bookkeeping: one row per artifact, `name | gofile | kiwi`. Reads are
 # keyed on the exact name so `godsend.exe` cannot match `godsend-Setup-X.exe`.
 field() { grep -F "$1 |" "$LINKS" 2>/dev/null | tail -1 | cut -d'|' -f"$2" | tr -d ' ' || true; }
