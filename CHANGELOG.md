@@ -7,6 +7,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+### Added
+- **Automated weekly release-link refresh.** GoFile expires free-tier files, so the published download links go dead within weeks even when no code changes. `scripts/refresh-release-links.sh` (launchd agent `com.akshat.godsend-weekly-refresh`, Sunday 03:47) now rebuilds every platform, re-uploads all 12 artifacts to GoFile + file.kiwi, repoints both download tables via `scripts/patch-release-links.py`, and pushes to `main`. Tooling only - no product code changed, so the version is deliberately unbumped. Two safety properties: `dist/` is cleared before the build, so a failed build cannot fall through to uploading stale binaries; and a row whose fresh GoFile link fails to upload keeps its existing URL instead of being blanked, with the run warning in its log and posting a desktop notification.
+
 ## [2.13.3] - 2026-09-07
 ### Fixed
 - **Xbox Library now shows the TU that is actually installed and in use.** Three accuracy bugs in the title-update display: (1) `normalizeTUVersions` stamped `Active = true` on the highest-version row of the merged installed+candidate list regardless of install state, so "Active" could appear on a TU that wasn't even on the console - the flag now comes only from the FTP scan's `.disabled` suffix, which is what the console actually loads; (2) version parsing only matched filenames that *start* with `tu`, so real console TU files like `545408A7_TU27_0C48794E.bin` (the exact name GODSend itself uploads for XboxUnity TUs) or Horizon-style `TU27…` showed as a bare "Title Update" with no version and couldn't be deduped against the XboxUnity candidate list - `extractTUVersion` now picks up `tu<digits>` anywhere in the name; (3) freshly installed TUs left every pre-existing bare TU file active (any bare file scans as "active"), so two rows could both read "Active" - both upload paths (direct URL and Minerva torrent) now deactivate sibling TUs so the new file is the single active one. Regression tests in `services/content/content_test.go`.
