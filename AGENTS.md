@@ -266,6 +266,30 @@ Also update all inline version references in `README.md` (filenames in prose, in
 - When bumping versions, update `README.md` download links **in the same commit** as the version bump.
 - You only need to rebuild + re-upload the platforms that actually changed; leave links for platforms already published at the current version alone.
 
+#### Automated weekly link refresh
+
+GoFile expires free-tier files, so the published links rot even when no code changes.
+`scripts/refresh-release-links.sh` handles that on a schedule (launchd agent
+`com.akshat.godsend-weekly-refresh`, Sunday 03:47, under `caffeinate -i`):
+
+1. clears `dist/`, so a failed build can never fall through to uploading stale binaries
+2. rebuilds every platform for the version in `package.json`
+3. re-uploads all 12 artifacts to GoFile + file.kiwi, getting fresh links
+4. repoints both download tables through `scripts/patch-release-links.py`
+5. commits and pushes to `github main`
+
+Because the job exists to replace expired links, it re-uploads **every** platform each
+run. That deliberately overrides the "only rebuild what changed" rule above, which
+applies to hand-cut releases where the previous links are still alive. `patch-release-links.py`
+matches rows by artifact identity with the version stripped out, so the job also survives
+a version bump: the row is found and both its label and URL are rewritten.
+
+Both scripts are safe to run by hand. Re-running the same day resumes that day's uploads
+instead of starting over, and a single run is guarded by `.release-refresh.lock`. If an
+artifact cannot get a fresh GoFile link, that row keeps its existing URL (never a broken
+link), the run warns in its log and posts a desktop notification. `refresh-release-links.sh --selftest`
+and `patch-release-links.py --demo` exercise the manifest bookkeeping and link rewriting.
+
 ---
 
 ### Version bump, build & release workflow
