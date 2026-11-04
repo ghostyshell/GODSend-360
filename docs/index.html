@@ -162,52 +162,33 @@
   }
   </script>
 
-  <style>
+    <style>
+    /* Base colors so the page stays legible if the Tailwind CDN is blocked or slow. */
+    /* Heading scale fallback; utility classes still win when Tailwind loads. */
+    h1 { font-size: clamp(2.25rem, 5vw, 3.75rem); line-height: 1.1; }
+    h2 { font-size: clamp(1.875rem, 3vw, 2.25rem); line-height: 1.2; }
+    h3 { font-size: 1.25rem; line-height: 1.3; }
+    html, body { background: #020617; color: #F1F5F9; }
     /* Skip-link & a11y */
     .sr-only-focusable:not(:focus) { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
     /* Synthwave grid background */
     .grid-bg {
-      background-image:
-        linear-gradient(to bottom, rgba(2,6,23,0) 0%, rgba(2,6,23,0.92) 78%, #020617 100%),
-        linear-gradient(rgba(34,197,94,0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(168,85,247,0.06) 1px, transparent 1px);
-      background-size: 100% 100%, 56px 56px, 56px 56px;
-      background-position: center, center, center;
-    }
-
-    /* Subtle CRT scanlines on hero only */
-    .scanlines::after {
-      content: "";
-      position: absolute; inset: 0;
-      pointer-events: none;
-      background: repeating-linear-gradient(
-        to bottom,
-        rgba(255,255,255,0.025) 0px,
-        rgba(255,255,255,0.025) 1px,
-        transparent 1px,
-        transparent 3px
-      );
-      mix-blend-mode: overlay;
+      background-image: linear-gradient(to bottom, rgba(2,6,23,0) 0%, rgba(2,6,23,0.92) 78%, #020617 100%);
     }
 
     /* Neon text glow */
-    .neon-green  { color: #22C55E; text-shadow: 0 0 6px rgba(34,197,94,0.45), 0 0 24px rgba(34,197,94,0.18); }
-    .neon-magenta{ color: #A855F7; text-shadow: 0 0 6px rgba(168,85,247,0.45), 0 0 24px rgba(168,85,247,0.18); }
+    .neon-green  { color: #22C55E; }
+    .neon-magenta{ color: #A855F7; }
 
-    /* Animated gradient sweep on hero headline */
+    /* Solid accent on the hero headline */
     .sweep {
-      background: linear-gradient(90deg, #22C55E 0%, #A855F7 45%, #22D3EE 80%, #22C55E 100%);
-      background-size: 200% auto;
-      -webkit-background-clip: text; background-clip: text;
-      color: transparent;
-      animation: sweep 7s linear infinite;
+      color: #22C55E;
     }
-    @keyframes sweep { to { background-position: 200% center; } }
 
     /* Card hover lift */
     .lift { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
-    .lift:hover { transform: translateY(-4px); border-color: rgba(34,197,94,0.45); box-shadow: 0 14px 40px -18px rgba(34,197,94,0.4); }
+    .lift:hover { transform: translateY(-4px); border-color: rgba(34,197,94,0.45); box-shadow: 0 14px 40px -18px rgba(0,0,0,0.65); }
 
     /* Mock browser frame (used for "screenshot" placeholders) */
     .mock-frame { background: linear-gradient(180deg, #0B1120 0%, #050912 100%); }
@@ -269,7 +250,7 @@
               your <span class="sweep">Aurora dashboard</span> deserves.
             </h1>
             <p class="mt-6 text-lg md:text-xl text-slate-300 max-w-2xl">
-              Browse Minerva Archive and Internet Archive, convert <strong>ISO → GOD</strong> on the fly, and push DLC, Title Updates, and save backups to your console over FTP - from one open-source desktop app. <span class="text-neon-green">No accounts. No tags. No telemetry.</span>
+              Browse Minerva Archive and Internet Archive, convert <strong>ISO → GOD</strong> on the fly, and push DLC, Title Updates, and save backups to your console over FTP - from one open-source desktop app. <span class="text-neon-green">It runs on your own machine, with no accounts, tags or telemetry.</span>
             </p>
             <div class="mt-8 flex flex-wrap items-center gap-4">
               <a href="#downloads" class="inline-flex items-center gap-2 bg-neon-green text-ink-950 font-display tracking-wide px-6 py-3 rounded-md shadow-neon-green hover:brightness-110 transition cursor-pointer">
@@ -648,7 +629,9 @@
         <div class="mt-8 flex flex-wrap justify-center gap-3">
           <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="inline-flex items-center gap-2 bg-neon-green text-ink-950 font-display tracking-wide px-6 py-3 rounded-md shadow-neon-green hover:brightness-110 transition cursor-pointer">Get it on GitHub</a>
           <a href="https://ko-fi.com/ghosty99" rel="noopener" class="inline-flex items-center gap-2 border border-white/15 hover:border-neon-magenta px-6 py-3 rounded-md font-display tracking-wide hover:text-white transition cursor-pointer">Support on Ko-fi</a>
+          <a href="ethereum:0xbBef115aD853236a350EaF04777a2AdB2e7c0317" rel="noopener" class="inline-flex items-center gap-2 border border-white/15 hover:border-neon-magenta px-6 py-3 rounded-md font-display tracking-wide hover:text-white transition cursor-pointer">Donate ETH</a>
         </div>
+        <p class="mt-3 text-xs text-slate-400">ETH: <code class="text-slate-200">0xbBef115aD853236a350EaF04777a2AdB2e7c0317</code></p>
       </div>
     </section>
   </main>
@@ -679,6 +662,7 @@
           <li><a class="hover:text-neon-green transition" rel="noopener" href="https://github.com/ghostyshell/GODSend-360/blob/main/docs/reference/aurora.md">Aurora Lua API</a></li>
           <li><a class="hover:text-neon-green transition" href="/GODSend-360/privacy.html">Privacy Policy</a></li>
           <li><a class="hover:text-neon-green transition" rel="noopener" href="https://ko-fi.com/ghosty99">Support on Ko-fi</a></li>
+          <li><a class="hover:text-neon-green transition" rel="noopener" href="ethereum:0xbBef115aD853236a350EaF04777a2AdB2e7c0317">Donate ETH</a></li>
         </ul>
       </div>
     </div>

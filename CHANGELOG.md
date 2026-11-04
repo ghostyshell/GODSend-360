@@ -9,6 +9,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 ### Added
+- **ETH donations sit beside Ko-fi.** The site's call-to-action row and the footer donate link now point at `ethereum:0xbBef115aD853236a350EaF04777a2AdB2e7c0317`, with the full address shown under the buttons so it can be copied without a wallet handler. The README badge links to the address on Etherscan. Copy-only change, no product code.
 - **Automated weekly release-link refresh.** GoFile expires free-tier files, so the published download links go dead within weeks even when no code changes. `scripts/refresh-release-links.sh` (launchd agent `com.akshat.godsend-weekly-refresh`, Sunday 03:47) now rebuilds every platform, re-uploads all 12 artifacts to GoFile + file.kiwi, repoints both download tables via `scripts/patch-release-links.py`, and pushes to `main`. Tooling only - no product code changed, so the version is deliberately unbumped. Two safety properties: `dist/` is cleared before the build, so a failed build cannot fall through to uploading stale binaries; and a row whose fresh GoFile link fails to upload keeps its existing URL instead of being blanked, with the run warning in its log and posting a desktop notification.
 
 ## [2.13.3] - 2026-09-07
