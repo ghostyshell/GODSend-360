@@ -48,14 +48,16 @@
   </script>
   <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
 
-  <style>
-    .neon-green   { color: #22C55E; text-shadow: 0 0 6px rgba(34,197,94,0.45), 0 0 24px rgba(34,197,94,0.18); }
+    <style>
+    /* Base colors so the page stays legible if the Tailwind CDN is blocked or slow. */
+    /* Heading scale fallback; utility classes still win when Tailwind loads. */
+    h1 { font-size: clamp(2.25rem, 5vw, 3.75rem); line-height: 1.1; }
+    h2 { font-size: clamp(1.875rem, 3vw, 2.25rem); line-height: 1.2; }
+    h3 { font-size: 1.25rem; line-height: 1.3; }
+    html, body { background: #020617; color: #F1F5F9; }
+    .neon-green   { color: #22C55E; }
     .grid-bg {
-      background-image:
-        linear-gradient(to bottom, rgba(2,6,23,0) 0%, rgba(2,6,23,0.92) 78%, #020617 100%),
-        linear-gradient(rgba(34,197,94,0.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(168,85,247,0.04) 1px, transparent 1px);
-      background-size: 100% 100%, 56px 56px, 56px 56px;
+      background-image: linear-gradient(to bottom, rgba(2,6,23,0) 0%, rgba(2,6,23,0.92) 78%, #020617 100%);
     }
     .sr-only-focusable:not(:focus) { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
   </style>
@@ -126,7 +128,7 @@
         <ul>
           <li><a href="https://fonts.google.com" rel="noopener">Google Fonts</a> - for the Russo One, Chakra Petch, and JetBrains Mono fonts.</li>
           <li><a href="https://tailwindcss.com" rel="noopener">Tailwind Play CDN</a> - for the page's stylesheet.</li>
-          <li>Outbound links to <a href="https://github.com" rel="noopener">GitHub</a>, <a href="https://gofile.io" rel="noopener">GoFile</a>, <a href="https://file.kiwi" rel="noopener">file.kiwi</a>, and <a href="https://ko-fi.com" rel="noopener">Ko-fi</a> are only followed when you click them.</li>
+          <li>Outbound links to <a href="https://github.com" rel="noopener">GitHub</a>, <a href="https://gofile.io" rel="noopener">GoFile</a>, <a href="https://file.kiwi" rel="noopener">file.kiwi</a>, and <a href="https://ko-fi.com" rel="noopener">Ko-fi</a> are only followed when you click them. The ETH donation button opens an <code>ethereum:</code> link that hands the address to your wallet app; this site never sees it.</li>
         </ul>
         <p>GitHub Pages itself logs basic access information at the server level; refer to <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a> for details.</p>
 
