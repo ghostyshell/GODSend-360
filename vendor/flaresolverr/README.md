@@ -10,7 +10,9 @@ the backend at it (`GODSEND_CF_SOLVER_URL`).
   `_internal/` here before packaging that DMG.
 - **Linux arm64:** built by `.github/workflows/build-flaresolverr-arm64.yml`
   (Debian Chromium + chromedriver, PyInstaller). Download the workflow artifact
-  and extract it here before packaging the arm64 AppImage.
+  and extract it here before packaging the arm64 AppImage. The frozen Python
+  needs glibc 2.38 or newer (Ubuntu 24.04+, Debian trixie+).
+- The macOS bundles use Chrome for Testing 157, which needs macOS 12 or newer.
 
 Nothing here is committed except this file. The app reuses an already-running
 solver on `127.0.0.1:8191`/`:8192` instead of starting a second one. If no
