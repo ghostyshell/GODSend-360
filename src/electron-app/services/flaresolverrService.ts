@@ -141,6 +141,13 @@ export async function ensureLocalSolver(appendLine?: (line: string) => void): Pr
       HOST: "127.0.0.1",
       LOG_LEVEL: "warning",
     };
+    if (process.platform === "linux") {
+      // The bundled Debian Chromium keeps its shared libraries beside it.
+      childEnv.LD_LIBRARY_PATH = path.join(path.dirname(bin), "_internal", "chrome");
+      // On a desktop, run headful so no Xvfb is needed; servers without a
+      // display keep FlareSolverr's headless default.
+      if (process.env.DISPLAY) childEnv.HEADLESS = "false";
+    }
     child = spawn(bin, ["--port", String(port)], {
       cwd: path.dirname(bin),
       env: childEnv,

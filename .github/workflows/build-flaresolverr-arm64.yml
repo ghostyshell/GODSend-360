@@ -18,7 +18,7 @@ jobs:
           sudo apt-get install -y python3-venv python3-pip curl xz-utils dpkg-dev xvfb \
             libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
             libxcomposite1 libxdamage1 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 \
-            libasound2t64 libatspi2.0-0 libx11-xcb1 fonts-liberation
+            libasound2t64 libatspi2.0-0 libx11-xcb1 fonts-liberation libopenh264-7 || true
 
       - name: Fetch FlareSolverr 3.5.2
         run: |
@@ -39,9 +39,18 @@ jobs:
           echo "deb [trusted=yes] http://deb.debian.org/debian bookworm main" | \
             sudo tee /etc/apt/sources.list.d/bookworm.list
           sudo apt-get update
-          (cd /tmp && apt-get download chromium chromium-driver)
-          mkdir -p /tmp/debroot /tmp/chrome
+          DEPS=$(apt-cache depends --recurse --no-recommends --no-suggests             --no-conflicts --no-breaks --no-replaces --no-enhances chromium chromium-driver             | awk '/^[a-zA-Z0-9]/{print $1}' | sort -u || true)
+          (cd /tmp && apt-get download chromium chromium-driver $DEPS) || true
+          mkdir -p /tmp/debroot /tmp/chrome/libs
           for d in /tmp/*.deb; do dpkg-deb -x "$d" /tmp/debroot; done
+          # Bundle every non-core shared library chromium needs. Core runtime
+          # (libc, libstdc++, libgcc) comes from the host.
+          for lib in /tmp/debroot/usr/lib/aarch64-linux-gnu/*.so*; do
+            case "$(basename "$lib")" in
+              libc.so*|libm.so*|libpthread.so*|libdl.so*|librt.so*|ld-linux*|libgcc_s.so*|libstdc++.so*) continue ;;
+            esac
+            cp -a "$lib" /tmp/chrome/libs/ 2>/dev/null || true
+          done
           cp -R /tmp/debroot/usr/lib/chromium/* /tmp/chrome/ 2>/dev/null || true
           if [ -f /tmp/chrome/chromium ]; then mv /tmp/chrome/chromium /tmp/chrome/chrome; fi
           if [ -f /tmp/debroot/usr/lib/chromium/chromedriver ]; then
@@ -51,14 +60,15 @@ jobs:
             cp /tmp/debroot/usr/bin/chromedriver /tmp/chrome/
           fi
           chmod +x /tmp/chrome/chrome /tmp/chrome/chromedriver
-          ls -lh /tmp/chrome
+          ls -lh /tmp/chrome | head
+          ldd /tmp/chrome/chrome | grep 'not found' || true
 
           python3 scripts/patch-flaresolverr-linux-arm64.py "$FL"
           (cd "$FL" && /tmp/venv/bin/python -m PyInstaller --noconfirm --name flaresolverr \
             --add-data "package.json:." --add-data "/tmp/chrome:chrome" src/flaresolverr.py)
 
           # Smoke test: the startup UA probe launches the bundled browser.
-          (cd "$FL" && PORT=18211 HEADLESS=true LD_LIBRARY_PATH=/tmp/chrome \
+          (cd "$FL" && PORT=18211 HEADLESS=true LD_LIBRARY_PATH=/tmp/chrome:/tmp/chrome/libs \
             xvfb-run -a ./dist/flaresolverr/flaresolverr > /tmp/fs.log 2>&1 &)
           ok=0
           for i in $(seq 1 60); do
