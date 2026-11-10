@@ -1,16 +1,23 @@
 # FlareSolverr bundle
 
-`scripts/download-flaresolverr.js` downloads the official FlareSolverr release
-for this platform into this folder. The Electron app starts it on a free local
-port and points the backend at it (`GODSEND_CF_SOLVER_URL`).
+The Electron app starts a bundled FlareSolverr on a free local port and points
+the backend at it (`GODSEND_CF_SOLVER_URL`).
 
-- Official releases cover **Linux x64** and **Windows x64**. There is no macOS
-  build; on macOS point Settings -> dlxbgame.com source -> solver URL at a
-  FlareSolverr/Byparr instance on your LAN (Byparr works too).
-- Nothing here is committed (except this file). The app skips the solver when
-  the binary is absent and the backend then only uses direct HTTP.
+- **Linux x64 / Windows x64:** `npm run solver:download` fetches the official
+  release into this folder.
+- **macOS arm64 / x64:** built from FlareSolverr 3.5.2 with PyInstaller and the
+  matching Chrome for Testing build. Place the resulting `flaresolverr` +
+  `_internal/` here before packaging that DMG.
+- **Linux arm64:** built by `.github/workflows/build-flaresolverr-arm64.yml`
+  (Debian Chromium + chromedriver, PyInstaller). Download the workflow artifact
+  and extract it here before packaging the arm64 AppImage.
 
-Fetch it:
+Nothing here is committed except this file. The app reuses an already-running
+solver on `127.0.0.1:8191`/`:8192` instead of starting a second one. If no
+bundle is present, the backend only uses direct HTTP; set the solver URL in
+Settings for a LAN FlareSolverr/Byparr.
+
+Fetch the official bundle:
 
 ```bash
 npm run solver:download

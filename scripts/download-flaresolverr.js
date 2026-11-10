@@ -30,7 +30,8 @@ if (platform === "linux" && arch === "x64") {
 } else {
   console.log(
     `[flare-solver] No official FlareSolverr build for ${platform}-${arch}. ` +
-      "Set the solver URL in Settings (a LAN Byparr/FlareSolverr works) or leave it unset."
+      "macOS and Linux arm64 bundles are built from source: see vendor/flaresolverr/README.md " +
+      "and .github/workflows/build-flaresolverr-arm64.yml. A LAN solver URL in Settings also works."
   );
   process.exit(0);
 }
