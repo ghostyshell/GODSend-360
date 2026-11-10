@@ -43,6 +43,7 @@ import {
   getConfiguredTorboxKey,
   readConfig,
   writeConfig,
+  getConfiguredMcpEnabled,
 } from "../services/settingsService";
 import {
   getProcess,
@@ -308,6 +309,21 @@ export function register(ipcMain: IpcMain): void {
     appendAppEvent("IA_LOGIN", "logout; session cleared");
     restartGodsendIfRunning();
     return true;
+  });
+
+  // ── MCP server (off by default) ─────────────────────────────────────────────
+  // Exposes every backend operation to local AI clients at /mcp. The backend
+  // only serves it to loopback callers; toggling restarts the backend.
+  ipcMain.handle("config:get-mcp", () => ({
+    enabled: getConfiguredMcpEnabled(),
+    port: getConfiguredServerPort(),
+  }));
+
+  ipcMain.handle("config:set-mcp", (_event, enabled) => {
+    writeConfig({ mcpEnabled: enabled === true });
+    appendAppEvent("MCP", `enabled=${enabled === true}`);
+    restartGodsendIfRunning();
+    return { enabled: getConfiguredMcpEnabled(), port: getConfiguredServerPort() };
   });
 
   // ── Debrid (Real-Debrid / TorBox) ───────────────────────────────────────────

@@ -122,6 +122,8 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   const [debridSaving, setDebridSaving]               = useState(false);
   const [debridTesting, setDebridTesting]             = useState(false);
   const [debridStatus, setDebridStatus]               = useState("");
+  const [mcpEnabled, setMcpEnabled]                   = useState(false);
+  const [mcpPort, setMcpPort]                         = useState(8080);
   const [ftpScanLoading, setFtpScanLoading]     = useState(false);
   const [cacheLoading, setCacheLoading]         = useState(false);
   const [exportDbLoading, setExportDbLoading]   = useState(false);
@@ -184,6 +186,9 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
       setCustomGodPathState(await window.godsendApi.getCustomGodPath());
       setCustomXexPathState(await window.godsendApi.getCustomXexPath());
 
+      const mcp = await window.godsendApi.getMcp();
+      setMcpEnabled(Boolean(mcp.enabled));
+      setMcpPort(mcp.port);
       const debrid = await window.godsendApi.getDebrid();
       setDebridProvider(debrid.provider);
       setDebridHasRealdebrid(Boolean(debrid.hasRealdebrid));
@@ -226,6 +231,12 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   async function handleStartupChange(checked: boolean | "indeterminate") {
     const result = await window.godsendApi.setStartupEnabled(checked);
     setStartup(result);
+  }
+
+  async function handleMcpChange(checked: boolean | "indeterminate") {
+    const result = await window.godsendApi.setMcp(checked === true);
+    setMcpEnabled(Boolean(result.enabled));
+    setMcpPort(result.port);
   }
 
   async function handleStorageBrowse() {
@@ -1229,6 +1240,26 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               only via TorBox. Only one provider is active at a time. Keys are
               stored locally in the app config (like the IA cookie) and passed to
               the backend as env vars; they are never logged.
+            </Hint>
+          </Section>
+
+          {/* ── MCP server ── */}
+          <Section title="MCP server (AI assistants)">
+            <label className="flex items-center gap-2.5 text-[13px] cursor-pointer select-none">
+              <Checkbox checked={mcpEnabled} onCheckedChange={handleMcpChange} />
+              Enable MCP server
+            </label>
+            {mcpEnabled && (
+              <p className="mt-2 font-mono text-[11px] text-[#8b9aab] break-all">
+                http://127.0.0.1:{mcpPort}/mcp
+              </p>
+            )}
+            <Hint>
+              Lets an AI assistant on this computer (Claude, Cursor and other MCP
+              clients) browse and install games, manage DLC, Title Updates and saves,
+              convert ISOs and manage files on your Xbox. Only apps on this computer
+              can connect; other devices on your network are refused. Off by default.
+              Changing this restarts the backend.
             </Hint>
           </Section>
 

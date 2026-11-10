@@ -54,6 +54,7 @@ The backend listens on port `8080` by default (configurable via Electron `Backen
 | POST | `/ftp/upload-scripts` | Queue a tracked async Aurora scripts upload |
 | GET | `/ftp/jobs` | List all active and completed FTP Manager jobs |
 | POST | `/ftp/jobs/remove` | Remove an FTP Manager job from the list |
+| POST | `/mcp` | MCP (Streamable HTTP, JSON responses). Only registered when `GODSEND_MCP_ENABLED` is set, and only answers loopback clients with no foreign `Origin` and no `X-Forwarded-For`/`Forwarded` header. One tool per route above, except `/files/`, `/debug` and `/rxea/*` (binary or HTML responses) |
 
 ## Runtime folders
 
@@ -92,5 +93,6 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 | `GODSEND_SAVE_BACKUP` | `$GODSEND_HOME/Transfer` | Override the local save-backup folder (defaults to the Transfer folder) |
 | `GODSEND_CUSTOM_GOD_PATH` | (none) | Override the Xbox FTP subfolder for GOD-format installs (default `GOD`) |
 | `GODSEND_CUSTOM_XEX_PATH` | (none) | Override the Xbox FTP subfolder for XEX-format installs (default `XEX`) |
+| `GODSEND_MCP_ENABLED` | (unset, off) | `1`/`true` serves the MCP endpoint at `/mcp` to loopback clients. Set by the desktop app's **MCP server** setting |
 | `GODSEND_SKIP_ARIA2_BOOTSTRAP` | (unset) | Skip the macOS aria2c Homebrew bootstrap at startup |
 | `GODSEND_NO_GUI_ELEVATION` | (unset) | Disable GUI sudo prompting during the macOS aria2c bootstrap |

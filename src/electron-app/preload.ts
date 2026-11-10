@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld("godsendApi", {
   getArchiveAuth:           () => ipcRenderer.invoke("config:get-archive-auth"),
   loginInternetArchive:     (payload: any) => ipcRenderer.invoke("config:ia-login", payload),
   logoutInternetArchive:    () => ipcRenderer.invoke("config:ia-logout"),
+  getMcp:                   () => ipcRenderer.invoke("config:get-mcp"),
+  setMcp:                   (enabled: boolean) => ipcRenderer.invoke("config:set-mcp", enabled),
   getDebrid:                () => ipcRenderer.invoke("config:get-debrid"),
   setDebrid:                (payload: any) => ipcRenderer.invoke("config:set-debrid", payload),
   testDebrid:               (payload: any) => ipcRenderer.invoke("config:test-debrid", payload),

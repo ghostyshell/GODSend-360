@@ -5,7 +5,7 @@ Single-file static landing page for [GODsend-360](https://github.com/ghostyshell
 ## Stack
 - `index.html` - hand-written HTML, Tailwind via Play CDN, vanilla JS for the dynamic year.
 - Google Fonts: **Russo One** (display) + **Chakra Petch** (body) + **JetBrains Mono** (code).
-- SVG-only assets - `favicon.svg`, `og-image.svg` - so the site stays text-diffable.
+- SVG-only assets - `logo.svg`, `og-image.svg` - so the site stays text-diffable.
 
 ## SEO checklist (applied)
 - Semantic `<header>`, `<main>`, `<section>`, `<nav>`, `<footer>`, `<article>`, `<figure>`, `<ol>`, `<details>`.
@@ -25,7 +25,7 @@ Single-file static landing page for [GODsend-360](https://github.com/ghostyshell
 ## Layout
 - `docs/index.html` - landing page (GitHub Pages serves this at the root URL).
 - `docs/site/` - all supporting assets:
-  - `favicon.svg`, `og-image.svg`
+  - `logo.svg`, `og-image.svg`
   - `robots.txt`, `sitemap.xml`
   - `site.webmanifest`
   - this `README.md`
