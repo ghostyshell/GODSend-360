@@ -18,7 +18,7 @@ jobs:
           sudo apt-get install -y python3-venv python3-pip curl xz-utils dpkg-dev xvfb \
             libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
             libxcomposite1 libxdamage1 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 \
-            libasound2t64 libatspi2.0-0 libx11-xcb1 fonts-liberation libopenh264-7 || true
+            libasound2t64 libatspi2.0-0 libx11-xcb1 fonts-liberation libopenh264-7 libpulse0 libxss1 libxtst6 libxrender1 libxi6 libsm6 libice6 libxcb-keysyms1 libxcb-randr0 libxcb-shape0 libxcb-xfixes0 libxcb-sync1 libxshmfence1 || true
 
       - name: Fetch FlareSolverr 3.5.2
         run: |
