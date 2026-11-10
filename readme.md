@@ -48,8 +48,8 @@ Download the build for your platform:
 |---|---|---|
 | **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.14.0.exe`](https://gofile.io/d/FtiN5VHC) | [`godsend-Setup-2.14.0.exe`](https://file.kiwi/e0203deb#INH33w08fks_GLNLdxE3Sg) |
 | **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.14.0.exe`](https://gofile.io/d/JVTNTwd1) | [`godsend-Portable-2.14.0.exe`](https://file.kiwi/d993b2db#hrfeDPOkWa0FPXOdi6lquQ) |
-| **macOS (Apple Silicon)** | [`godsend-2.14.0-arm64.dmg`](https://gofile.io/d/mxw9U071) | [`godsend-2.14.0-arm64.dmg`](https://file.kiwi/78d4e326#ekgBYmFaAxUEfwB6fnpzNA) |
-| **macOS (Intel)** | [`godsend-2.14.0-x64.dmg`](https://gofile.io/d/QgnZGNlU) | [`godsend-2.14.0-x64.dmg`](https://file.kiwi/8e5ab312#Wk39E-kBTvEuPwkqBWMvRQ) |
+| **macOS (Apple Silicon)** | [`godsend-2.14.0-arm64.dmg`](https://gofile.io/d/2ltqQoSn) | [`godsend-2.14.0-arm64.dmg`](https://file.kiwi/9840ebb3#uCuFVSqTjw1TRTGqfwrsoQ) |
+| **macOS (Intel)** | [`godsend-2.14.0-x64.dmg`](https://gofile.io/d/qBuLsCmi) | [`godsend-2.14.0-x64.dmg`](https://file.kiwi/396334d8#WwcR2mBFwh0U63_gwCJLFg) |
 | **Linux (x64 / amd64)** | [`godsend-2.14.0-x86_64.AppImage`](https://gofile.io/d/yWx2D410) | [`godsend-2.14.0-x86_64.AppImage`](https://file.kiwi/2a5297bd#S8XoEwA7maWDKHcbNqlJmg) |
 | **Linux (arm64)** | [`godsend-2.14.0-arm64.AppImage`](https://gofile.io/d/DlVUv24d) | [`godsend-2.14.0-arm64.AppImage`](https://file.kiwi/03262d8d#yRFHYEMb1rojEt-kST2HXg) |
 
