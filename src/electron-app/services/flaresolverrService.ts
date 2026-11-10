@@ -93,9 +93,35 @@ function waitHealthy(url: string, timeoutMs: number): Promise<boolean> {
   });
 }
 
+/** True when a solver answers /health at url within timeoutMs. */
+function healthy(url: string, timeoutMs = 1500): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get(`${url}/health`, (res) => {
+      res.resume();
+      resolve(res.statusCode === 200);
+    });
+    req.on("error", () => resolve(false));
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
 /** Start the bundled solver if present; resolves with its base URL or "". */
 export async function ensureLocalSolver(appendLine?: (line: string) => void): Promise<string> {
   if (childUrl) return childUrl;
+
+  // Never run two solvers side by side: reuse one that is already listening
+  // (the app's own previous run, Byparr on 8191, or a manually started one).
+  for (const existing of ["http://127.0.0.1:8191", "http://127.0.0.1:8192"]) {
+    if (await healthy(existing)) {
+      childUrl = existing;
+      appendLine?.(`[INFO] FlareSolverr: reusing existing solver at ${existing}`);
+      return existing;
+    }
+  }
+
   const bin = solverBinary();
   if (!bin) return "";
   try {

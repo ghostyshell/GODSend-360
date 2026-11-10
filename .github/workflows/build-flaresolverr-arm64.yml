@@ -1,0 +1,80 @@
+name: build-flaresolverr-arm64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build and runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv python3-pip curl xz-utils dpkg-dev xvfb \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
+            libxcomposite1 libxdamage1 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 \
+            libasound2t64 libatspi2.0-0 libx11-xcb1 fonts-liberation
+
+      - name: Fetch FlareSolverr 3.5.2
+        run: |
+          curl -L --max-time 300 \
+            https://github.com/FlareSolverr/FlareSolverr/archive/refs/tags/v3.5.2.tar.gz \
+            -o /tmp/flare.tar.gz
+          tar -xzf /tmp/flare.tar.gz -C /tmp
+
+      - name: Build arm64 bundle
+        run: |
+          set -euo pipefail
+          FL=/tmp/FlareSolverr-3.5.2
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install -q -r "$FL/requirements.txt" pyinstaller
+
+          # Debian's chromium and chromedriver are real arm64 .debs; Ubuntu's
+          # chromium is a snap wrapper, so pull the binaries from Debian.
+          echo "deb [trusted=yes] http://deb.debian.org/debian bookworm main" | \
+            sudo tee /etc/apt/sources.list.d/bookworm.list
+          sudo apt-get update
+          (cd /tmp && apt-get download chromium chromium-driver)
+          mkdir -p /tmp/debroot /tmp/chrome
+          for d in /tmp/*.deb; do dpkg-deb -x "$d" /tmp/debroot; done
+          cp -R /tmp/debroot/usr/lib/chromium/* /tmp/chrome/ 2>/dev/null || true
+          if [ -f /tmp/chrome/chromium ]; then mv /tmp/chrome/chromium /tmp/chrome/chrome; fi
+          if [ -f /tmp/debroot/usr/lib/chromium/chromedriver ]; then
+            cp /tmp/debroot/usr/lib/chromium/chromedriver /tmp/chrome/
+          fi
+          if [ -f /tmp/debroot/usr/bin/chromedriver ]; then
+            cp /tmp/debroot/usr/bin/chromedriver /tmp/chrome/
+          fi
+          chmod +x /tmp/chrome/chrome /tmp/chrome/chromedriver
+          ls -lh /tmp/chrome
+
+          python3 scripts/patch-flaresolverr-linux-arm64.py "$FL"
+          (cd "$FL" && /tmp/venv/bin/python -m PyInstaller --noconfirm --name flaresolverr \
+            --add-data "package.json:." --add-data "/tmp/chrome:chrome" src/flaresolverr.py)
+
+          # Smoke test: the startup UA probe launches the bundled browser.
+          (cd "$FL" && PORT=18211 HEADLESS=true LD_LIBRARY_PATH=/tmp/chrome \
+            xvfb-run -a ./dist/flaresolverr/flaresolverr > /tmp/fs.log 2>&1 &)
+          ok=0
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:18211/health >/dev/null; then ok=1; break; fi
+            sleep 2
+          done
+          pkill -f 'dist/flaresolverr/flaresolverr' || true
+          if [ "$ok" != "1" ]; then
+            echo "solver failed to start"; tail -60 /tmp/fs.log; exit 1
+          fi
+          echo "solver health OK"
+
+          tar -czf /tmp/flaresolverr_linux_arm64.tar.gz -C "$FL/dist" flaresolverr
+          ls -lh /tmp/flaresolverr_linux_arm64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flaresolverr-linux-arm64
+          path: /tmp/flaresolverr_linux_arm64.tar.gz
