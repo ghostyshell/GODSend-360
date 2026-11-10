@@ -448,7 +448,9 @@ end
 -- Shown for every title on Xbox 360 / Original / Local / Games Archive libraries.
 -- Returns "god", "content", "xex", or nil if cancelled.
 local function pickInstallMethod(gameName, platform)
-    if platform == "games" or platform == "xbox360" or platform == "xbox" or platform == "local" then
+    -- Jtag/RGH releases are loose default.xex folders: XEX is the only install type.
+    if platform == "dlxb_rgh" then return "xex" end
+    if platform == "games" or platform == "xbox360" or platform == "xbox" or platform == "local" or platform == "dlxb" then
         local rec, notes = getDiscRecommendation(gameName)
         local g = "GOD  - ISO to Games on Demand"
         local d = "DLC  - Content folder (from ISO content tree)"
@@ -474,9 +476,23 @@ end
 -- ── Library browser ───────────────────────────────────────────────────────────
 
 function browseLibrary(platform)
+    local isDlxb = (platform == "dlxb" or platform == "dlxb_rgh")
+
+    -- dlxbgame.com is a separate source; show the site and the disclaimer first.
+    if isDlxb then
+        Script.ShowMessageBox("dlxbgame.com",
+            "Download links for this library come from dlxbgame.com.\n\n" ..
+            "GODsend 360 is not affiliated with dlxbgame.com.\n" ..
+            "Please visit https://dlxbgame.com/ directly to support the\n" ..
+            "original owners of the content you download.\n\n" ..
+            "Each release is downloaded from the host the site links to\n" ..
+            "(1fichier, MediaFire, Google Drive, gofile, filecrypt and others),\n" ..
+            "with ads skipped where the app can resolve the link.", "OK")
+    end
+
     -- For online platforms, pick source first so the list and trigger both use the same source.
     local browseSource = ""
-    if platform ~= "local" then
+    if platform ~= "local" and not isDlxb then
         local sourceItems = {"Minerva Archive", "Internet Archive"}
         local sr = Script.ShowPopupList("Download Source:",
             "Choose which library to browse", sourceItems)
@@ -567,6 +583,8 @@ function browseLibrary(platform)
         if platform == "xblig"   then title = "Xbox Indie Games" end
         if platform == "games"   then title = "Xbox 360 Games Archive" end
         if platform == "local"   then title = "Local Library (Transfer Folder)" end
+        if platform == "dlxb"    then title = "Xbox 360 ISOs (dlxbgame.com)" end
+        if platform == "dlxb_rgh" then title = "Xbox 360 Jtag/RGH (dlxbgame.com)" end
 
         while true do
             collectgarbage()

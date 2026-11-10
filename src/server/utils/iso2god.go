@@ -817,8 +817,26 @@ func extractZipFilter(src, destDir, wantExt string) error {
 	return nil
 }
 
+// safeArchivePath joins an archive entry name to destDir, refusing absolute
+// paths and ".." escapes so a crafted archive cannot write outside destDir.
+func safeArchivePath(destDir, name string) (string, error) {
+	clean := filepath.Clean(filepath.FromSlash(name))
+	if filepath.IsAbs(clean) || clean == ".." || len(clean) >= 3 && clean[:3] == ".."+string(filepath.Separator) {
+		return "", fmt.Errorf("unsafe archive entry %q", name)
+	}
+	full := filepath.Join(destDir, clean)
+	rel, err := filepath.Rel(destDir, full)
+	if err != nil || rel == ".." || len(rel) >= 3 && rel[:3] == ".."+string(filepath.Separator) {
+		return "", fmt.Errorf("unsafe archive entry %q", name)
+	}
+	return full, nil
+}
+
 func extractZipEntry(f *zip.File, destDir string) error {
-	outPath := filepath.Join(destDir, filepath.FromSlash(f.Name))
+	outPath, err := safeArchivePath(destDir, f.Name)
+	if err != nil {
+		return err
+	}
 	if f.FileInfo().IsDir() {
 		return os.MkdirAll(outPath, 0755)
 	}
@@ -873,7 +891,10 @@ func extract7zFilter(src, destDir, wantExt string) error {
 }
 
 func extract7zEntry(f *sevenzip.File, destDir string) error {
-	outPath := filepath.Join(destDir, filepath.FromSlash(f.Name))
+	outPath, err := safeArchivePath(destDir, f.Name)
+	if err != nil {
+		return err
+	}
 	if f.FileInfo().IsDir() {
 		return os.MkdirAll(outPath, 0755)
 	}
@@ -926,7 +947,10 @@ func drainRAR(r *rardecode.ReadCloser, destDir, wantExt string) error {
 		if wantExt != "" && strings.ToLower(filepath.Ext(h.Name)) != wantExt {
 			continue
 		}
-		outPath := filepath.Join(destDir, filepath.FromSlash(h.Name))
+		outPath, err := safeArchivePath(destDir, h.Name)
+		if err != nil {
+			return err
+		}
 		if h.IsDir {
 			os.MkdirAll(outPath, 0755)
 			continue

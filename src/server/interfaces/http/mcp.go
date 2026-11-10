@@ -49,7 +49,7 @@ var (
 var mcpTools = []mcpTool{
 	// Library and install pipeline
 	{"browse_games", "List games available for a platform (pipe-separated names).", "GET", "/browse", true, []mcpParam{
-		req("platform", "string", "xbox360, xbox, xbla, digital, dlc, xblig, games, local, or rom_<sysid>"),
+		req("platform", "string", "xbox360, xbox, xbla, digital, dlc, xblig, games, local, dlxb, dlxb_rgh, or rom_<sysid>"),
 		p("source", "string", "minerva or ia to limit to one catalog; omit for merged")}},
 	{"cache_status", "Per-platform game cache build state and counts.", "GET", "/cache-status", true, nil},
 	{"cache_refresh", "Rebuild the game cache for a platform.", "GET", "/cache-refresh", true, []mcpParam{

@@ -270,7 +270,13 @@ func (s *Service) ProcessGame(gameName, platform string) {
 // finalizeGOD handles the FTP vs HTTP packaging step shared by local and online ISO flows.
 func (s *Service) finalizeGOD(gameName, safeName, gameDir, godDir, titleID, mediaID string, xboxConn *models.XboxConnection) {
 	s.App.LogStatus(gameName, "Processing", "Looking up title name...")
-	resolvedName := services.LookupTitleName(titleID)
+	s.finalizeGODNamed(gameName, safeName, gameDir, godDir, titleID, mediaID, services.LookupTitleName(titleID), xboxConn)
+}
+
+// finalizeGODNamed is finalizeGOD with an explicit GOD folder name. Multi-disc
+// releases use it to install Disc 2+ into its own "Title (Disc N) - TitleID"
+// folder instead of overwriting Disc 1.
+func (s *Service) finalizeGODNamed(gameName, safeName, gameDir, godDir, titleID, mediaID, resolvedName string, xboxConn *models.XboxConnection) {
 
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
 		s.App.LogStatus(gameName, "Processing", "FTP Transfer starting...")

@@ -126,6 +126,13 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   const [mcpPort, setMcpPort]                         = useState(8080);
   const [ftpScanLoading, setFtpScanLoading]     = useState(false);
   const [cacheLoading, setCacheLoading]         = useState(false);
+  const [dlxbLoading, setDlxbLoading]           = useState(false);
+  const [dlxbStatus, setDlxbStatus]             = useState("");
+  const [scrapeNet, setScrapeNet] = useState({
+    proxies: "", torControl: "", torPassword: "", solverUrl: "",
+  });
+  const [scrapeNetLoading, setScrapeNetLoading] = useState(false);
+  const [scrapeNetStatus, setScrapeNetStatus]   = useState("");
   const [exportDbLoading, setExportDbLoading]   = useState(false);
   const [exportDbStatus, setExportDbStatus]     = useState("");
 
@@ -193,6 +200,15 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
       setDebridProvider(debrid.provider);
       setDebridHasRealdebrid(Boolean(debrid.hasRealdebrid));
       setDebridHasTorbox(Boolean(debrid.hasTorbox));
+
+      const sn = (await window.godsendApi.getScraperNetwork()) || {};
+      setScrapeNet({
+        proxies: sn.proxies || "",
+        torControl: sn.torControl || "",
+        torPassword: "",
+        hasTorPassword: Boolean(sn.hasTorPassword),
+        solverUrl: sn.solverUrl || "",
+      });
     }
     load();
 
@@ -479,6 +495,36 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
         : `Failed: ${r.error || "unknown error"}`
     );
     setCacheLoading(false);
+  }
+
+  function openDlxbSite() {
+    window.godsendApi.openExternal("https://dlxbgame.com/");
+  }
+
+  async function handleDlxbRefresh() {
+    setDlxbLoading(true);
+    setDlxbStatus("Requesting refresh...");
+    const r = await window.godsendApi.refreshCache("dlxb");
+    setDlxbStatus(
+      r.ok
+        ? "Refresh started - the whole site is re-scraped in the background (a few minutes)."
+        : `Failed: ${r.error || "unknown error"}`
+    );
+    setDlxbLoading(false);
+  }
+
+  async function handleScrapeNetSave() {
+    setScrapeNetLoading(true);
+    setScrapeNetStatus("Saving...");
+    const r = await window.godsendApi.setScraperNetwork(scrapeNet);
+    if (r.ok) {
+      setScrapeNetStatus("Saved. Restarting backend so the new network settings apply...");
+      await window.godsendApi.restartProcess();
+      setScrapeNetStatus("Saved and backend restarted.");
+    } else {
+      setScrapeNetStatus(`Failed: ${r.error || "unknown error"}`);
+    }
+    setScrapeNetLoading(false);
   }
 
   async function handleXboxSave() {
@@ -1098,6 +1144,85 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               Xbox into the folder above. Profiles with a resolvable gamertag are
               grouped under their name; the rest fall back to the XUID.
             </Hint>
+          </Section>
+
+          {/* ── dlxbgame.com source ── */}
+          <Section title="dlxbgame.com source">
+            <p className="text-[12px] text-[#cad3dc] leading-[1.5]">
+              Xbox 360 ISOs and Jtag/RGH releases are scraped from{" "}
+              <button type="button" onClick={openDlxbSite} className="underline text-[#7db3ff] hover:text-[#a9ccff]">
+                dlxbgame.com
+              </button>{" "}
+              and served straight from the hosts the site links to. The list ships
+              with each build and is stored in <code>cache/dlxb_games.json</code>.
+            </p>
+            <p className="mt-2 text-[12px] text-[#a8b4c0] leading-[1.5]">
+              GODsend 360 is not affiliated with dlxbgame.com. Please visit the site
+              directly to support the original owners of the content you download.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2 items-center">
+              <Button onClick={openDlxbSite}>Visit dlxbgame.com</Button>
+              <Button disabled={dlxbLoading} onClick={handleDlxbRefresh}>
+                {dlxbLoading ? "Refreshing..." : "Refresh dlxbgame list"}
+              </Button>
+            </div>
+            {dlxbStatus && <Status className="mt-2">{dlxbStatus}</Status>}
+            <Hint>
+              A refresh walks every page of the site, records each release's
+              download links and archive password, and replaces the bundled list.
+              Links are then checked; dead ones are skipped automatically, and a
+              title whose links are all dead is hidden from the browse lists.
+            </Hint>
+
+            <div className="mt-3 space-y-2">
+              <p className="text-[12px] font-medium text-[#cad3dc]">Scraper network</p>
+              <p className="text-[11px] text-muted-foreground leading-[1.4]">
+                Proxies and Tor rotation are used for the scrape and for resolving
+                host links, which helps with rate limits and bot protection. Use a
+                comma list such as <code>socks5://127.0.0.1:9050</code>; the Tor
+                control port enables a new exit (NEWNYM) between attempts. The solver
+                URL clears Cloudflare; a FlareSolverr or Byparr instance works.
+                {" "}This field overrides the bundled solver; leave both empty to use it.
+              </p>
+              <div className="grid gap-2 max-w-[560px]">
+                <div>
+                  <Label htmlFor="scrapeProxies">Proxies</Label>
+                  <Input id="scrapeProxies" className="mt-1" spellCheck={false}
+                    placeholder="socks5://127.0.0.1:9050, socks5://user:pass@host:1080"
+                    value={scrapeNet.proxies}
+                    onChange={(e) => setScrapeNet({ ...scrapeNet, proxies: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="torControl">Tor control port</Label>
+                    <Input id="torControl" className="mt-1" spellCheck={false}
+                      placeholder="127.0.0.1:9051"
+                      value={scrapeNet.torControl}
+                      onChange={(e) => setScrapeNet({ ...scrapeNet, torControl: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="torPassword">Tor password</Label>
+                    <Input id="torPassword" type="password" className="mt-1" spellCheck={false}
+                      placeholder={scrapeNet.hasTorPassword ? "stored (leave blank to keep)" : "optional"}
+                      value={scrapeNet.torPassword}
+                      onChange={(e) => setScrapeNet({ ...scrapeNet, torPassword: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="solverUrl">Solver URL</Label>
+                  <Input id="solverUrl" className="mt-1" spellCheck={false}
+                    placeholder="http://192.168.1.184:8191"
+                    value={scrapeNet.solverUrl}
+                    onChange={(e) => setScrapeNet({ ...scrapeNet, solverUrl: e.target.value })} />
+                </div>
+                <div>
+                  <Button disabled={scrapeNetLoading} onClick={handleScrapeNetSave}>
+                    {scrapeNetLoading ? "Saving..." : "Save scraper network"}
+                  </Button>
+                </div>
+              </div>
+              {scrapeNetStatus && <Status className="mt-1">{scrapeNetStatus}</Status>}
+            </div>
           </Section>
 
           {/* ── Game cache ── */}

@@ -217,6 +217,7 @@ Notes:
 - Set env vars from the [configuration table above](#2-configure-via-environment-variables) via `-e` / `environment:` instead of a config file. Prefer a gitignored `.env` file (`env_file: .env` in `docker-compose.yml`) over inline values for `GODSEND_REALDEBRID_KEY` / `GODSEND_TORBOX_KEY` / `GODSEND_IA_COOKIE`.
 - Point `-v` straight at an existing ISO share (e.g. `-v /volume1/isos:/data/Transfer`) if you want GODsend to pick up files you already have, per [Local Transfer folder](features.md#local-transfer-folder-your-own-isos). That path needs the same uid 1000 ownership as `/data` above.
 - No published image yet - `docker compose up -d --build` builds locally from source.
+- `docker-compose.yml` includes an optional **flaresolverr** service (`ghcr.io/flaresolverr/flaresolverr`) and points the backend at it with `GODSEND_CF_SOLVER_URL`. It is only used for Cloudflare-protected dlxbgame.com ad gates; drop the service if you don't use that source. For scraping rate limits, set `GODSEND_SCRAPE_PROXIES` (e.g. `socks5://tor:9050`) and optionally `GODSEND_TOR_CONTROL` (`tor:9051`) to rotate the Tor exit.
 
 ## 5. Point the Xbox at the server
 

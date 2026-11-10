@@ -29,6 +29,10 @@ export interface GodsendConfig {
   aria2ListenPort?: string | number;
   aria2DhtPort?: string | number;
   mcpEnabled?: boolean;
+  cfSolverUrl?: string;
+  scrapeProxies?: string;
+  torControl?: string;
+  torPassword?: string;
 }
 
 export function configFilePath(): string {
@@ -193,6 +197,45 @@ export function getConfiguredMcpEnabled(): boolean {
   return readConfig().mcpEnabled === true;
 }
 
+// Runtime solver URL from the bundled FlareSolverr process (set at startup).
+let runtimeCFSolverUrl = "";
+export function setRuntimeCFSolverUrl(url: string): void {
+  runtimeCFSolverUrl = url;
+}
+
+export function getConfiguredCFSolverUrl(): string {
+  const v = readConfig().cfSolverUrl;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+export function setConfiguredCFSolverUrl(url: string): void {
+  writeConfig({ cfSolverUrl: String(url || "").trim() });
+}
+
+export interface ScrapeNetwork {
+  proxies: string;
+  torControl: string;
+  torPassword: string;
+}
+
+export function getConfiguredScrapeNetwork(): ScrapeNetwork {
+  const c = readConfig();
+  return {
+    proxies: typeof c.scrapeProxies === "string" ? c.scrapeProxies.trim() : "",
+    torControl: typeof c.torControl === "string" ? c.torControl.trim() : "",
+    torPassword: typeof c.torPassword === "string" ? c.torPassword : "",
+  };
+}
+
+export function setConfiguredScrapeNetwork(v: Partial<ScrapeNetwork>): ScrapeNetwork {
+  writeConfig({
+    scrapeProxies: String(v.proxies ?? "").trim(),
+    torControl: String(v.torControl ?? "").trim(),
+    torPassword: String(v.torPassword ?? ""),
+  });
+  return getConfiguredScrapeNetwork();
+}
+
 export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, GODSEND_HOME: writableRoot };
   const torrentTemp = getConfiguredTorrentTempPath();
@@ -211,6 +254,12 @@ export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   if (rdKey) env.GODSEND_REALDEBRID_KEY = rdKey;
   const tbKey = getConfiguredTorboxKey();
   if (tbKey) env.GODSEND_TORBOX_KEY = tbKey;
+  const solver = getConfiguredCFSolverUrl() || runtimeCFSolverUrl;
+  if (solver) env.GODSEND_CF_SOLVER_URL = solver;
+  const scrapeNet = getConfiguredScrapeNetwork();
+  if (scrapeNet.proxies) env.GODSEND_SCRAPE_PROXIES = scrapeNet.proxies;
+  if (scrapeNet.torControl) env.GODSEND_TOR_CONTROL = scrapeNet.torControl;
+  if (scrapeNet.torPassword) env.GODSEND_TOR_PASSWORD = scrapeNet.torPassword;
   const romPath = getConfiguredROMPath();
   if (romPath) env.GODSEND_ROM_PATH = romPath;
   env.GODSEND_PORT = String(getConfiguredServerPort());

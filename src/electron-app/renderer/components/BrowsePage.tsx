@@ -17,12 +17,15 @@ const PLATFORMS = [
   { id: "dlc",    label: "DLC",           methods: false },
   { id: "xblig",  label: "Indie",         methods: false },
   { id: "games",  label: "Games Archive", methods: true  },
+  { id: "dlxb",      label: "dlxbgame ISO",  methods: true  },
+  { id: "dlxb_rgh",  label: "dlxbgame RGH",  methods: true  },
 ];
 
 const SOURCES = [
   { id: "minerva", label: "Minerva" },
   { id: "ia",      label: "Internet Archive" },
   { id: "local",   label: "Local Library" },
+  { id: "dlxbgame", label: "dlxbgame.com" },
 ];
 
 // Minerva platform IDs whose collection torrent exceeds TorBox's ~200 GB
@@ -362,6 +365,7 @@ export default function BrowsePage({}: BrowsePageProps) {
   const [debridProvider, setDebridProvider] = useState("none");
 
   const isLocal = source === "local";
+  const isDlxb  = source === "dlxbgame" || platform.startsWith("dlxb");
 
   // Load default drive and FTP drive list once
   useEffect(() => {
@@ -395,6 +399,8 @@ export default function BrowsePage({}: BrowsePageProps) {
     setLocalCovers({});
     const browsePayload = isLocal
       ? { platform: "local", source: "local" }
+      : isDlxb
+      ? { platform: platform.startsWith("dlxb") ? platform : "dlxb", source: "dlxb" }
       : { platform, source };
     const r = await window.godsendApi.browseGetGames(browsePayload);
     if (!r.ok) {
@@ -463,7 +469,11 @@ export default function BrowsePage({}: BrowsePageProps) {
             <PillBtn
               key={s.id}
               active={source === s.id}
-              onClick={() => setSource(s.id)}
+              onClick={() => {
+                setSource(s.id);
+                if (s.id === "dlxbgame") setPlatform("dlxb");
+                else if (source === "dlxbgame") setPlatform("xbox360");
+              }}
             >
               {s.id === "local" && <HardDrive className="inline h-3 w-3 mr-1 -mt-px" />}
               {s.label}
@@ -479,11 +489,31 @@ export default function BrowsePage({}: BrowsePageProps) {
             <PillBtn
               key={p.id}
               active={platform === p.id}
-              onClick={() => setPlatform(p.id)}
+              onClick={() => {
+                setPlatform(p.id);
+                if (p.id.startsWith("dlxb")) setSource("dlxbgame");
+                else if (source === "dlxbgame") setSource("minerva");
+              }}
             >
               {p.label}
             </PillBtn>
           ))}
+        </div>
+      )}
+
+      {/* ── dlxbgame.com advert + disclaimer ── */}
+      {!isLocal && isDlxb && (
+        <div className="flex items-start gap-2 shrink-0 rounded-md border border-[#1e3a5f] bg-[#0d1a2b] px-3 py-2 text-[11px] leading-[1.45] text-[#9fc2e8]">
+          <Info className="h-4 w-4 mt-px shrink-0" />
+          <p>
+            Download links come from{" "}
+            <button type="button" className="underline text-[#7db3ff] hover:text-[#a9ccff]"
+              onClick={() => window.godsendApi.openExternal("https://dlxbgame.com/")}>
+              dlxbgame.com
+            </button>
+            . GODsend 360 is not affiliated with the site - please visit it directly
+            to support the original owners of the content you download.
+          </p>
         </div>
       )}
 

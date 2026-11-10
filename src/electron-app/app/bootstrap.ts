@@ -54,6 +54,8 @@ import {
   addOutputLine,
 } from "../services/backendClient";
 import { autoUploadAuroraAssets, doAuroraLibrarySync } from "../services/autoSyncService";
+import { ensureLocalSolver, stopLocalSolver } from "../services/flaresolverrService";
+import { setRuntimeCFSolverUrl, getConfiguredCFSolverUrl } from "../services/settingsService";
 import { createMainWindow, setIsQuitting, getMainWindow } from "./window";
 
 import * as configHandlers        from "../ipc/configHandlers";
@@ -126,7 +128,14 @@ export function bootstrapApp(): void {
       },
     });
 
-    getMainWindow()!.webContents.once("did-finish-load", () => {
+    getMainWindow()!.webContents.once("did-finish-load", async () => {
+      // Start the bundled solver first so the backend inherits its URL, unless
+      // the user already configured a (remote) one.
+      const configuredSolver = getConfiguredCFSolverUrl();
+      const solverUrl = configuredSolver
+        ? ""
+        : await ensureLocalSolver(addOutputLine).catch(() => "");
+      setRuntimeCFSolverUrl(solverUrl || "");
       startGodsend();
     });
 
@@ -151,6 +160,7 @@ export function bootstrapApp(): void {
   app.on("before-quit", () => {
     setIsQuitting(true);
     appendAppEvent("LIFECYCLE", "application before-quit");
+    stopLocalSolver();
     stopGodsend();
   });
 

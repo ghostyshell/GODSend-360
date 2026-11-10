@@ -13,6 +13,11 @@ services:
       # - /volume1/isos:/data/Transfer
     environment:
       GODSEND_PORT: "8080"
+      # Bundled below for dlxbgame.com ad-gate / container pages:
+      GODSEND_CF_SOLVER_URL: "http://flaresolverr:8191"
+      # Optional proxy / Tor rotation for scraping:
+      # GODSEND_SCRAPE_PROXIES: "socks5://tor:9050"
+      # GODSEND_TOR_CONTROL: "tor:9051"
       # GODSEND_IA_COOKIE: "logged-in-user=...; logged-in-sig=..."
       # GODSEND_DEBRID_PROVIDER: "realdebrid"
       # GODSEND_FTP_USER: "xboxftp"
@@ -22,3 +27,15 @@ services:
     # env_file: .env
     # Image runs as uid 1000; match a bind-mounted host folder's owner:
     # user: "1000:1000"
+
+  # Optional Cloudflare solver for the dlxbgame.com source. Not required; the
+  # backend only uses it when a link is protected. Uses ~1 GB RAM.
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: godsend-flaresolverr
+    restart: unless-stopped
+    ports:
+      - "8191:8191"
+    environment:
+      LOG_LEVEL: warning
+    shm_size: "1gb"

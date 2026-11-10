@@ -3,7 +3,7 @@
  * Internet Archive auth, cache refresh, aria2 ports, and default Xbox drive.
  */
 
-import { app, BrowserWindow, dialog, IpcMain } from "electron";
+import { app, BrowserWindow, dialog, IpcMain, shell } from "electron";
 import http from "http";
 import path from "path";
 import fs from "fs";
@@ -44,6 +44,10 @@ import {
   readConfig,
   writeConfig,
   getConfiguredMcpEnabled,
+  getConfiguredScrapeNetwork,
+  setConfiguredScrapeNetwork,
+  getConfiguredCFSolverUrl,
+  setConfiguredCFSolverUrl,
 } from "../services/settingsService";
 import {
   getProcess,
@@ -428,6 +432,52 @@ export function register(ipcMain: IpcMain): void {
         resolve({ ok: false, error: "timeout" });
       });
     });
+  });
+
+  // ── Scraper network (proxies / Tor exit rotation / solver URL) ───────────
+  ipcMain.handle("config:get-scraper-network", () => {
+    const net = getConfiguredScrapeNetwork();
+    // Tor password is write-only, like the Debrid keys: never send it back.
+    return {
+      proxies: net.proxies,
+      torControl: net.torControl,
+      torPassword: "",
+      hasTorPassword: Boolean(net.torPassword),
+      solverUrl: getConfiguredCFSolverUrl(),
+    };
+  });
+  ipcMain.handle("config:set-scraper-network", (_event, payload: any) => {
+    const existing = getConfiguredScrapeNetwork();
+    const typedPassword = typeof payload?.torPassword === "string" ? payload.torPassword : "";
+    const net = setConfiguredScrapeNetwork({
+      proxies: payload?.proxies,
+      torControl: payload?.torControl,
+      // Blank keeps the stored password; there is no explicit clear.
+      torPassword: typedPassword || existing.torPassword,
+    });
+    if (typeof payload?.solverUrl === "string") {
+      setConfiguredCFSolverUrl(payload.solverUrl);
+    }
+    return {
+      ok: true,
+      proxies: net.proxies,
+      torControl: net.torControl,
+      torPassword: "",
+      hasTorPassword: Boolean(net.torPassword),
+      solverUrl: getConfiguredCFSolverUrl(),
+    };
+  });
+
+  // Open an external site (dlxbgame.com links, credits) in the default browser.
+  ipcMain.handle("app:open-external", async (_event, url: unknown) => {
+    const u = String(url || "");
+    if (!/^https:\/\//i.test(u)) return { ok: false, error: "only https links are allowed" };
+    try {
+      await shell.openExternal(u);
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || "open failed" };
+    }
   });
 
   // ── Xbox connection (IP, FTP credentials, scripts path) ────────────────────

@@ -54,3 +54,7 @@ graphify-out/
 
 # torbox-bulkcachet one-off tool: resumable state + env (never commit the key)
 .torbox-bulkcachet/
+
+# FlareSolverr bundle (fetched by scripts/download-flaresolverr.js, not committed)
+vendor/flaresolverr/*
+!vendor/flaresolverr/README.md

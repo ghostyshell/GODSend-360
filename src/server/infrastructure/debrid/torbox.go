@@ -146,6 +146,17 @@ func (t *torBox) CacheWebURL(ctx context.Context, srcURL string, wait time.Durat
 	return dl, nil
 }
 
+// Unrestrict attempts a direct link for a file-hoster URL through TorBox's web
+// download queue. TorBox supports fewer hosts than Real-Debrid; callers treat an
+// error as "fall back to the native resolver".
+func (t *torBox) Unrestrict(ctx context.Context, srcURL string) (string, string, error) {
+	direct, err := t.CacheWebURL(ctx, srcURL, DefaultWait)
+	if err != nil {
+		return "", "", err
+	}
+	return direct, "", nil
+}
+
 // deleteItem best-effort removes a queued torrent/webdownload so a cache miss or
 // timeout doesn't leave a dead entry on the account.
 func (t *torBox) deleteItem(path string, id int64) {

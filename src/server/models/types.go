@@ -1,7 +1,10 @@
 // types.go - domain types shared across all packages.
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // IAGameEntry links a display name to its Internet Archive download location.
 type IAGameEntry struct {
@@ -79,4 +82,59 @@ type PendingFTPJob struct {
 	MediaID     string    `json:"media_id,omitempty"`
 	ContentType string    `json:"content_type,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
+}
+
+// ==========================================
+// dlxbgame.com source
+// ==========================================
+
+// DlxbLink is one download link scraped from a dlxbgame.com post.
+type DlxbLink struct {
+	Host  string `json:"host"`  // canonical label, e.g. "1fichier", "mediafire", "adgate"
+	URL   string `json:"url"`   // the link exactly as it appears in the post
+	Label string `json:"label"` // anchor text, e.g. "1File", "Direct"
+	// Status is the last liveness check: "alive", "dead", or "" (unknown).
+	// Dead links are skipped by the resolver and never offered by the UI.
+	Status    string    `json:"status,omitempty"`
+	CheckedAt time.Time `json:"checked_at,omitempty"`
+}
+
+// DlxbEntry is one scraped dlxbgame.com release: its links, archive password,
+// and the post URL so the app can send the user back to the site.
+type DlxbEntry struct {
+	Title     string     `json:"title"`    // display title, tags stripped? no - kept as posted
+	PageURL   string     `json:"page_url"` // https://dlxbgame.com/<slug>/
+	Category  string     `json:"category"` // "iso" or "rgh"
+	Password  string     `json:"password,omitempty"`
+	Passwords []string   `json:"passwords,omitempty"` // every password the post mentions
+	Region    string     `json:"region,omitempty"`
+	Links     []DlxbLink `json:"links"`
+}
+
+// DlxbCache is the persisted scrape of the whole site.
+type DlxbCache struct {
+	Schema    int                  `json:"schema"`
+	Site      string               `json:"site"`
+	BuildTime time.Time            `json:"build_time"`
+	Games     map[string][]string  `json:"games"`   // category -> display titles
+	Entries   map[string]DlxbEntry `json:"entries"` // "<category>|<lower(title)>" -> entry
+}
+
+// AllPasswords returns the post password followed by any alternates, deduped.
+func (e DlxbEntry) AllPasswords() []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" || seen[p] {
+			return
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	add(e.Password)
+	for _, p := range e.Passwords {
+		add(p)
+	}
+	return out
 }

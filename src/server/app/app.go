@@ -75,6 +75,16 @@ type App struct {
 	MinervaCacheBuilding map[string]bool
 	MinervaCacheBuildMu  sync.Mutex
 
+	// ── dlxbgame.com cache state ──────────────────────────────────────
+	DlxbGames   map[string][]string // category -> display titles
+	DlxbEntries map[string]models.DlxbEntry
+	DlxbMu      sync.RWMutex
+
+	DlxbBuildStates   map[string]*models.BuildState
+	DlxbBuildStatesMu sync.Mutex
+	DlxbBuilding      bool
+	DlxbBuildMu       sync.Mutex
+
 	// ── ROM cache state ───────────────────────────────────────────────
 	ROMGameCache   map[string][]string
 	ROMGameCacheMu sync.RWMutex
@@ -101,6 +111,9 @@ func NewApp() *App {
 		MinervaEntryMap:      make(map[string]models.MinervaEntry),
 		MinervaBuildStates:   make(map[string]*models.BuildState),
 		MinervaCacheBuilding: make(map[string]bool),
+		DlxbGames:            make(map[string][]string),
+		DlxbEntries:          make(map[string]models.DlxbEntry),
+		DlxbBuildStates:      make(map[string]*models.BuildState),
 		ROMGameCache:         make(map[string][]string),
 		ROMURLMap:            make(map[string]string),
 		EdgeEmuHTTPClient:    &http.Client{Timeout: 0},

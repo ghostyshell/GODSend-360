@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "2.13.4",
+  "version": "2.14.0",
   "description": "Full Electron UI for configuring, monitoring, and managing GODsend-360",
   "main": "main.js",
   "scripts": {
@@ -20,7 +20,8 @@
     "build:mac:dmg:x64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --mac dmg --x64 && npm run clean:compiled-js",
     "build:linux": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --x64 --arm64 && npm run clean:compiled-js",
     "build:linux:x64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --x64 && npm run clean:compiled-js",
-    "build:linux:arm64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --arm64 && npm run clean:compiled-js"
+    "build:linux:arm64": "npm run renderer:build && npm run tsc && node --disable-warning=DEP0190 ./node_modules/electron-builder/cli.js --linux AppImage --arm64 && npm run clean:compiled-js",
+    "solver:download": "node ../../scripts/download-flaresolverr.js"
   },
   "keywords": [
     "electron",
@@ -106,6 +107,13 @@
         ]
       },
       {
+        "from": "../../vendor/flaresolverr",
+        "to": "flaresolverr",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
         "from": "../../aurora-scripts",
         "to": "aurora-scripts",
         "filter": [
@@ -182,6 +190,7 @@
       "installerIcon": "assets/tray.ico",
       "include": "build/installer.nsh",
       "artifactName": "godsend-Setup-${version}.${ext}"
-    }
+    },
+    "beforePack": "./scripts/before-pack-solver.js"
   }
 }
