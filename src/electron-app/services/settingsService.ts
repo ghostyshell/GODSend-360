@@ -28,6 +28,7 @@ export interface GodsendConfig {
   customXexPath?: string;
   aria2ListenPort?: string | number;
   aria2DhtPort?: string | number;
+  mcpEnabled?: boolean;
 }
 
 export function configFilePath(): string {
@@ -188,6 +189,10 @@ export function getConfiguredCustomXexPath(): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+export function getConfiguredMcpEnabled(): boolean {
+  return readConfig().mcpEnabled === true;
+}
+
 export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, GODSEND_HOME: writableRoot };
   const torrentTemp = getConfiguredTorrentTempPath();
@@ -221,5 +226,8 @@ export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   if (customGodPath) env.GODSEND_CUSTOM_GOD_PATH = customGodPath;
   const customXexPath = getConfiguredCustomXexPath();
   if (customXexPath) env.GODSEND_CUSTOM_XEX_PATH = customXexPath;
+  // The toggle is authoritative: never inherit GODSEND_MCP_ENABLED from the launching shell.
+  delete env.GODSEND_MCP_ENABLED;
+  if (getConfiguredMcpEnabled()) env.GODSEND_MCP_ENABLED = "1";
   return env;
 }

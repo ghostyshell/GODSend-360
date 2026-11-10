@@ -44,18 +44,18 @@ Download the build for your platform:
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.13.3.exe`](https://gofile.io/d/oaY19aHE) | [`godsend-Setup-2.13.3.exe`](https://file.kiwi/32db37b5#rH4sVG2wzl2qPT1sxDULlA) |
-| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.13.3.exe`](https://gofile.io/d/8Fk4GJVf) | [`godsend-Portable-2.13.3.exe`](https://file.kiwi/a2d15a0a#R9AudP_p89_03FBg3G5e0A) |
-| **macOS (Apple Silicon)** | [`godsend-2.13.3-arm64.dmg`](https://gofile.io/d/aMZpSzOX) | [`godsend-2.13.3-arm64.dmg`](https://file.kiwi/465f400f#mtjnE7W3PHCs36_wOEbrcg) |
-| **macOS (Intel)** | [`godsend-2.13.3-x64.dmg`](https://gofile.io/d/fT2U753U) | [`godsend-2.13.3-x64.dmg`](https://file.kiwi/21708c2b#qIP5-uaGdacrlR9CtCvXEg) |
-| **Linux (x64 / amd64)** | [`godsend-2.13.3-x86_64.AppImage`](https://gofile.io/d/A48wwdSK) | [`godsend-2.13.3-x86_64.AppImage`](https://file.kiwi/dc148aa1#eO8CoCAEmAC1qS0mr_f2gw) |
-| **Linux (arm64)** | [`godsend-2.13.3-arm64.AppImage`](https://gofile.io/d/iFwA3unN) | [`godsend-2.13.3-arm64.AppImage`](https://file.kiwi/be8ed88a#8mH_0r0KWTUmqpP-mGO4xg) |
+| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.13.4.exe`](https://gofile.io/d/OchLe2yk) | [`godsend-Setup-2.13.4.exe`](https://file.kiwi/373fa6c1#oprI8DAPiwwVSN_CBGhXGw) |
+| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.13.4.exe`](https://gofile.io/d/DqaTgbJe) | [`godsend-Portable-2.13.4.exe`](https://file.kiwi/60b7fd68#-QWdLhlaVAyq9a-TodJr5A) |
+| **macOS (Apple Silicon)** | [`godsend-2.13.4-arm64.dmg`](https://gofile.io/d/aMZpSzOX) | [`godsend-2.13.4-arm64.dmg`](https://file.kiwi/465f400f#mtjnE7W3PHCs36_wOEbrcg) |
+| **macOS (Intel)** | [`godsend-2.13.4-x64.dmg`](https://gofile.io/d/yHi15jOy) | [`godsend-2.13.4-x64.dmg`](https://file.kiwi/47085372#AsSD9QN5FWv8njQaetsjzQ) |
+| **Linux (x64 / amd64)** | [`godsend-2.13.4-x86_64.AppImage`](https://gofile.io/d/hjP5ICZY) | [`godsend-2.13.4-x86_64.AppImage`](https://file.kiwi/7cc80753#ZM6E6gxIa4Mh7X5LcJT5gg) |
+| **Linux (arm64)** | [`godsend-2.13.4-arm64.AppImage`](https://gofile.io/d/HRE6ctQI) | [`godsend-2.13.4-arm64.AppImage`](https://file.kiwi/584f9057#IlROsmWmQo7xTMRlxFGukQ) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.13.3.exe`** and follow the installer (or just run **`godsend-Portable-2.13.3.exe`** directly - no install step needed).
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.13.4.exe`** and follow the installer (or just run **`godsend-Portable-2.13.4.exe`** directly - no install step needed).
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher - the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
@@ -121,7 +121,7 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 Minerva Archive (BitTorrent, no account), Internet Archive (chunked parallel HTTP, optional), local ISOs, XBLA, DLC, XBLIG, Game Archives, Retro ROMs (62 systems via EdgeEmu), multi-disc support, GOD/XEX/content install layouts, FTP transfer with persistent retry, server queue management, and persistent logging.
 
-The desktop app adds an **Xbox Library** (live view of games on your console with cover art, sorting, filtering, and move-to-drive), **DLC & Title Updates management** (browse Minerva / IA / XboxUnity sources, install, and toggle active TUs per game), **Save Game management** (per-title save browse/restore plus one-click bulk backup of every profile and save on the console), an **FTP Manager** (full file browser with cut/copy/paste/delete/rename/mkdir), an **Aurora Asset Editor** (search, preview, and upload cover/background/banner/icon artwork via RXEA or XboxUnity), **ISO to GOD and ISO to XEX** conversion tools, a **BadAvatar USB builder** (formats large FAT32 USBs and installs the BadStick BadUpdate payload), a **Job Queue** (unified game pipeline + FTP jobs), and **overlay navigation** so tools open as panels without leaving the current page.
+The desktop app adds an **Xbox Library** (live view of games on your console with cover art, sorting, filtering, and move-to-drive), **DLC & Title Updates management** (browse Minerva / IA / XboxUnity sources, install, and toggle active TUs per game), **Save Game management** (per-title save browse/restore plus one-click bulk backup of every profile and save on the console), an **FTP Manager** (full file browser with cut/copy/paste/delete/rename/mkdir), an **Aurora Asset Editor** (search, preview, and upload cover/background/banner/icon artwork via RXEA or XboxUnity), **ISO to GOD and ISO to XEX** conversion tools, a **BadAvatar USB builder** (formats large FAT32 USBs and installs the BadStick BadUpdate payload), a **Job Queue** (unified game pipeline + FTP jobs), an optional **MCP server** so AI assistants on the same computer can drive every backend operation (off by default), and **overlay navigation** so tools open as panels without leaving the current page.
 
 **[Full feature list with details on each capability](docs/features.md)**
 
@@ -209,6 +209,7 @@ Open the settings page (⚙ button) to configure:
 - **Local Transfer folder** - directory the backend scans for pre-downloaded ISOs. If unset, defaults to **`runtime/Transfer`** under Electron’s **user data** directory - commonly **`%APPDATA%\GODsend\runtime\Transfer`** on Windows and **`~/Library/Application Support/GODsend/runtime/Transfer`** on macOS. On Linux the config folder name can vary; use **Open logs folder** on the home screen, then open the parent of **`logs/`** to find **`runtime/Transfer`**
 - **Internet Archive account** - log in with your archive.org credentials; session cookies are stored locally, your password is never saved
 - **Debrid (faster downloads)** - pick Real-Debrid or TorBox and paste an API key; torrents (both providers) and Internet Archive downloads (TorBox only, public items) first cache on the provider and pull a direct HTTP link, falling back to the native source on timeout/error. Login-gated IA items (the Xbox 360 / Xbox collections) skip TorBox and download directly with your archive.org cookie. Keys are stored locally and never logged.
+- **MCP server (AI assistants)** - off by default. When enabled, the backend serves every operation (browse and install games, DLC and Title Updates, saves, ISO tools, FTP manager) as MCP tools at `http://127.0.0.1:<port>/mcp` for Claude, Cursor and other MCP clients. Only clients on the same computer can connect; LAN devices and cross-origin browser pages are refused. Add it with e.g. `claude mcp add --transport http godsend http://127.0.0.1:8080/mcp`. Headless: set `GODSEND_MCP_ENABLED=1`.
 - **Backend server port** - choose the backend listen port used by both Electron and Aurora script patching
 - **Xbox connection** - enter your Xbox IP, FTP username, and password, then click **FTP Aurora Scripts to Xbox** to push the bundled Lua scripts directly to the console (requires Aurora's FTP server to be enabled); your computer’s LAN IP and selected backend port are detected/applied automatically
 - **Server log files** - the app appends to a daily file under **`logs/`** next to the same user-data root (e.g. **`%APPDATA%\GODsend\logs\`** on Windows): timestamped backend stdout/stderr, session banner (paths, `GODSEND_*` env summary with secrets redacted, host IP), and notable UI actions (FTP upload steps, cache refresh, config changes). On the home screen use **Open logs folder** to reveal that directory in the system file manager

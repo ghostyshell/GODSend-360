@@ -65,6 +65,7 @@ The backend uses a **DDD-style package layout** with an `App` struct for depende
   - `handlers.go`: all main HTTP handlers as methods on `*Deps` (browse, cache, trigger, status, queue, register, debug, file serving, range parsing, `/disc-info`, etc.).
   - `handlers_rxea.go`: `/rxea/decode`, `/rxea/encode`, `/rxea/encode-multi` handlers.
   - `handlers_tools.go`: `/tools/probe-iso`, `/tools/iso2god`, `/tools/iso2xex` handlers.
+  - `mcp.go`: opt-in MCP endpoint (`/mcp`, `GODSEND_MCP_ENABLED`, loopback-only). `mcpTools` maps one tool per route and replays calls in-process against the mux; `mcp_test.go` fails if a route is added without a tool (or an explicit exclusion). Add a tool whenever you add a route.
   - `handlers_content.go`: `/content/discover`, `/content/tu`, `/content/installed`, `/content/queue`, `/content/sources`, `/content/set-active` - DLC / Title Update management.
   - `handlers_saves.go`: `/saves/discover`, `/saves/list`, `/saves/download`, `/saves/delete`, `/saves/copy`, `/saves/backup-all`, `/saves/keyvault-status`.
   - `router.go`: `NewRouter()` - registers all routes on `*http.ServeMux`.
@@ -110,7 +111,7 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
   - `services/autoSyncService.ts`: post-FTP automation - `autoUploadAuroraAssets` and `doAuroraLibrarySync`.
   - `services/badAvatarUsbService.ts`: BadAvatar USB build orchestrator - optional FAT32 format step + BadStick payload (Proto / FreestyleDash / Aurora XeUnshackle) install with per-file progress.
 - **IPC handlers (`ipc/`)**
-  - `configHandlers.ts`: startup, logs, storage path, torrent temp path, app data directory, transfer folder, server port, IA auth, ROM path, cache refresh, Xbox connection, default drive, aria2 ports, Aurora library sources, save-backup folder.
+  - `configHandlers.ts`: startup, logs, storage path, torrent temp path, app data directory, transfer folder, server port, IA auth, ROM path, cache refresh, Xbox connection, default drive, aria2 ports, Aurora library sources, save-backup folder, MCP server toggle (`config:get-mcp` / `config:set-mcp`, `mcpEnabled`, off by default).
   - `xboxFtpHandlers.ts`: ping, verbose FTP test, port scanner, Aurora scripts upload, drive listing, game listing, cover fetch.
   - `auroraLibraryHandlers.ts`: Aurora library sync (DB fingerprint caching), cover + visual asset sync, disk-cache visual refresh.
   - `auroraAssetHandlers.ts`: asset search (XboxUnity + CDN), image fetch, file picker, console upload, RXEA decode/encode, Aurora game inspector.

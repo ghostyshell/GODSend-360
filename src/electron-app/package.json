@@ -1,6 +1,6 @@
 {
   "name": "godsend-electron",
-  "version": "2.13.3",
+  "version": "2.13.4",
   "description": "Full Electron UI for configuring, monitoring, and managing GODsend-360",
   "main": "main.js",
   "scripts": {
@@ -143,7 +143,7 @@
       "target": [
         "dmg"
       ],
-      "icon": "assets/tray.png",
+      "icon": "assets/icon-mac.png",
       "category": "public.app-category.utilities",
       "extraFiles": [
         {

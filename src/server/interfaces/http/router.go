@@ -79,5 +79,10 @@ func (d *Deps) NewRouter() *stdhttp.ServeMux {
 	mux.HandleFunc("/ftp/jobs", d.wrap(d.handleFTPJobs))
 	mux.HandleFunc("/ftp/jobs/remove", d.wrap(d.handleFTPJobRemove))
 
+	// MCP bridge onto every route above; opt-in via GODSEND_MCP_ENABLED.
+	if d.App != nil && d.App.MCPEnabled {
+		mux.HandleFunc("/mcp", d.wrap(d.handleMCP(mux)))
+	}
+
 	return mux
 }
