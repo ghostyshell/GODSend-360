@@ -4,15 +4,15 @@ The backend listens on port `8080` by default (configurable via Electron `Backen
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/browse?platform=<p>` | Game list (pipe-separated); `platform` includes `xbox360`, `xbox`, `xbla`, `digital`, `dlc`, `xblig`, `games`, `local`, `rom_<sysid>`. Optional `source=minerva\|ia` limits the list to one catalog when both are merged by default. |
+| GET | `/browse?platform=<p>` | Game list (pipe-separated); `platform` includes `xbox360`, `xbox`, `xbla`, `digital`, `dlc`, `xblig`, `games`, `local`, `rom_<sysid>`, plus the dlxbgame.com libraries `dlxb` (ISOs) and `dlxb_rgh` (Jtag/RGH). Optional `source=minerva\|ia` limits the list to one catalog when both are merged by default. The dlxbgame platforms are served from the bundled scrape and ignore `source`; titles whose links are all marked dead are omitted. |
 | GET | `/status?game=<name>` | Poll job state: `Idle`, `Processing`, `Ready`, `Error`, `Missing` |
 | GET | `/queue` | List all active and completed jobs |
 | GET | `/trigger?game=<name>&platform=<p>` | Start processing a game (Aurora uses GET) |
 | GET | `/register?game=<name>&ip=<xbox-ip>&drive=...&platform=...` | Register the console IP and drive for FTP transfer |
 | GET | `/files/<name>/...` | Serve finished GOD/archive files to the Xbox over HTTP |
 | GET/POST | `/queue/remove?game=<name>` | Remove one job (`game` omitted clears all); Aurora uses GET |
-| GET | `/cache-status` | Per-platform cache build state and counts |
-| GET | `/cache-refresh?platform=<p>` | Trigger cache rebuild (`all`, an IA platform, or `rom_<sysid>`); Electron uses GET |
+| GET | `/cache-status` | Per-platform cache build state and counts (includes `dlxb` for the dlxbgame.com scrape, with `alive`/`dead` link counts) |
+| GET | `/cache-refresh?platform=<p>` | Trigger cache rebuild (`all`, an IA platform, `dlxb` / `dlxb_rgh` for a whole-site dlxbgame.com re-scrape, or `rom_<sysid>`); Electron uses GET |
 | GET | `/disc-info` | Probe a local ISO in the Transfer folder for disc compatibility metadata (used by the multi-disc install picker) |
 | GET | `/data/status` | Returns `active_jobs`, `pending_ftp_jobs`, `local_data_mb` - used by Electron clear-data UI |
 | GET | `/data/clear` | Cancels all jobs and pending FTP transfers, wipes `Ready/` and `Temp/` |
@@ -94,5 +94,9 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 | `GODSEND_CUSTOM_GOD_PATH` | (none) | Override the Xbox FTP subfolder for GOD-format installs (default `GOD`) |
 | `GODSEND_CUSTOM_XEX_PATH` | (none) | Override the Xbox FTP subfolder for XEX-format installs (default `XEX`) |
 | `GODSEND_MCP_ENABLED` | (unset, off) | `1`/`true` serves the MCP endpoint at `/mcp` to loopback clients. Set by the desktop app's **MCP server** setting |
+| `GODSEND_CF_SOLVER_URL` | (unset) | FlareSolverr-compatible solver base URL (e.g. `http://192.168.1.184:8191`, Byparr works). Used to clear Cloudflare on dlxbgame.com ad-gate and container pages. The desktop app starts a bundled solver when one is present and passes this automatically. |
+| `GODSEND_SCRAPE_PROXIES` | (unset) | Comma list of `socks5://[user:pass@]host:port` or `http://host:port` proxies for the dlxbgame scrape and host resolution. Plain `host:port` means SOCKS5. Requests rotate round-robin. |
+| `GODSEND_TOR_CONTROL` | (unset) | Tor control port (e.g. `127.0.0.1:9051`). When set, the scraper sends `SIGNAL NEWNYM` to rotate the Tor exit before batches and after a rate limit. |
+| `GODSEND_TOR_PASSWORD` | (unset) | Password for the Tor control port, if `HashedControlPassword` is configured. |
 | `GODSEND_SKIP_ARIA2_BOOTSTRAP` | (unset) | Skip the macOS aria2c Homebrew bootstrap at startup |
 | `GODSEND_NO_GUI_ELEVATION` | (unset) | Disable GUI sudo prompting during the macOS aria2c bootstrap |

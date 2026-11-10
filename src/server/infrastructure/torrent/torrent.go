@@ -482,6 +482,8 @@ func isCrossDeviceRenameErr(err error) bool {
 // or IA cookie. PATH/HOME/USER and proxy vars are unaffected.
 func scrubChildEnv(env []string) []string {
 	secretSuffixes := []string{"_KEY", "_SECRET", "_TOKEN", "_PASSWORD", "_PASS", "_COOKIE", "_AUTHORIZATION", "_APIKEY"}
+	// Proxy lists carry credentials in the URL, so they are scrubbed explicitly.
+	explicitSecret := map[string]bool{"GODSEND_SCRAPE_PROXIES": true, "GODSEND_TOR_PASSWORD": true}
 	isSecret := func(name string) bool {
 		u := strings.ToUpper(name)
 		for _, s := range secretSuffixes {
@@ -498,7 +500,7 @@ func scrubChildEnv(env []string) []string {
 		if eq >= 0 {
 			name = kv[:eq]
 		}
-		if isSecret(name) {
+		if isSecret(name) || explicitSecret[strings.ToUpper(name)] {
 			continue
 		}
 		out = append(out, kv)

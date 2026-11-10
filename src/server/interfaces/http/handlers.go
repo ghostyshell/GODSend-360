@@ -60,6 +60,22 @@ func (d *Deps) handleBrowse(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		return
 	}
 
+	// dlxbgame.com platforms - served from the bundled/refreshed scrape
+	if _, ok := app.DlxbPlatforms[platform]; ok {
+		games := d.Dlxb.Games(platform)
+		if len(games) > 0 {
+			d.App.Logf("BROWSE: Serving %d dlxbgame titles for %s (%s)", len(games), platform, app.DlxbSiteURL)
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Write([]byte(strings.Join(games, "|")))
+			return
+		}
+		go d.Dlxb.Build()
+		d.App.Logf("BROWSE: dlxbgame list building for %s", platform)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprintf(w, "__IA_LOADING__:0/1")
+		return
+	}
+
 	// Local - scan Transfer folder immediately, no IA needed
 	if platform == "local" {
 		games := d.Local.ScanTransferFolder()
@@ -161,8 +177,40 @@ func (d *Deps) handleCacheStatus(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		Loaded int32  `json:"loaded"`
 		Total  int32  `json:"total"`
 		Games  int    `json:"games"`
+		Alive  int    `json:"alive,omitempty"`
+		Dead   int    `json:"dead,omitempty"`
 	}
 	result := map[string]platformStatus{}
+
+	if st := d.Dlxb.GetBuildState("all"); st != nil {
+		d.App.DlxbBuildStatesMu.Lock()
+		state := st.State
+		loaded := atomic.LoadInt32(&st.Loaded)
+		total := atomic.LoadInt32(&st.Total)
+		d.App.DlxbBuildStatesMu.Unlock()
+		d.App.DlxbMu.RLock()
+		count := len(d.App.DlxbGames["iso"]) + len(d.App.DlxbGames["rgh"])
+		alive, dead := 0, 0
+		for _, e := range d.App.DlxbEntries {
+			for _, l := range e.Links {
+				switch l.Status {
+				case "alive":
+					alive++
+				case "dead":
+					dead++
+				}
+			}
+		}
+		d.App.DlxbMu.RUnlock()
+		result["dlxb"] = platformStatus{
+			State:  state,
+			Loaded: loaded,
+			Total:  total,
+			Games:  count,
+			Alive:  alive,
+			Dead:   dead,
+		}
+	}
 
 	d.App.BuildStatesMu.Lock()
 	for p, s := range d.App.BuildStates {
@@ -187,13 +235,14 @@ func (d *Deps) handleCacheRefresh(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 	platform := r.URL.Query().Get("platform")
 
 	if platform == "" || platform == "all" {
-		d.App.Logf("CACHE REFRESH: all IA + Minerva platforms requested")
+		d.App.Logf("CACHE REFRESH: all IA + Minerva + dlxb platforms requested")
 		for p := range app.IACollections {
 			go d.IA.Build(p)
 		}
 		for p := range app.MinervaPageURLs {
 			go d.Minerva.Build(p)
 		}
+		go d.Dlxb.Build()
 		// Also refresh any ROM system that already has a cache on disk
 		var romRefreshed []string
 		d.App.ROMGameCacheMu.RLock()
@@ -208,6 +257,13 @@ func (d *Deps) handleCacheRefresh(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 		}
 		d.App.Logf("CACHE REFRESH: %d previously-used ROM systems queued", len(romRefreshed))
 		jsonSuccess(w, map[string]string{"status": "refreshing", "platforms": "all"})
+		return
+	}
+
+	if _, ok := app.DlxbPlatforms[platform]; ok {
+		d.App.Logf("CACHE REFRESH: dlxbgame.com (whole site)")
+		go d.Dlxb.Build()
+		jsonSuccess(w, map[string]string{"status": "refreshing", "platform": platform})
 		return
 	}
 
@@ -298,6 +354,9 @@ func (d *Deps) handleTrigger(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	installType := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("install_type")))
 	if installType == "" {
 		installType = "god"
+		if platform == "dlxb_rgh" {
+			installType = "xex"
+		}
 	}
 	if installType != "god" && installType != "content" && installType != "xex" {
 		installType = "god"
@@ -355,6 +414,30 @@ func (d *Deps) handleTrigger(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			})
 			return
 		}
+	}
+
+	// dlxbgame.com direct-download source
+	if _, ok := app.DlxbPlatforms[platform]; ok {
+		if d.Local.IsGameReadyLocally(gameName) {
+			d.App.LogStatus(gameName, "Ready", "Ready to Install")
+			jsonSuccess(w, map[string]string{"status": "already_ready"})
+			return
+		}
+		entry, ok := d.Dlxb.FindEntry(gameName, platform)
+		if !ok {
+			if len(d.Dlxb.Games(platform)) == 0 {
+				go d.Dlxb.Build()
+				d.App.LogStatus(gameName, "Error", "dlxbgame list is still loading - try again in a moment")
+			} else {
+				d.App.LogStatus(gameName, "Error", "Not found in the dlxbgame list")
+			}
+			jsonSuccess(w, map[string]string{"status": "dlxb_unavailable", "message": "Game not found in the dlxbgame list."})
+			return
+		}
+		d.App.Logf("TRIGGER: dlxbgame source for '%s' (%s, %d links)", gameName, platform, len(entry.Links))
+		launcher(func() { d.Pipeline.ProcessDlxbGame(gameName, entry, platform) })
+		jsonSuccess(w, map[string]string{"status": "triggered", "source": "dlxb"})
+		return
 	}
 
 	// ROM platforms (edgeemu.net)
@@ -666,9 +749,9 @@ func (d *Deps) handleDataClear(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 func (d *Deps) handleServerConfig(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"default_drive":    d.App.DefaultXboxDrive,
-		"custom_god_path":  d.App.CustomGodPath,
-		"custom_xex_path":  d.App.CustomXexPath,
+		"default_drive":   d.App.DefaultXboxDrive,
+		"custom_god_path": d.App.CustomGodPath,
+		"custom_xex_path": d.App.CustomXexPath,
 	})
 }
 

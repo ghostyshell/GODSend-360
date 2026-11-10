@@ -52,6 +52,7 @@ func main() {
 	// ── Service layer ───────────────────────────────────────────────
 	iaSvc := &cache.IAService{App: a}
 	minervaSvc := &cache.MinervaService{App: a}
+	dlxbSvc := &cache.DlxbService{App: a}
 	romSvc := &cache.ROMService{App: a, IA: iaSvc}
 	localSvc := &local.Service{App: a}
 	pipelineSvc := &pipeline.Service{
@@ -66,7 +67,7 @@ func main() {
 
 	// ── Banner ──────────────────────────────────────────────────────
 	fmt.Println("╔══════════════════════════════════════════╗")
-	fmt.Println("║    GODSend Backend Server v2.13.4        ║")
+	fmt.Println("║    GODSend Backend Server v2.14.0        ║")
 	fmt.Println("║  ISO + XEX + XBLA + DLC + ROMs (EdgeEmu) ║")
 	fmt.Println("╚══════════════════════════════════════════╝")
 	fmt.Printf("[INFO] Copy Buffer: %d MB | Serve Buffer: %d KB | FTP Buffer: %d MB\n",
@@ -116,6 +117,14 @@ func main() {
 		}
 	}
 
+	// dlxbgame.com cache (bundled scrape; refresh from Settings or /cache-refresh)
+	if dlxbSvc.LoadCacheFromDisk() {
+		a.Logf("DLXB CACHE: Loaded from disk")
+	} else {
+		go dlxbSvc.Build()
+	}
+	a.Logf("DLXB: %s", app.DlxbNotice)
+
 	// ROM caches (lazy - won't block startup)
 	go func() {
 		for sysid := range app.ROMSystems {
@@ -130,6 +139,7 @@ func main() {
 		App:      a,
 		IA:       iaSvc,
 		Minerva:  minervaSvc,
+		Dlxb:     dlxbSvc,
 		ROM:      romSvc,
 		Local:    localSvc,
 		Pipeline: pipelineSvc,

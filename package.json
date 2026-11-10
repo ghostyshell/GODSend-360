@@ -1,6 +1,6 @@
 {
   "name": "godsend-360",
-  "version": "2.13.4",
+  "version": "2.14.0",
   "private": true,
   "description": "GODsend - Go backend + Electron desktop app",
   "scripts": {
@@ -20,12 +20,15 @@
     "build:electron:mac:arm": "npm run build:mac:arm --prefix src/electron-app",
     "build:electron:linux": "npm run build:linux --prefix src/electron-app",
     "build:server:all": "node scripts/build-go-all.js",
+    "scrape:dlxb": "go run -C src/server ./cmd/dlxb-scrape -out ../../cache/dlxb_games.json",
     "build": "node scripts/build-all.js",
     "build:win": "npm run build:server && npm run build:electron",
     "build:mac": "npm run build:server:mac && npm run build:electron:mac",
     "build:mac:arm": "npm run build:server:mac:arm && npm run build:electron:mac:arm",
     "build:linux": "npm run build:server:linux && npm run build:electron:linux",
-    "start": "npm start --prefix src/electron-app"
+    "start": "npm start --prefix src/electron-app",
+    "solver:download": "node scripts/download-flaresolverr.js",
+    "health:dlxb": "go run -C src/server ./cmd/dlxb-health -cache ../../cache/dlxb_games.json"
   },
   "engines": {
     "node": ">=18"

@@ -1,7 +1,7 @@
 scriptTitle       = "GODsend 360"
 scriptAuthor      = "Nesquin/david12549 & ghosty99"
-scriptVersion     = "2.13.4"
-scriptDescription = "Browse and install Xbox 360, Original, Digital (XBLA/DLC), and Retro ROMs via Minerva Archive, Internet Archive, or EdgeEmu!"
+scriptVersion     = "2.14.0"
+scriptDescription = "Browse and install Xbox 360, Original, Digital (XBLA/DLC), and Retro ROMs via Minerva Archive, Internet Archive, EdgeEmu, or dlxbgame.com!"
 scriptIcon        = "icon\\icon.xur"
 scriptPermissions = { "http", "filesystem" }
 
@@ -59,6 +59,8 @@ function main()
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox Live Indie Games",             {action = "BROWSE_XBLIG"}))
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox 360 Game Archives",            {action = "BROWSE_GAMES"}))
         Menu.AddMainMenuItem(Menu.MakeMenuItem("Retro ROMs  (62 Systems)",          {action = "BROWSE_ROMS"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox 360 ISOs  (dlxbgame.com)",     {action = "BROWSE_DLXB"}))
+        Menu.AddMainMenuItem(Menu.MakeMenuItem("Xbox 360 Jtag/RGH  (dlxbgame.com)", {action = "BROWSE_DLXB_RGH"}))
 
         local ret, menu, canceled = Menu.ShowMainMenu()
         if canceled or not ret then break end
@@ -73,6 +75,8 @@ function main()
         elseif ret.action == "BROWSE_XBLIG"  then browseLibrary("xblig")
         elseif ret.action == "BROWSE_GAMES"  then browseLibrary("games")
         elseif ret.action == "BROWSE_ROMS"   then browseROMs()
+        elseif ret.action == "BROWSE_DLXB"     then browseLibrary("dlxb")
+        elseif ret.action == "BROWSE_DLXB_RGH" then browseLibrary("dlxb_rgh")
         end
     end
 end

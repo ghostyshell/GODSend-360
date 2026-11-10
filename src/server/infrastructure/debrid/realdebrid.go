@@ -137,6 +137,15 @@ func (r *realDebrid) selectFileByID(ctx context.Context, id, fileID string) erro
 	return r.post(ctx, "/torrents/selectFiles/"+id, form, nil)
 }
 
+// Unrestrict turns a file-hoster link into a direct Real-Debrid link.
+func (r *realDebrid) Unrestrict(ctx context.Context, srcURL string) (string, string, error) {
+	direct, err := r.unrestrict(ctx, srcURL)
+	if err != nil {
+		return "", "", err
+	}
+	return direct, "", nil
+}
+
 func (r *realDebrid) unrestrict(ctx context.Context, link string) (string, error) {
 	var out struct {
 		Download string `json:"download"`

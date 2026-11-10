@@ -491,3 +491,29 @@ func (a *App) CleanupEmptyReadyDirs() {
 		}
 	}
 }
+
+// ── dlxbgame.com source ───────────────────────────────────────────────
+
+const (
+	// DlxbSiteURL is advertised throughout the app; the scrape is of this site.
+	DlxbSiteURL = "https://dlxbgame.com/"
+	// DlxbAPIURL is the WordPress REST endpoint the scraper pages through.
+	DlxbAPIURL = "https://dlxbgame.com/wp-json/wp/v2/posts"
+	// DlxbNotice is shown next to the source in the app and on the console.
+	DlxbNotice = "GODsend 360 is not affiliated with dlxbgame.com. Visit https://dlxbgame.com/ directly to support the original owners of the content you download."
+	// DlxbCacheSchema invalidates older on-disk scrapes when the shape changes.
+	DlxbCacheSchema = 2
+)
+
+// DlxbPlatforms maps a browse platform key to the scrape category it serves.
+// "dlxb" is disc ISOs (GOD install), "dlxb_rgh" is Jtag/RGH (XEX install).
+var DlxbPlatforms = map[string]string{
+	"dlxb":     "iso",
+	"dlxb_rgh": "rgh",
+}
+
+// DlxbCategoryIDs maps our category to the dlxbgame.com WordPress category id.
+var DlxbCategoryIDs = map[string]int{
+	"iso": 127,
+	"rgh": 113,
+}

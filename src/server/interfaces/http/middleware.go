@@ -18,6 +18,7 @@ type Deps struct {
 	App      *app.App
 	IA       *cache.IAService
 	Minerva  *cache.MinervaService
+	Dlxb     *cache.DlxbService
 	ROM      *cache.ROMService
 	Local    *local.Service
 	Pipeline *pipeline.Service

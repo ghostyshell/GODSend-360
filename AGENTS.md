@@ -42,6 +42,11 @@ The backend uses a **DDD-style package layout** with an `App` struct for depende
   - `helpers/helpers.go`: utility functions (`GetOutboundIP`, `SanitizeFilename`, `CopyFileBuffered`, `DetectGodStructure`, `IsHexString`, `ParseXboxHeader`, `BucketAndZip`, `DecodeMinervaName`).
   - `download/ia.go`: IA download `Service` with chunked/parallel range-request support.
   - `download/edgeemu.go`: EdgeEmu download `Service` with chunked/parallel support.
+  - `dlxb/scrape.go`: dlxbgame.com WordPress-REST scraper (ISO + Jtag/RGH categories) and host classifier.
+  - `dlxb/health.go`: cheap link liveness checks (`Check`, `CheckAll`) that annotate links alive/dead/unknown; dead links are skipped and dead-only titles are hidden.
+  - `dlxb/resolve.go`: dlxbgame.com host-link resolver (direct, Google Drive, MediaFire, gofile, pixeldrain, filecrypt, 1fichier, anotepad, ad gates, shorteners, Cloudflare via `GODSEND_CF_SOLVER_URL`, Debrid unrestrict fallback).
+  - `torrent/url.go`: `DownloadURL` - direct HTTP downloads through aria2c (16 connections), used by the dlxbgame source.
+  - `proxy/proxy.go`: rotating SOCKS5/HTTP proxy dialer and Tor control (`NEWNYM`) for scraping and host resolution, configured by `GODSEND_SCRAPE_PROXIES` / `GODSEND_TOR_CONTROL` / `GODSEND_TOR_PASSWORD`.
   - `download/progress.go`: `ProgressWriter` for download progress tracking.
   - `ftp/client.go`: FTP `Service` - Xbox connection, upload, GOD/XEX/content transfer functions, pending-job persistence and retry, `MkdirAll` package-level helper.
   - `torrent/torrent.go`: torrent/aria2c `Service` - `DownloadViaTorrent`, aria2c detection, `DarwinCandidatesFn` injection point for macOS.
@@ -50,11 +55,13 @@ The backend uses a **DDD-style package layout** with an `App` struct for depende
   - `cache/ia.go`: IA cache `IAService` - build, load, save, find, persistence.
   - `cache/minerva.go`: Minerva cache `MinervaService` - scrape, build, load, save, find.
   - `cache/rom.go`: ROM/EdgeEmu cache `ROMService` - build, load, find.
+  - `cache/dlxb.go`: dlxbgame.com cache `DlxbService` - scrape, load, save, build state, find. Cache file: `cache/dlxb_games.json`; CLI refresh: `npm run scrape:dlxb`.
   - `local/scanner.go`: local Transfer-folder `Service` - ISO scanning, matching, `NormalizeClientGameName` (package-level function).
   - `pipeline/pipeline.go`: pipeline `Service` struct (holds references to all other services), `ProcessLocalISO`, `ProcessGame`, `FinalizeGOD`.
   - `pipeline/digital.go`: `ProcessContentInstallFromISO`, `ProcessGenericGame`, `ProcessDigital`, XEX/DLC transfer helpers.
   - `pipeline/minerva.go`: `ProcessMinervaGame`, `ProcessMinervaGenericGame`, `ProcessMinervaDigital`.
   - `pipeline/rom.go`: `ProcessROM`, `FindROMFiles`, `UpdateGameINI_ROM`.
+  - `pipeline/dlxb.go`: dlxbgame download pipeline (`ProcessDlxbGame`, edition selection, multi-disc download/install, link resolution, aria2c download) and the shared `processDownloadedArchive` helper used by both Minerva and dlxb.
   - `pipeline/ini.go`: `UpdateGameINI_Parts`, `UpdateGameINI_Raw`, `UpdateGameINI_XEX`, `Iso2GodResolveDisplayTitle`, `GodFolderName`.
   - `title_lookup.go`: `LookupTitleName` (XboxUnity → XboxDB → embedded iso2god-rs list).
   - `game_service.go`: `GameService` interface.
@@ -86,6 +93,7 @@ main → everything (wiring only)
 
 #### Key architectural notes
 - **Pending FTP queue** (`infrastructure/ftp/`) - when an FTP transfer fails after retries (e.g. console launched a game), the backend persists the job to `GODSEND_HOME/pending_ftp/<id>.json` and retries indefinitely (30 s → 5 min backoff). Jobs survive restarts and are resumed at startup. Endpoints: `GET /data/status`, `GET /data/clear`, `GET /config`. Env vars: `GODSEND_DEFAULT_DRIVE`, `GODSEND_TORRENT_TEMP`, `GODSEND_ARIA2_LISTEN_PORT`, `GODSEND_ARIA2_DHT_PORT`.
+- **dlxbgame.com source** (`infrastructure/dlxb/`, `services/cache/dlxb.go`, `services/pipeline/dlxb.go`) - two extra libraries (`dlxb` ISOs, `dlxb_rgh` Jtag/RGH) scraped once from the site's WordPress REST API into `cache/dlxb_games.json` and shipped with the build. Refresh from Settings or `GET /cache-refresh?platform=dlxb`, or offline with `npm run scrape:dlxb`; `npm run health:dlxb` marks dead links, which are then hidden from browse. Filecrypt containers need Real-Debrid/TorBox. Downloads resolve the stored host link (with optional `GODSEND_CF_SOLVER_URL` for Cloudflare and Debrid unrestrict for rate-limited hosts) and fetch with aria2c; archive passwords are applied on extraction (every password on the post is tried); RGH data discs install their content tree into Content. Public copy must carry the non-affiliation notice and a link to https://dlxbgame.com/.
 - **Minerva source** (`services/cache/minerva.go`, `infrastructure/torrent/`, `services/pipeline/minerva.go`) - Minerva Archive integration alongside IA. Download priority in `/trigger`: **local → Minerva → Internet Archive**. `/browse` merges Minerva + IA lists (Minerva first, deduped). Torrent download via `aria2c` (`--select-file`); macOS uses Homebrew bootstrap (`aria2c_darwin.go`).
 - **Debrid acceleration** (`infrastructure/debrid/`, `services/pipeline/debrid.go`) - optional Real-Debrid / TorBox caching. Before the native torrent/IA source, the active provider (`GODSEND_DEBRID_PROVIDER`; `GODSEND_REALDEBRID_KEY` / `GODSEND_TORBOX_KEY`) is asked to cache the magnet (both providers) or the IA URL (TorBox only) and polled for up to 60s for a direct HTTP link; on timeout or any error the native source is used, so Debrid never fails a download. `Active()` returns nil when the provider is `none` or the key is empty. Single active provider, no cross-provider fallback. Keys are env vars, never logged. A name-match miss on a multi-file torrent falls back to the native source (never selects "all"/largest and returns a wrong-file link); TorBox best-effort deletes the queued item on timeout/error so the account doesn't accumulate dead entries.
 - **FTP upload overwrite** (`infrastructure/ftp/client.go` `UploadFile`) - Aurora's FtpDll does not overwrite files (`STOR` of an existing name returns `550 Could not create file`), so before `STOR` the remote `FileSize` is checked: equal size means already uploaded (skip, count toward progress), a size mismatch means a partial leftover (delete then re-`STOR`), absent means `STOR` as usual. This is what lets an interrupted GOD transfer resume instead of looping forever on file 1.
@@ -126,6 +134,7 @@ The Electron main-process source is written in **TypeScript** (compiled in-place
   - `infrastructure/backendHttp.ts`: thin `backendGet` / `backendPost` helpers for the local Go server.
   - `infrastructure/httpHelper.ts`: redirect-following HTTP image fetch, magic-byte MIME detection.
   - `infrastructure/serverLog.ts`: session-structured log file appender for backend stdout/stderr and app events.
+  - `services/flaresolverrService.ts`: starts a bundled FlareSolverr (Linux/Windows x64, fetched by `scripts/download-flaresolverr.js`) on a free local port and feeds its URL to the backend as `GODSEND_CF_SOLVER_URL`.
   - `infrastructure/auroraLibraryCache.ts`: local Aurora DB cache layout, meta read/write, safe path helper.
   - `infrastructure/sqlHelper.ts`: sql.js wrapper (`getSqlJs`, `sqlRows`, `filetimeToDateStr`).
   - `infrastructure/fat32Format.ts`: cross-platform FAT32 format for large USB volumes - bundled Ridgecrop `fat32format.exe` on Windows (fetched by `scripts/download-fat32format.js` → `dist/tools/` at build time), `newfs_msdos` / `diskutil` on macOS, `mkfs.vfat` / `mkfs.fat` on Linux.

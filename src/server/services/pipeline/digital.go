@@ -21,9 +21,9 @@ import (
 // CONTENT INSTALL (Disc 2+ DLC path)
 // ==========================================
 
-func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath string, xboxConn *models.XboxConnection) {
-	s.App.Logf("=== Content install: %s ===", gameName)
-
+// extractDiscContent probes an ISO for its TitleID and extracts the Content/
+// tree into a temp dir. Returns the extract dir and the resolved TitleID.
+func (s *Service) extractDiscContent(gameName, safeName, isoPath string) (string, string, error) {
 	s.App.LogStatus(gameName, "Processing", "Reading disc info...")
 	info, probeErr := utils.ProbeISODiscInfo(isoPath)
 	noExec := probeErr != nil
@@ -44,9 +44,7 @@ func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath strin
 			s.App.Logf("Content install: TitleID %s overridden to %08X from game name", titleID, guessed)
 			titleID = fmt.Sprintf("%08X", guessed)
 		} else if noExec {
-			s.App.Logf("Content install: no executable on disc and TitleID could not be resolved from content packages or game name: %v", probeErr)
-			s.App.LogStatus(gameName, "Error", fmt.Sprintf("Disc probe: %v", probeErr))
-			return
+			return "", "", fmt.Errorf("disc probe: %v", probeErr)
 		} else {
 			s.App.Logf("Content install: WARNING - TitleID %s is a known placeholder; could not resolve parent title from content packages or game name %q - content may install to wrong folder", titleID, gameName)
 		}
@@ -62,9 +60,18 @@ func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath strin
 	os.RemoveAll(contentDir)
 	os.MkdirAll(contentDir, 0755)
 	if err := utils.ExtractXDVDFSContentToDir(isoPath, contentDir, info); err != nil {
-		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Content extract: %v", err))
 		os.RemoveAll(contentDir)
-		return
+		return "", "", fmt.Errorf("content extract: %w", err)
+	}
+	return contentDir, titleID, nil
+}
+
+func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath string, xboxConn *models.XboxConnection) string {
+	s.App.Logf("=== Content install: %s ===", gameName)
+	contentDir, titleID, err := s.extractDiscContent(gameName, safeName, isoPath)
+	if err != nil {
+		s.App.LogStatus(gameName, "Error", fmt.Sprintf("Content extract: %v", err))
+		return ""
 	}
 
 	if xboxConn != nil && xboxConn.Mode == "ftp" {
@@ -84,7 +91,7 @@ func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath strin
 				CreatedAt: time.Now(),
 			}
 			s.FTP.SchedulePendingFTP(job)
-			return
+			return titleID
 		}
 		os.RemoveAll(contentDir)
 		s.App.LogFTPComplete(gameName, titleID, xboxConn.IP)
@@ -97,7 +104,7 @@ func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath strin
 		if err := utils.CreateZipFromDir(contentDir, filepath.Join(gameDir, partName)); err != nil {
 			s.App.LogStatus(gameName, "Error", fmt.Sprintf("Archive: %v", err))
 			os.RemoveAll(contentDir)
-			return
+			return titleID
 		}
 		os.RemoveAll(contentDir)
 		s.App.GamePartsMap.Store(gameName, []string{partName})
@@ -106,6 +113,7 @@ func (s *Service) processContentInstallFromISO(gameName, safeName, isoPath strin
 		s.App.LogStatus(gameName, "Ready", "Ready to Install")
 	}
 	s.App.Logf("=== Complete (Content): %s ===", gameName)
+	return titleID
 }
 
 // ==========================================

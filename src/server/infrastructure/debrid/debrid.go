@@ -51,6 +51,10 @@ type Provider interface {
 	// CacheWebURL submits srcURL as a web download and returns a direct link,
 	// or ErrUnsupported for providers that can't. Same ("", nil) timeout semantics.
 	CacheWebURL(ctx context.Context, srcURL string, wait time.Duration) (string, error)
+	// Unrestrict turns a file-hoster link (1fichier, MediaFire, Mega, ...) into
+	// a direct HTTP link. Used by the dlxbgame source, whose posts link to
+	// several hosts. Providers return an error the resolver can fall back from.
+	Unrestrict(ctx context.Context, srcURL string) (directURL, filename string, err error)
 }
 
 // Magnet builds a magnet URI from a hex infohash plus optional trackers. Both

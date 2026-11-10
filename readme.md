@@ -14,6 +14,8 @@ GODsend 360 is a local-network game management system for Xbox 360 consoles runn
 
 Download priority for online libraries: **Local Transfer folder → Minerva Archive → Internet Archive**. An Internet Archive account is only needed if Minerva doesn't have the title you want.
 
+**dlxbgame.com** is an additional, separate source for Xbox 360 **ISOs** and **Jtag/RGH** releases. The app scrapes the whole site once, stores every release's download links and archive password in `cache/dlxb_games.json`, and ships that list with each build. Downloads are resolved from the host the site links to (1fichier, MediaFire, Google Drive, gofile, and others) and fetched with `aria2c`; ads and container pages are followed until the file link appears. Links are checked after each scrape, dead ones are skipped, and titles whose links are all dead are hidden, so the app never offers a download that cannot start. Filecrypt containers expand through Real-Debrid or TorBox. Cloudflare-protected ad gates are cleared by a FlareSolverr-compatible solver (the Linux/Windows x64 build can bundle and start one automatically; macOS uses a LAN solver URL). Rotating SOCKS5/HTTP proxies and Tor exits (`GODSEND_SCRAPE_PROXIES`, `GODSEND_TOR_CONTROL`) are available for rate limits. GODsend 360 is **not affiliated with dlxbgame.com** - please visit [dlxbgame.com](https://dlxbgame.com/) directly to support the original owners of the content you download.
+
 [![GODsend 360 v2.9.2 overview video preview](docs/site/assets/GODsend-360-2.9.2-preview.png)](docs/site/assets/GODsend-360-2.9.2.mov)
 
 [Download or play the overview video (`.mov`)](docs/site/assets/GODsend-360-2.9.2.mov)
@@ -78,6 +80,8 @@ If you want Internet Archive as a fallback (or for titles not on Minerva):
 1. Click the tray icon and open the app window, then click the **⚙ Settings** button.
 2. Under **Internet Archive account**, click **Log in** and enter your [archive.org](https://archive.org) credentials. Your session cookie is stored locally - your password is never saved.
 
+**dlxbgame.com source:** no account is needed. Settings → **dlxbgame.com source** has a link to the site, the non-affiliation notice, and a **Refresh dlxbgame list** button that re-scrapes every page in the background. To resolve links through a Cloudflare-protected ad gate or container page (filecrypt, downloadgameps3), set `GODSEND_CF_SOLVER_URL` to a FlareSolverr-compatible solver (Byparr works). Real-Debrid or TorBox is optional but recommended for 1fichier, Mega, and other hosts that rate-limit free downloads.
+
 Optional - **Debrid (faster downloads)**: under the same Settings page, pick **Real-Debrid** or **TorBox**, paste your API key, and **Save & restart backend**. Torrents and Internet Archive downloads then try to cache on the provider first and pull a direct HTTP link (much faster than P2P); if it isn't ready in ~60s they fall back to the native source, so nothing breaks without it. Internet Archive acceleration works on TorBox only, and only for public IA items - the Xbox 360 / Xbox IA collections are login-gated (`access-restricted-item`), so TorBox can't proxy them (it fetches unauthenticated) and those downloads skip TorBox and use the direct, cookie-authed IA path. TorBox can't cache Minerva collections larger than its ~200 GB per-torrent limit (every Minerva section except Games Archive) - those fall back to P2P and the Browse page recommends Real-Debrid, which caches per file.
 
 You can also set a **Local Transfer folder** if you want to install from `.iso` files you already have on this machine.
@@ -119,7 +123,7 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 ## Features
 
-Minerva Archive (BitTorrent, no account), Internet Archive (chunked parallel HTTP, optional), local ISOs, XBLA, DLC, XBLIG, Game Archives, Retro ROMs (62 systems via EdgeEmu), multi-disc support, GOD/XEX/content install layouts, FTP transfer with persistent retry, server queue management, and persistent logging.
+Minerva Archive (BitTorrent, no account), Internet Archive (chunked parallel HTTP, optional), dlxbgame.com (Xbox 360 ISO + Jtag/RGH direct downloads), local ISOs, XBLA, DLC, XBLIG, Game Archives, Retro ROMs (62 systems via EdgeEmu), multi-disc support, GOD/XEX/content install layouts, FTP transfer with persistent retry, server queue management, and persistent logging.
 
 The desktop app adds an **Xbox Library** (live view of games on your console with cover art, sorting, filtering, and move-to-drive), **DLC & Title Updates management** (browse Minerva / IA / XboxUnity sources, install, and toggle active TUs per game), **Save Game management** (per-title save browse/restore plus one-click bulk backup of every profile and save on the console), an **FTP Manager** (full file browser with cut/copy/paste/delete/rename/mkdir), an **Aurora Asset Editor** (search, preview, and upload cover/background/banner/icon artwork via RXEA or XboxUnity), **ISO to GOD and ISO to XEX** conversion tools, a **BadAvatar USB builder** (formats large FAT32 USBs and installs the BadStick BadUpdate payload), a **Job Queue** (unified game pipeline + FTP jobs), an optional **MCP server** so AI assistants on the same computer can drive every backend operation (off by default), and **overlay navigation** so tools open as panels without leaving the current page.
 
@@ -260,7 +264,7 @@ The backend listens on port `8080` by default. Key endpoints: `/browse`, `/trigg
 - At least **500MB** free for the app, plus **15-25GB** recommended for temp + ready game data
 - Xbox 360 running Aurora (or another compatible dashboard) with FTP server enabled
 - Computer and Xbox on the same local network
-- Free archive.org account only if you use **Internet Archive** as a source (Minerva Archive needs no account)
+- Free archive.org account only if you use **Internet Archive** as a source (Minerva Archive and dlxbgame.com need no account)
 
 ---
 
