@@ -17,7 +17,7 @@ Single-file static landing page for [GODsend-360](https://github.com/ghostyshell
 - `site.webmanifest` for PWA / install prompt.
 - `prefers-reduced-motion` respected (animations gated).
 - WCAG-conscious contrast (slate-100 on `#020617` body, `#22C55E` accents on dark surfaces).
-- `loading="lazy"` not needed - no raster images on the page; mock screenshots are pure CSS.
+- Screenshots in `screens/` are real renderer captures, taken from the app's fixture bridge (`?mock=1`) by `tests/mock-screenshots.spec.ts`. The hero image uses `loading="eager"`; gallery images use `loading="lazy"`.
 - `<link rel="preconnect">` for Google Fonts; `dns-prefetch` for github / gofile / file.kiwi.
 - Skip-link `Skip to content` for keyboard users.
 - `aria-label`s on icon-only SVGs; `aria-hidden` on decorative ones.

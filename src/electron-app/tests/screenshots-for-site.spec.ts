@@ -3,19 +3,21 @@ import path from "path";
 import fs from "fs";
 
 /**
- * Captures real PNG screenshots of the desktop app for the marketing site.
- * Output: `docs/site/screens/*.png` (published at
- * https://ghostyshell.github.io/GODSend-360/site/screens/<name>.png).
+ * Captures real PNG screenshots from a launched Electron build, for manual
+ * before/after comparison against the fixture captures the site publishes.
+ * Output: `test-results/live-screens/*.png` (gitignored, never published).
  *
- * Without a connected Xbox the Library / Queue buttons don't appear, so
- * those shots are skipped automatically - the rest still produces real,
- * non-mocked UI captures.
+ * The marketing screenshots in `docs/site/screens` come from
+ * `tests/mock-screenshots.spec.ts`, which owns those filenames.
+ *
+ * Without a connected Xbox the Library / Queue buttons don't appear, so those
+ * shots are skipped automatically.
  *
  * Run with:
  *   npx playwright test tests/screenshots-for-site.spec.ts
  */
 
-const OUT = path.resolve(__dirname, "../../../docs/site/screens");
+const OUT = path.resolve(__dirname, "../test-results/live-screens");
 fs.mkdirSync(OUT, { recursive: true });
 
 const VIEWPORT = { width: 1440, height: 900 } as const;

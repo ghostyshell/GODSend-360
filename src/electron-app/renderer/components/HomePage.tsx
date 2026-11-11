@@ -59,7 +59,14 @@ export default function HomePage({
 
   return (
     <div className="flex flex-col h-screen p-3 gap-2.5">
-      <header className="flex justify-end items-center shrink-0">
+      <header className="flex items-center gap-3 shrink-0 pb-2.5 border-b border-white/[0.07]">
+        <div className="flex flex-col min-w-0">
+          <span className="eyebrow leading-none mb-1">GODsend 360</span>
+          <span className="font-display text-[15px] font-bold text-foreground tracking-wide">
+            Console
+          </span>
+        </div>
+        <div className="flex-1" />
         <MainNav
           ftpStatus={ftpStatus}
           currentPage="home"
@@ -78,21 +85,32 @@ export default function HomePage({
         />
       </header>
 
-      <pre
-        ref={outputRef}
-        className="flex-1 min-h-0 m-0 p-2.5 bg-surface border border-border rounded-lg overflow-auto whitespace-pre-wrap break-words font-mono text-[13px] leading-[1.4] select-text cursor-text"
-      >
-        {outputLines.join("\n")}
-      </pre>
+      <div className="panel flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex items-center gap-2 px-3 h-9 shrink-0 border-b border-white/[0.06] bg-white/[0.02]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--laser)] shadow-[0_0_0_3px_rgba(52,227,122,0.14)]" />
+          <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+            Backend output
+          </span>
+          <span className="ml-auto text-[10px] font-mono text-[color:var(--text-faint)]">
+            {outputLines.length} lines
+          </span>
+        </div>
+        <pre
+          ref={outputRef}
+          className="flex-1 min-h-0 m-0 p-3 overflow-auto whitespace-pre-wrap break-words font-mono text-[12.5px] leading-[1.55] text-[color:var(--text-dim)] select-text cursor-text"
+        >
+          {outputLines.join("\n")}
+        </pre>
+      </div>
 
       <footer className="flex justify-between items-center gap-2.5 shrink-0 text-[11px] text-muted-foreground">
         <span
-          className="overflow-hidden text-ellipsis whitespace-nowrap min-w-0"
+          className="overflow-hidden text-ellipsis whitespace-nowrap min-w-0 font-mono text-[10.5px]"
           title={logInfo?.logsDirectory ?? ""}
         >
           {logInfo?.currentLogFile ? `Log: ${logInfo.currentLogFile}` : ""}
         </span>
-        <Button size="sm" className="shrink-0" onClick={handleOpenLogs}>
+        <Button size="sm" variant="outline" className="shrink-0" onClick={handleOpenLogs}>
           Open logs folder
         </Button>
       </footer>

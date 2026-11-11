@@ -1,4 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Orbitron:wght@700;900&display=swap');
+/* GODsend 360 - interface system
+ *
+ * Direction: "console atelier". Near-black ink, one neon-green laser note,
+ * magenta and cyan as the secondary spectrum, hairline glass, monospaced data.
+ * The desktop app is a workshop: read the console, choose a title, watch the
+ * transfer happen. Motion is short, purposeful and off under reduced motion.
+ *
+ * Rules for this file:
+ *   1. Tokens first. No raw colour outside this block.
+ *   2. Animate transform/opacity only. The one exception is progress width.
+ *   3. Every interactive control needs hover, active, focus-visible and
+ *      disabled states.
+ *   4. Body copy stays at 11px or larger; technical data may be 9.5px mono.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Orbitron:wght@700;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,29 +21,62 @@
 
 @layer base {
   :root {
-    /* OLED dark palette - GODSend-360 design system */
-    --background: 229 84% 5%;        /* #020617 */
-    --foreground: 210 40% 98%;       /* #F8FAFC */
-    --muted: 230 30% 8%;             /* #1A1E2F */
-    --muted-foreground: 215 21% 65%; /* #94A3B8 */
-    --border: 217 33% 18%;           /* #1E293B */
-    --input: 217 33% 18%;            /* #1E293B */
-    --ring: 222 47% 15%;            /* #0F172A */
-    --primary: 222 47% 15%;         /* #0F172A */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 18%;       /* #1E293B */
-    --secondary-foreground: 210 40% 98%;
-    --accent: 142 71% 45%;          /* #22C55E */
-    --accent-foreground: 210 40% 98%;
-    --surface: 229 84% 3%;          /* #010412 */
-    --destructive: 0 84% 60%;       /* #EF4444 */
+    /* Surfaces (hsl triplets feed the Tailwind theme) */
+    --background: 222 47% 4%;        /* #050912 */
+    --foreground: 213 31% 96%;       /* #f4f7fc */
+    --muted: 220 30% 9%;             /* #101624 */
+    --muted-foreground: 215 20% 68%; /* #a7b1c4 */
+    --border: 220 28% 15%;           /* #1c2333 */
+    --input: 220 28% 15%;
+    --ring: 188 86% 64%;             /* cyan focus ring */
+    --primary: 142 71% 45%;          /* #22c55e */
+    --primary-foreground: 150 76% 6%;/* near-black ink on green */
+    --secondary: 220 28% 13%;
+    --secondary-foreground: 213 31% 96%;
+    --accent: 142 42% 14%;           /* tinted hover surface */
+    --accent-foreground: 142 70% 86%;
+    --surface: 222 40% 5%;
+    --popover: 220 35% 7%;           /* menus, dropdowns */
+    --popover-foreground: 213 31% 96%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --radius: 8px;
+    --radius: 12px;
 
-    /* Transition tokens */
-    --transition-fast: 150ms ease;
-    --transition-base: 200ms ease;
-    --transition-slow: 300ms ease;
+    /* Raw tokens for the CSS components below */
+    --ink-0: #05070d;
+    --line: rgba(255, 255, 255, 0.07);
+    --line-strong: rgba(255, 255, 255, 0.14);
+    --text: #eef2f9;
+    --text-dim: #a7b1c4;
+    --text-faint: #78849a;
+    --laser: #34e37a;
+    --laser-2: #67e8f9;
+    --violet: #b79bff;
+    --brass: #f2c078;
+    --grad-laser: linear-gradient(112deg, #67e8f9, #34e37a 52%, #22c55e);
+    --good-soft: rgba(52, 227, 122, 0.12);
+    --warn-soft: rgba(255, 196, 107, 0.12);
+    --bad-soft: rgba(255, 132, 132, 0.12);
+
+    /* Shape and motion */
+    --radius-xl: 20px;
+    --radius-lg: 14px;
+    --radius-sm: 9px;
+    --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --fast: 0.16s;
+    --base: 0.26s;
+    --slow: 0.5s;
+
+    /* Shadow */
+    --shadow-lg: 0 28px 64px -40px rgba(0, 0, 0, 0.95);
+    --shadow-md: 0 16px 40px -30px rgba(0, 0, 0, 0.9);
+    --glow-laser: 0 10px 32px -14px rgba(52, 227, 122, 0.55);
+    --inset: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+
+    --transition-fast: var(--fast) var(--ease);
+    --transition-base: var(--base) var(--ease);
+    --transition-slow: var(--slow) var(--ease);
   }
 
   * {
@@ -43,12 +91,17 @@
   }
 
   body {
-    font-family: 'JetBrains Mono', monospace;
-    background: hsl(var(--background));
+    font-family: 'Chakra Petch', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background:
+      radial-gradient(60rem 34rem at 8% -8%, rgba(52, 227, 122, 0.07), transparent 62%),
+      radial-gradient(52rem 30rem at 100% 0%, rgba(183, 155, 255, 0.06), transparent 60%),
+      hsl(var(--background));
     color: hsl(var(--foreground));
     font-size: 13px;
+    letter-spacing: 0.005em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   /* Display / heading font */
@@ -57,7 +110,26 @@
     letter-spacing: 0.02em;
   }
 
-  /* Scrollbar styling */
+  /* Mono for identifiers, paths and numbers */
+  .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--laser-2);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  button:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: rgba(52, 227, 122, 0.3);
+    color: var(--text);
+  }
+
+  /* Hairline scrollbars */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -66,28 +138,85 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
+    background: var(--line-strong);
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.4);
+    background: rgba(255, 255, 255, 0.24);
   }
 }
 
 @layer components {
   /* Section heading style for collapsible panels */
   .section-header {
-    @apply font-display text-[11px] font-bold uppercase tracking-wider text-muted-foreground;
+    @apply font-display text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground;
   }
 
-  /* Card surface style */
-  .card-surface {
-    @apply bg-surface border border-border/60 rounded-lg;
+  /* Small monospaced label above a title */
+  .eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--laser-2);
+    opacity: 0.8;
+  }
+
+  /* Panel / card surface: translucent fill, hairline, inset highlight */
+  .card-surface,
+  .panel {
+    background: hsl(var(--surface) / 0.72);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--inset), var(--shadow-md);
+    backdrop-filter: blur(14px);
+  }
+
+  .panel-hover {
+    transition:
+      border-color var(--fast) var(--ease),
+      transform var(--fast) var(--ease),
+      box-shadow var(--fast) var(--ease);
+  }
+  .panel-hover:hover {
+    border-color: var(--line-strong);
+    transform: translateY(-1px);
+    box-shadow: var(--inset), var(--shadow-lg);
+  }
+
+  /* Dashed empty state with a single sentence of what to do */
+  .empty-state {
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem 1.5rem;
+    background: hsl(var(--surface) / 0.4);
+  }
+
+  /* Primary button laser fill with a sheen that only appears on hover */
+  .btn-laser {
+    position: relative;
+    overflow: hidden;
+    background: var(--grad-laser);
+    color: hsl(var(--primary-foreground));
+    box-shadow: var(--glow-laser);
+  }
+  .btn-laser::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.4), transparent 80%);
+    transform: translateX(-120%);
+    transition: transform 0.7s var(--ease);
+    pointer-events: none;
+  }
+  .btn-laser:hover::after {
+    transform: translateX(120%);
   }
 
   /* Fade-in animation for content */
   .animate-fade-in {
-    animation: fadeIn var(--transition-base) ease-out;
+    animation: fadeIn var(--transition-base);
   }
 
   @keyframes fadeIn {
@@ -95,9 +224,42 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  /* Page change: fade and rise. No fill mode: a retained transform would make
+     this wrapper the containing block for fixed-position menus. */
+  .animate-page {
+    animation: rise 0.34s var(--ease-out);
+  }
+
+  /* Panel entrance with a short stagger */
+  .animate-panel {
+    animation: rise 0.42s var(--ease-out) both;
+  }
+  .stagger > * {
+    animation: rise 0.42s var(--ease-out) both;
+  }
+  .stagger > *:nth-child(2) { animation-delay: 30ms; }
+  .stagger > *:nth-child(3) { animation-delay: 60ms; }
+  .stagger > *:nth-child(4) { animation-delay: 90ms; }
+  .stagger > *:nth-child(5) { animation-delay: 120ms; }
+  .stagger > *:nth-child(6) { animation-delay: 150ms; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Toast: rise and scale from 96% */
+  .animate-toast {
+    animation: toastIn 0.38s var(--ease-out) both;
+  }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
   /* Slide-down animation for collapsible content */
   .animate-slide-down {
-    animation: slideDown var(--transition-base) ease-out;
+    animation: slideDown var(--transition-base);
   }
 
   @keyframes slideDown {
@@ -107,11 +269,47 @@
 
   /* Slide-up animation for collapsible content */
   .animate-slide-up {
-    animation: slideUp var(--transition-fast) ease-in;
+    animation: slideUp var(--transition-fast);
   }
 
   @keyframes slideUp {
     from { opacity: 1; max-height: var(--radix-collapsible-content-height); }
     to   { opacity: 0; max-height: 0; }
+  }
+
+  /* Live progress: gradient fill plus a slow sheen */
+  .progress-live {
+    position: relative;
+    overflow: hidden;
+    background: var(--grad-laser);
+  }
+  .progress-live::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    animation: sheen 1.8s var(--ease) infinite;
+  }
+  @keyframes sheen {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+  }
+}
+
+/* Shorten every transition and stop ambient motion when the user asks */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .progress-live::after {
+    display: none;
+  }
+  .panel-hover:hover {
+    transform: none;
   }
 }

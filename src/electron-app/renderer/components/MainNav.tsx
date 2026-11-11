@@ -8,24 +8,26 @@ import { cn } from "../lib/utils";
 
 export function FtpIndicator({ status }: { status: string }) {
   const dotClass =
-    status === "connected"   ? "bg-green-500"
-    : status === "checking"  ? "bg-yellow-400 animate-pulse"
-    :                          "bg-muted-foreground/40";
+    status === "connected"   ? "bg-[color:var(--laser)] shadow-[0_0_0_3px_rgba(52,227,122,0.14)]"
+    : status === "checking"  ? "bg-[color:var(--brass)] animate-pulse"
+    :                          "bg-white/25";
 
   const label =
-    status === "connected"   ? "FTP connected"
-    : status === "checking"  ? "Checking FTP…"
-    :                          "FTP not reachable";
+    status === "connected"   ? "Console online"
+    : status === "checking"  ? "Checking console"
+    :                          "Console offline";
 
   return (
     <div
-      className="flex items-center gap-1.5 h-8 px-1 select-none"
+      className="flex items-center gap-1.5 h-8 pl-2 pr-2.5 rounded-full border border-white/[0.09] bg-white/[0.03] select-none"
       title={label}
+      role="status"
+      aria-live="polite"
       aria-label={label}
     >
-      <div className={cn("w-2.5 h-2.5 rounded-full shrink-0 transition-all duration-300", dotClass)} />
-      <span className="text-[10px] font-medium text-muted-foreground leading-none tracking-wide">
-        FTP
+      <div className={cn("w-2 h-2 rounded-full shrink-0 transition-colors duration-300", dotClass)} />
+      <span className="text-[10px] font-medium text-muted-foreground leading-none tracking-[0.08em] uppercase">
+        {status === "connected" ? "Online" : status === "checking" ? "Checking" : "Offline"}
       </span>
     </div>
   );
@@ -57,39 +59,40 @@ export function ToolboxDropdown({ onIso2God, onIso2Xex, onFtpManager, onBadAvata
       <Button
         size="icon"
         title="Toolbox"
+        aria-label="Toolbox"
         variant={active ? "primary" : "default"}
         onClick={() => setOpen(!open)}
       >
         <Wrench className="h-4 w-4" />
       </Button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-surface border border-border rounded-lg shadow-lg overflow-hidden animate-fade-in">
+        <div className="absolute right-0 top-full mt-1.5 z-50 w-48 rounded-xl border border-white/[0.1] bg-popover/95 backdrop-blur-md shadow-[0_28px_64px_-40px_rgba(0,0,0,0.95)] overflow-hidden animate-toast">
           <button
-            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent/60 focus-visible:outline-none focus-visible:bg-accent/60 transition-colors cursor-pointer"
             onClick={() => { setOpen(false); onIso2God(); }}
           >
-            <Disc className="h-3.5 w-3.5 text-blue-400" />
+            <Disc className="h-3.5 w-3.5 text-[color:var(--laser-2)]" />
             ISO to GOD
           </button>
           <button
-            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent/60 focus-visible:outline-none focus-visible:bg-accent/60 transition-colors cursor-pointer"
             onClick={() => { setOpen(false); onIso2Xex(); }}
           >
-            <FolderOpen className="h-3.5 w-3.5 text-green-400" />
+            <FolderOpen className="h-3.5 w-3.5 text-[color:var(--laser)]" />
             ISO to XEX
           </button>
           <button
-            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent/60 focus-visible:outline-none focus-visible:bg-accent/60 transition-colors cursor-pointer"
             onClick={() => { setOpen(false); onBadAvatarUsb(); }}
           >
-            <Usb className="h-3.5 w-3.5 text-orange-400" />
+            <Usb className="h-3.5 w-3.5 text-[color:var(--brass)]" />
             BadAvatar USB
           </button>
           <button
-            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+            className="flex items-center gap-2 w-full px-3 py-2 text-left text-[12px] text-foreground hover:bg-accent/60 focus-visible:outline-none focus-visible:bg-accent/60 transition-colors cursor-pointer"
             onClick={() => { setOpen(false); onFtpManager(); }}
           >
-            <HardDrive className="h-3.5 w-3.5 text-yellow-400" />
+            <HardDrive className="h-3.5 w-3.5 text-[color:var(--violet)]" />
             FTP Manager
           </button>
         </div>
@@ -138,7 +141,7 @@ export default function MainNav({
   const hasQueueJobs = Array.isArray(queueJobs) && queueJobs.length > 0;
   const onHome       = currentPage === "home";
 
-  const activeBtnClass = "ring-1 ring-accent ring-offset-1 ring-offset-background";
+  const activeBtnClass = "ring-2 ring-[color:var(--laser)] ring-offset-2 ring-offset-background";
 
   return (
     <div className="flex items-center gap-1.5">
@@ -147,6 +150,7 @@ export default function MainNav({
       <Button
         size="icon"
         title="Retry FTP connection"
+        aria-label="Retry FTP connection"
         disabled={ftpChecking}
         onClick={onReconnect}
       >
@@ -159,6 +163,7 @@ export default function MainNav({
         <Button
           size="icon"
           title="Console"
+          aria-label="Console"
           variant={currentPage === "home" ? "primary" : "default"}
           onClick={onNavigateHome || onLibraryToggle}
         >
@@ -170,6 +175,8 @@ export default function MainNav({
         <Button
           size="icon"
           title={libraryLoading ? "Connecting to Xbox…" : "Xbox Library"}
+          aria-label="Xbox Library"
+          aria-current={currentPage === "library" ? "page" : undefined}
           disabled={libraryLoading}
           variant={currentPage === "library" ? "primary" : "default"}
           onClick={onLibraryToggle}
@@ -184,6 +191,8 @@ export default function MainNav({
         <Button
           size="icon"
           title={`Server queue (${queueJobs.length} job${queueJobs.length !== 1 ? "s" : ""})`}
+          aria-label={`Server queue, ${queueJobs.length} job${queueJobs.length !== 1 ? "s" : ""}`}
+          aria-current={currentPage === "queue" ? "page" : undefined}
           onClick={onNavigateQueue}
           className={cn("relative", currentPage === "queue" && activeBtnClass)}
         >
@@ -197,6 +206,8 @@ export default function MainNav({
       <Button
         size="icon"
         title="Browse & Download"
+        aria-label="Browse and Download"
+        aria-current={currentPage === "browse" ? "page" : undefined}
         variant={currentPage === "browse" ? "primary" : "default"}
         onClick={onNavigateBrowse}
       >
@@ -214,6 +225,7 @@ export default function MainNav({
       <Button
         size="icon"
         title="Restart backend"
+        aria-label="Restart backend"
         onClick={() => window.godsendApi.restartProcess()}
       >
         <RefreshCw className="h-4 w-4" />
@@ -222,6 +234,8 @@ export default function MainNav({
       <Button
         size="icon"
         title="Settings"
+        aria-label="Settings"
+        aria-current={currentPage === "settings" ? "page" : undefined}
         variant={currentPage === "settings" ? "primary" : "default"}
         onClick={onNavigateSettings}
       >

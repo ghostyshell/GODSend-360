@@ -43,10 +43,12 @@ const METHODS   = [
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
 
-function CenteredOverlay({ children }: { children: React.ReactNode }) {
+function CenteredOverlay({ children, panel = false }: { children: React.ReactNode; panel?: boolean }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground min-h-0">
-      {children}
+      <div className={cn("flex flex-col items-center gap-3 text-center", panel && "empty-state max-w-[360px]")}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -64,11 +66,11 @@ function PillBtn({ active, onClick, children, className }: PillBtnProps) {
     <button
       onClick={onClick}
       className={cn(
-        "shrink-0 px-3 py-1 text-[11px] rounded-full whitespace-nowrap transition-colors",
-        "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "shrink-0 px-3 py-1 text-[11px] rounded-full whitespace-nowrap transition-colors duration-200",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         active
-          ? "bg-primary text-primary-foreground font-semibold"
-          : "text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted",
+          ? "bg-primary text-primary-foreground font-semibold shadow-[0_0_0_1px_rgba(34,197,94,0.35)]"
+          : "text-muted-foreground hover:text-foreground bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.14]",
         className
       )}
     >
@@ -561,7 +563,7 @@ export default function BrowsePage({}: BrowsePageProps) {
       )}
 
       {status === "error" && (
-        <CenteredOverlay>
+        <CenteredOverlay panel>
           <WifiOff className="h-7 w-7 text-muted-foreground" />
           <p className="text-[13px]">Could not reach the server.</p>
           <p className="text-[11px] text-muted-foreground/60">
@@ -575,7 +577,7 @@ export default function BrowsePage({}: BrowsePageProps) {
       )}
 
       {status === "empty" && (
-        <CenteredOverlay>
+        <CenteredOverlay panel>
           {isLocal ? (
             <>
               <HardDrive className="h-7 w-7 text-muted-foreground" />
@@ -612,9 +614,10 @@ export default function BrowsePage({}: BrowsePageProps) {
               onChange={(e) => setFilter(e.target.value)}
               placeholder={`Filter ${games.length} title${games.length === 1 ? "" : "s"}…`}
               className={cn(
-                "w-full pl-8 pr-3 py-1.5 text-[12px] rounded-md",
-                "bg-muted border border-border text-foreground placeholder:text-muted-foreground",
-                "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                "w-full pl-8 pr-3 py-1.5 text-[12px] rounded-[10px]",
+                "bg-white/[0.03] border border-white/[0.09] text-foreground placeholder:text-muted-foreground",
+                "transition-colors hover:border-white/[0.16]",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               )}
             />
             {filter && (
@@ -661,10 +664,11 @@ export default function BrowsePage({}: BrowsePageProps) {
                       key={name}
                       onClick={() => openGame(name)}
                       className={cn(
-                        "w-full text-left px-2 py-1.5 rounded-md group",
+                        "w-full text-left px-2.5 py-1.5 rounded-md group",
                         "text-[12px] text-foreground/85 hover:text-foreground",
-                        "hover:bg-accent/50 active:bg-accent transition-colors",
-                        "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        "border-l-2 border-transparent hover:border-[color:var(--laser)] hover:bg-white/[0.05] active:bg-white/[0.08]",
+                        "transition-colors duration-150",
+                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       )}
                     >
                       <span className="flex items-center justify-between gap-2">
