@@ -280,7 +280,7 @@ Also update all inline version references in `README.md` (filenames in prose, in
 
 GoFile expires free-tier files, so the published links rot even when no code changes.
 `scripts/refresh-release-links.sh` handles that on a schedule (launchd agent
-`com.akshat.godsend-weekly-refresh`, Sunday 03:47, under `caffeinate -i`):
+`com.ghost.godsend-weekly-refresh`, Sunday 03:47, under `caffeinate -i`):
 
 1. clears `dist/`, so a failed build can never fall through to uploading stale binaries
 2. rebuilds every platform for the version in `package.json`
