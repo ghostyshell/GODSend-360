@@ -12,12 +12,12 @@
 # to uploading last week's binaries. Empty dist/ means the upload stage has
 # nothing to send, and the build step below aborts before it gets there.
 #
-# Run by ~/Library/LaunchAgents/com.akshat.godsend-weekly-refresh.plist
+# Run by ~/Library/LaunchAgents/com.ghost.godsend-weekly-refresh.plist
 # (Sunday 03:47, under `caffeinate -i`). Safe to run by hand: re-running the
 # same day resumes that day's uploads instead of starting over.
 set -euo pipefail
 
-REPO=/Users/akshat/Code/godsend-360
+REPO="$HOME/Code/godsend-360"
 cd "$REPO"
 
 V=$(node -p "require('./package.json').version")
