@@ -329,13 +329,17 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen p-3 gap-2.5">
-      <header className="flex items-center shrink-0 pb-2.5 border-b border-border/40">
-        <span className="font-display text-[15px] font-bold text-foreground flex-1 tracking-wide">
-          {PAGE_TITLES[page] || page}
-        </span>
+      <header className="flex items-center shrink-0 gap-3 pb-2.5 border-b border-white/[0.07]">
+        <div className="flex flex-col min-w-0">
+          <span className="eyebrow leading-none mb-1">GODsend 360</span>
+          <span className="font-display text-[15px] font-bold text-foreground tracking-wide truncate">
+            {PAGE_TITLES[page] || page}
+          </span>
+        </div>
+        <div className="flex-1" />
         <MainNav {...navProps} />
       </header>
-      <div className="flex-1 min-h-0 overflow-auto animate-fade-in">
+      <div key={page} className="flex-1 min-h-0 overflow-auto animate-page">
         {pageContent}
       </div>
     </div>

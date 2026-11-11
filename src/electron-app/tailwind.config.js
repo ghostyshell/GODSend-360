@@ -27,6 +27,14 @@ module.exports = {
           foreground: "hsl(var(--accent-foreground))",
         },
         surface: "hsl(var(--surface))",
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -34,7 +42,9 @@ module.exports = {
         sm: "calc(var(--radius) - 2px)",
       },
       fontFamily: {
-        mono: ["Consolas", "Courier New", "monospace"],
+        sans: ["Chakra Petch", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        display: ["Orbitron", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
     },
   },

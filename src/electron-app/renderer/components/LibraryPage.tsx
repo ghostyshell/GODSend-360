@@ -2327,14 +2327,18 @@ function GameCard({ game, coverDataUrl, rxeaCover, isOnSource, onClick }: GameCa
   return (
     <button
       className={cn(
-        "flex flex-col gap-1 select-none text-left rounded-lg",
-        "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        "group flex flex-col gap-1.5 select-none text-left rounded-[14px] p-1 -m-1",
+        "transition-colors duration-200 hover:bg-white/[0.035]",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       )}
       onClick={onClick}
       onMouseEnter={() => setFlipped(true)}
       onMouseLeave={() => setFlipped(false)}
     >
-      <div className="relative w-full" style={{ aspectRatio: "3/4" }}>
+      <div
+        className="relative w-full transition-transform duration-200 ease-[cubic-bezier(.22,.8,.24,1)] group-hover:-translate-y-1"
+        style={{ aspectRatio: "3/4" }}
+      >
         {coverDataUrl === undefined && !rxeaCover ? (
           <div className="absolute inset-0 rounded-lg overflow-hidden bg-gradient-to-r from-muted via-accent/30 to-muted animate-pulse" />
         ) : (
@@ -2374,12 +2378,12 @@ function GameCard({ game, coverDataUrl, rxeaCover, isOnSource, onClick }: GameCa
 
       <div className="px-0.5 min-w-0">
         <p className={cn(
-          "text-[11px] font-medium leading-tight line-clamp-2 break-words",
-          isOnSource ? "text-foreground" : "text-muted-foreground/60"
+          "text-[11px] font-medium leading-tight line-clamp-2 break-words transition-colors duration-200",
+          isOnSource ? "text-foreground group-hover:text-white" : "text-muted-foreground/60"
         )}>
           {game.name}
         </p>
-        <p className="text-[9.5px] text-muted-foreground/50 font-mono mt-0.5 tracking-wide">
+        <p className="text-[9.5px] text-[color:var(--text-faint)] font-mono mt-0.5 tracking-wide">
           {game.titleId}
         </p>
       </div>
@@ -2387,10 +2391,12 @@ function GameCard({ game, coverDataUrl, rxeaCover, isOnSource, onClick }: GameCa
   );
 }
 
-function CenteredOverlay({ children }: { children: React.ReactNode }) {
+function CenteredOverlay({ children, panel = false }: { children: React.ReactNode; panel?: boolean }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-      {children}
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground min-h-0">
+      <div className={cn("flex flex-col items-center gap-3 text-center", panel && "empty-state max-w-[360px]")}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -2621,12 +2627,17 @@ export default function LibraryPage({
   return (
     <div className="flex flex-col h-screen p-3 gap-2.5">
 
-      <header className="flex flex-col shrink-0 gap-2 pb-3 border-b border-border">
+      <header className="flex flex-col shrink-0 gap-2 pb-3 border-b border-white/[0.07]">
         {/* Top row: title + actions */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Gamepad2 className="h-[18px] w-[18px] text-primary shrink-0" />
-            <span className="text-[15px] font-semibold text-foreground">Xbox Library</span>
+            <Gamepad2 className="h-[18px] w-[18px] text-[color:var(--laser)] shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span className="eyebrow leading-none mb-1">Aurora</span>
+              <span className="font-display text-[15px] font-bold text-foreground tracking-wide">
+                Xbox Library
+              </span>
+            </div>
             {status === "ready" && (
               <span className="text-[11px] text-muted-foreground truncate">
                 {filteredGames.length !== games.length
@@ -2809,7 +2820,7 @@ export default function LibraryPage({
       )}
 
       {status === "error" && (
-        <CenteredOverlay>
+        <CenteredOverlay panel>
           <WifiOff className="h-8 w-8 text-muted-foreground" />
           <p className="text-[13px]">Could not load Aurora library.</p>
           <Button size="sm" onClick={onToggle}>Back to console</Button>
@@ -2817,7 +2828,7 @@ export default function LibraryPage({
       )}
 
       {status === "empty" && (
-        <CenteredOverlay>
+        <CenteredOverlay panel>
           <Gamepad2 className="h-8 w-8 text-muted-foreground" />
           <p className="text-[13px]">No games found in Aurora's library.</p>
           <Button size="sm" onClick={onToggle}>Back to console</Button>
@@ -2825,7 +2836,7 @@ export default function LibraryPage({
       )}
 
       {status === "ready" && games.length > 0 && filteredGames.length === 0 && (
-        <CenteredOverlay>
+        <CenteredOverlay panel>
           <Search className="h-8 w-8 text-muted-foreground" />
           <p className="text-[13px]">No games match your search or filter.</p>
           <Button size="sm" onClick={() => { setSearchQuery(""); setFilterKey("all"); }}>

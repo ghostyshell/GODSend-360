@@ -46,18 +46,18 @@ Download the build for your platform:
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.14.0.exe`](https://gofile.io/d/FtiN5VHC) | [`godsend-Setup-2.14.0.exe`](https://file.kiwi/e0203deb#INH33w08fks_GLNLdxE3Sg) |
-| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.14.0.exe`](https://gofile.io/d/JVTNTwd1) | [`godsend-Portable-2.14.0.exe`](https://file.kiwi/d993b2db#hrfeDPOkWa0FPXOdi6lquQ) |
-| **macOS (Apple Silicon)** | [`godsend-2.14.0-arm64.dmg`](https://gofile.io/d/2ltqQoSn) | [`godsend-2.14.0-arm64.dmg`](https://file.kiwi/9840ebb3#uCuFVSqTjw1TRTGqfwrsoQ) |
-| **macOS (Intel)** | [`godsend-2.14.0-x64.dmg`](https://gofile.io/d/qBuLsCmi) | [`godsend-2.14.0-x64.dmg`](https://file.kiwi/396334d8#WwcR2mBFwh0U63_gwCJLFg) |
-| **Linux (x64 / amd64)** | [`godsend-2.14.0-x86_64.AppImage`](https://gofile.io/d/yWx2D410) | [`godsend-2.14.0-x86_64.AppImage`](https://file.kiwi/2a5297bd#S8XoEwA7maWDKHcbNqlJmg) |
-| **Linux (arm64)** | [`godsend-2.14.0-arm64.AppImage`](https://gofile.io/d/Aane8RW1) | [`godsend-2.14.0-arm64.AppImage`](https://file.kiwi/7723865a#w80jBVQYhhM1XxtYQJ9Ftg) |
+| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.14.1.exe`](https://gofile.io/d/2U31iCmP) | [`godsend-Setup-2.14.1.exe`](https://file.kiwi/3db60d2f#k7jBQB9jIX5OsmyWQeur-A) |
+| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.14.1.exe`](https://gofile.io/d/a4PObXCq) | [`godsend-Portable-2.14.1.exe`](https://file.kiwi/b2232fdd#qR77kbBZ12iru4Ob3Cmt-g) |
+| **macOS (Apple Silicon)** | [`godsend-2.14.1-arm64.dmg`](https://gofile.io/d/jtvLWEnE) | [`godsend-2.14.1-arm64.dmg`](https://file.kiwi/94570374#vYDbNuQ5SKNKF23beYqJ4Q) |
+| **macOS (Intel)** | [`godsend-2.14.1-x64.dmg`](https://gofile.io/d/akHt8D39) | [`godsend-2.14.1-x64.dmg`](https://file.kiwi/916aef07#ThNliuInbKlaRbEN9TqTAw) |
+| **Linux (x64 / amd64)** | [`godsend-2.14.1-x86_64.AppImage`](https://gofile.io/d/4IY4N7qd) | [`godsend-2.14.1-x86_64.AppImage`](https://file.kiwi/afb4ba0c#KNCVehXgGpYxhrPvaWh3QA) |
+| **Linux (arm64)** | [`godsend-2.14.1-arm64.AppImage`](https://gofile.io/d/YXJOMGJG) | [`godsend-2.14.1-arm64.AppImage`](https://file.kiwi/1cea69ec#X2TyxUk1_corOWL_OUzayg) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.14.0.exe`** and follow the installer (or just run **`godsend-Portable-2.14.0.exe`** directly - no install step needed).
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.14.1.exe`** and follow the installer (or just run **`godsend-Portable-2.14.1.exe`** directly - no install step needed).
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher - the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
@@ -110,12 +110,12 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 | Platform | GoFile | file.kiwi backup |
 |---|---|---|
-| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/nfJTde7v) | [`godsend.exe`](https://file.kiwi/3d610728#6hjQSSxLy9ebkeFzLFvSqA) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/MtyEIJbR) | [`godsend-darwin-arm64`](https://file.kiwi/b25b8adc#dB6AYZW-6w4IjVMCOnwd8Q) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/1DSUuYsm) | [`godsend-darwin-amd64`](https://file.kiwi/d805df5b#o4IJtBR0BDRoBelNRZbGZA) |
-| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/ssyxDsN8) | [`godsend-mac`](https://file.kiwi/daf384fa#NmsVsAXnHM7NN_5uZnQFlw) |
-| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/17oBHpVM) | [`godsend-linux-x64`](https://file.kiwi/77249dbe#0ANnEeUgJ1PyXl2YOFnP7w) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/q6iP0KqV) | [`godsend-linux-arm64`](https://file.kiwi/330752e4#WgXYGUTaSH518L2jfPZmkw) |
+| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/qr5Fno9w) | [`godsend.exe`](https://file.kiwi/38d0e742#va_VAFmlrBL9ndSzcCDw7Q) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/e2EjVx0f) | [`godsend-darwin-arm64`](https://file.kiwi/ab4d6373#kodRcvRCWfiQ9bziQFt6oA) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/sBYzgWg3) | [`godsend-darwin-amd64`](https://file.kiwi/b4d785a5#7KpaRVZtb-wA8G5Npsb2Dg) |
+| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/d7neQRSS) | [`godsend-mac`](https://file.kiwi/206dc648#3M2UbLIiuKZ3gzwIFdrQhw) |
+| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/klC0FqBD) | [`godsend-linux-x64`](https://file.kiwi/46b9d170#WYNc_9VMQU67NSX0gDkNLA) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/kdr7eWjT) | [`godsend-linux-arm64`](https://file.kiwi/1e19f58c#DPcgcGXtX5-X0gbmoPim9w) |
 
 **[Full headless setup guide (build, configure, Docker, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 
@@ -128,6 +128,14 @@ Minerva Archive (BitTorrent, no account), Internet Archive (chunked parallel HTT
 The desktop app adds an **Xbox Library** (live view of games on your console with cover art, sorting, filtering, and move-to-drive), **DLC & Title Updates management** (browse Minerva / IA / XboxUnity sources, install, and toggle active TUs per game), **Save Game management** (per-title save browse/restore plus one-click bulk backup of every profile and save on the console), an **FTP Manager** (full file browser with cut/copy/paste/delete/rename/mkdir), an **Aurora Asset Editor** (search, preview, and upload cover/background/banner/icon artwork via RXEA or XboxUnity), **ISO to GOD and ISO to XEX** conversion tools, a **BadAvatar USB builder** (formats large FAT32 USBs and installs the BadStick BadUpdate payload), a **Job Queue** (unified game pipeline + FTP jobs), an optional **MCP server** so AI assistants on the same computer can drive every backend operation (off by default), and **overlay navigation** so tools open as panels without leaving the current page.
 
 **[Full feature list with details on each capability](docs/features.md)**
+
+### Interface
+
+The desktop app was rebuilt for 2.14.1 with one design system: near-black hairline glass, a single green accent that marks the active page, Orbitron titles over Chakra Petch body copy, and JetBrains Mono for paths, identifiers and counters. Focus rings are always visible, the console status is a dot plus a word, and motion is limited to page changes and panel entrances.
+
+[![GODsend 360 Xbox Library](docs/site/screens/08-xbox-library.png)](https://ghostyshell.github.io/GODSend-360/#screenshots)
+
+The Library view above runs on the app's built-in fixture library, a sample Aurora collection, so it can be shown without a console attached. See [DESIGN.md](DESIGN.md) for the tokens, components and motion rules.
 
 ---
 

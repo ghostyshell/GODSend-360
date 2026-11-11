@@ -4,25 +4,31 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+  [
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] text-[13px] font-medium",
+    "cursor-pointer select-none",
+    "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(.22,.8,.24,1)]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    "active:translate-y-px disabled:pointer-events-none disabled:opacity-45",
+  ].join(" "),
   {
     variants: {
       variant: {
         default:
-          "bg-secondary text-secondary-foreground border border-border hover:bg-accent",
+          "bg-white/[0.03] text-foreground border border-white/[0.09] hover:bg-white/[0.07] hover:border-white/[0.18]",
         primary:
-          "bg-primary text-primary-foreground hover:bg-primary/90",
+          "btn-laser border border-white/20 hover:brightness-110",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground",
+          "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground",
         outline:
-          "border border-border bg-transparent hover:bg-accent hover:text-accent-foreground",
+          "border border-white/[0.16] bg-transparent text-foreground hover:bg-white/[0.06]",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-white/[0.06] text-foreground border border-white/[0.09] hover:bg-white/[0.09]",
       },
       size: {
         default: "h-8 px-3 py-1.5",
         sm: "h-7 px-2.5 py-1 text-[12px]",
-        icon: "h-8 w-8 p-0 text-[17px] rounded-md",
+        icon: "h-8 w-8 p-0 text-[17px] rounded-[10px]",
       },
     },
     defaultVariants: {

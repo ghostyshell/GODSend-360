@@ -28,6 +28,8 @@ src/electron-app/*.js
 
 # Playwright test results (auto-generated videos/screenshots)
 src/electron-app/test-results/
+src/electron-app/playwright-report/
+filekiwi.tmp.*.json
 
 # Runtime data dirs (created by the backend at runtime)
 Ready/

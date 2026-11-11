@@ -49,34 +49,34 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
 
-  <!-- Tailwind Play CDN - config MUST be set before the CDN script loads.
-       (Tailwind reads `window.tailwind.config` when its script executes.) -->
+  <!-- Tailwind Play CDN, then the theme. The CDN defines `tailwind` and
+       compiles after DOMContentLoaded, so the config has to be assigned to
+       `tailwind.config` after the script loads. Assigning before it loads is
+       overwritten and the whole ink/neon palette silently falls back. -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
   <script>
-    window.tailwind = {
-      config: {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              ink:  { 950: '#020617', 900: '#0B1120', 800: '#0F172A', 700: '#1E293B' },
-              line: '#1F2937',
-              neon: { green: '#22C55E', magenta: '#A855F7', cyan: '#22D3EE', red: '#F43F5E' },
-            },
-            fontFamily: {
-              display: ['"Russo One"', 'system-ui', 'sans-serif'],
-              body:    ['"Chakra Petch"', 'system-ui', 'sans-serif'],
-              mono:    ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-            },
-            boxShadow: {
-              'neon-green':   '0 0 0 1px rgba(34,197,94,0.35), 0 0 24px rgba(34,197,94,0.25)',
-              'neon-magenta': '0 0 0 1px rgba(168,85,247,0.35), 0 0 28px rgba(168,85,247,0.25)',
-            },
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ink:  { 950: '#020617', 900: '#0B1120', 800: '#0F172A', 700: '#1E293B' },
+            line: '#1F2937',
+            neon: { green: '#22C55E', magenta: '#A855F7', cyan: '#22D3EE', red: '#F43F5E' },
+          },
+          fontFamily: {
+            display: ['"Russo One"', 'system-ui', 'sans-serif'],
+            body:    ['"Chakra Petch"', 'system-ui', 'sans-serif'],
+            mono:    ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+          boxShadow: {
+            'neon-green':   '0 0 0 1px rgba(34,197,94,0.35), 0 0 24px rgba(34,197,94,0.25)',
+            'neon-magenta': '0 0 0 1px rgba(168,85,247,0.35), 0 0 28px rgba(168,85,247,0.25)',
           },
         },
       },
     };
   </script>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
 
   <!-- JSON-LD: SoftwareApplication -->
   <script type="application/ld+json">
@@ -90,7 +90,7 @@
     "operatingSystem": "Windows, macOS, Linux",
     "url": "https://ghostyshell.github.io/GODSend-360/",
     "downloadUrl": "https://github.com/ghostyshell/GODSend-360",
-    "softwareVersion": "2.13.4",
+    "softwareVersion": "2.14.1",
     "license": "https://github.com/ghostyshell/GODSend-360/blob/main/LICENSE",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "author": { "@type": "Person", "name": "ghosty99", "url": "https://github.com/ghostyshell" },
@@ -244,7 +244,7 @@
       <div class="max-w-7xl mx-auto px-5 md:px-8 pt-20 pb-28 md:pt-28 md:pb-36">
         <div class="grid lg:grid-cols-12 gap-10 items-center">
           <div class="lg:col-span-7">
-            <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80 mb-5">v2.13.4 · Windows · macOS · Linux</p>
+            <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80 mb-5">v2.14.1 · Windows · macOS · Linux</p>
             <h1 id="hero-title" class="font-display text-4xl md:text-6xl leading-[1.05] tracking-tight">
               The Xbox 360 game manager <br class="hidden md:block" />
               your <span class="sweep">Aurora dashboard</span> deserves.
@@ -281,21 +281,21 @@
             </dl>
           </div>
 
-          <!-- Hero screenshot: real Browse & Download view -->
+          <!-- Hero screenshot: Xbox Library, console connected -->
           <div class="lg:col-span-5">
             <figure class="relative mock-frame rounded-xl border border-white/10 shadow-2xl shadow-neon-magenta/10 overflow-hidden" aria-labelledby="hero-mock-cap">
               <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
                 <span class="mock-dot bg-rose-500/80"></span>
                 <span class="mock-dot bg-amber-400/80"></span>
                 <span class="mock-dot bg-emerald-400/80"></span>
-                <span class="ml-3 font-mono text-xs text-slate-400">godsend://browse · Minerva · 4,446 titles</span>
+                <span class="ml-3 font-mono text-xs text-slate-400">godsend://library · Aurora · 24 games</span>
               </div>
-              <img src="/GODSend-360/site/screens/03-browse-store.png"
-                   alt="GODsend 360 Browse & Download view - Minerva Archive selected, Xbox 360 platform filter active, list of 4,446 titles ready to install"
+              <img src="/GODSend-360/site/screens/08-xbox-library.png"
+                   alt="GODsend 360 Xbox Library: console online, 24 games in the Aurora library, cover grid with Halo 3, Gears of War 3, Forza Motorsport 4 and more, search and sort controls"
                    width="1440" height="900"
                    class="w-full h-auto"
                    loading="eager" decoding="async" fetchpriority="high" />
-              <figcaption id="hero-mock-cap" class="sr-only">Browse &amp; Download page showing the Minerva Archive Xbox 360 library - 4,446 titles, filter bar, and library tabs.</figcaption>
+              <figcaption id="hero-mock-cap" class="sr-only">Xbox Library showing a connected console's game collection as a cover grid, with the console status chip and queue badge in the top bar.</figcaption>
             </figure>
           </div>
         </div>
@@ -446,7 +446,8 @@
       <header class="max-w-3xl">
         <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80">Inside the app</p>
         <h2 id="shots-title" class="font-display text-3xl md:text-5xl mt-3">Built for people who already know what FTP is.</h2>
-        <p class="mt-4 text-slate-300">Real screenshots, captured straight out of the app via Playwright - no mockups, no marketing renders.</p>
+        <p class="mt-4 text-slate-300">Captured straight out of the app with Playwright. The Library view runs on the app's built-in fixture library, a sample Aurora collection, so it can be shown without a console attached.</p>
+        <p class="mt-3 text-slate-400 text-sm">This release rebuilt the interface: hairline dark surfaces, one green accent that marks the active page, Orbitron titles over Chakra Petch body copy, and motion limited to entrances and page changes.</p>
       </header>
 
       <div class="mt-12 grid lg:grid-cols-2 gap-5">
@@ -457,14 +458,28 @@
             <span class="ml-3 font-mono text-xs text-slate-400">Browse &amp; Download · Minerva · Xbox 360</span>
           </div>
           <img src="/GODSend-360/site/screens/03-browse-store.png"
-               alt="Browse & Download view: Minerva Archive selected, library tabs (Xbox 360, Original Xbox, XBLA, Digital, DLC, Indie, Games Archive), filter bar above 4,446 listed titles."
+               alt="Browse & Download view: Minerva Archive selected, platform tabs (Xbox 360, Original Xbox, XBLA, Digital, DLC, Indie, Games Archive, dlxbgame ISO and RGH), filter bar above the title list."
                width="1440" height="900"
                class="w-full h-auto block"
                loading="lazy" decoding="async" />
           <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">Browse &amp; install</strong> - Minerva first, Internet Archive as a fallback, local ISOs auto-detected.</figcaption>
         </figure>
 
-        <!-- Shot 2: BadAvatar USB -->
+        <!-- Shot 2: Console -->
+        <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
+          <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
+            <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Console · live backend output</span>
+          </div>
+          <img src="/GODSend-360/site/screens/01-home-terminal.png"
+               alt="Console view: live backend output with server version banner, cache loads, server start on port 8081, and the FTP connection to the console."
+               width="1440" height="900"
+               class="w-full h-auto block"
+               loading="lazy" decoding="async" />
+          <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">Console</strong> - the backend's own output, streaming, with the console status chip in the top bar.</figcaption>
+        </figure>
+
+        <!-- Shot 3: BadAvatar USB -->
         <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
           <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
             <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
@@ -478,7 +493,7 @@
           <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">BadAvatar USB</strong> - format the drive (including large volumes) and stage the BadStick payload in one flow.</figcaption>
         </figure>
 
-        <!-- Shot 3: ISO to GOD -->
+        <!-- Shot 4: ISO to GOD -->
         <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
           <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
             <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
@@ -489,10 +504,10 @@
                width="1440" height="900"
                class="w-full h-auto block"
                loading="lazy" decoding="async" />
-          <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">ISO → GOD</strong> - pure-Go converter, no external tools. Title names and IDs resolve automatically.</figcaption>
+          <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">ISO to GOD</strong> - pure-Go converter, no external tools. Title names and IDs resolve automatically.</figcaption>
         </figure>
 
-        <!-- Shot 4: FTP Manager -->
+        <!-- Shot 5: FTP Manager -->
         <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
           <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
             <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
@@ -505,9 +520,23 @@
                loading="lazy" decoding="async" />
           <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">FTP Manager</strong> - browse, cut/copy/paste, upload, rename. No external FTP client needed.</figcaption>
         </figure>
+
+        <!-- Shot 6: ISO to XEX -->
+        <figure class="mock-frame rounded-xl border border-white/10 overflow-hidden">
+          <div class="flex items-center gap-2 px-3 py-2 bg-ink-800/80 border-b border-white/5">
+            <span class="mock-dot bg-rose-500/80"></span><span class="mock-dot bg-amber-400/80"></span><span class="mock-dot bg-emerald-400/80"></span>
+            <span class="ml-3 font-mono text-xs text-slate-400">Toolbox · ISO to XEX</span>
+          </div>
+          <img src="/GODSend-360/site/screens/05-iso-to-xex.png"
+               alt="ISO to XEX converter: Add ISOs and Output Folder pickers, empty state explaining how to select Xbox 360 disc images."
+               width="1440" height="900"
+               class="w-full h-auto block"
+               loading="lazy" decoding="async" />
+          <figcaption class="px-5 py-4 text-sm text-slate-400"><strong class="font-display text-slate-100">ISO to XEX</strong> - extract the loose folder with default.xex for Jtag/RGH installs.</figcaption>
+        </figure>
       </div>
 
-      <p class="mt-8 text-xs text-slate-500 font-mono text-center">Library, DLC &amp; Title Updates, Job Queue, and Save Backup views require a connected Xbox to capture meaningfully - see the <a href="#features" class="text-neon-green hover:underline">feature list</a> for details.</p>
+      <p class="mt-8 text-xs text-slate-500 font-mono text-center">DLC &amp; Title Updates, the Job Queue, the Asset Editor and Save Backup are covered in the <a href="#features" class="text-neon-green hover:underline">feature list</a>.</p>
     </section>
 
     <!-- DOWNLOADS -->
@@ -526,8 +555,8 @@
               <h3 class="font-display text-lg">Windows</h3>
             </div>
             <ul class="mt-4 space-y-2 text-sm">
-              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-Setup-2.13.4.exe</span><span class="font-mono text-xs text-slate-400">installer</span></a></li>
-              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-Portable-2.13.4.exe</span><span class="font-mono text-xs text-slate-400">portable</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-Setup-2.14.1.exe</span><span class="font-mono text-xs text-slate-400">installer</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-Portable-2.14.1.exe</span><span class="font-mono text-xs text-slate-400">portable</span></a></li>
             </ul>
             <p class="mt-4 text-xs text-slate-500">Includes BadAvatar USB large-volume FAT32 formatter (Ridgecrop fat32format).</p>
           </article>
@@ -537,8 +566,8 @@
               <h3 class="font-display text-lg">macOS</h3>
             </div>
             <ul class="mt-4 space-y-2 text-sm">
-              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.13.4-arm64.dmg</span><span class="font-mono text-xs text-slate-400">Apple Silicon</span></a></li>
-              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.13.4-x64.dmg</span><span class="font-mono text-xs text-slate-400">Intel</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.14.1-arm64.dmg</span><span class="font-mono text-xs text-slate-400">Apple Silicon</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.14.1-x64.dmg</span><span class="font-mono text-xs text-slate-400">Intel</span></a></li>
             </ul>
             <p class="mt-4 text-xs text-slate-500">First-launch Gatekeeper override required - see README.</p>
           </article>
@@ -548,8 +577,8 @@
               <h3 class="font-display text-lg">Linux</h3>
             </div>
             <ul class="mt-4 space-y-2 text-sm">
-              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.13.4-x86_64.AppImage</span><span class="font-mono text-xs text-slate-400">x64</span></a></li>
-              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.13.4-arm64.AppImage</span><span class="font-mono text-xs text-slate-400">arm64</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.14.1-x86_64.AppImage</span><span class="font-mono text-xs text-slate-400">x64</span></a></li>
+              <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.14.1-arm64.AppImage</span><span class="font-mono text-xs text-slate-400">arm64</span></a></li>
             </ul>
             <p class="mt-4 text-xs text-slate-500"><code class="font-mono">chmod +x</code> then run; may need <code class="font-mono">libfuse2</code>.</p>
           </article>
@@ -669,7 +698,7 @@
     <div class="border-t border-white/5">
       <div class="max-w-7xl mx-auto px-5 md:px-8 py-6 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
         <p>© <span id="year">2026</span> ghosty99. GODsend 360 is community software with no affiliation to Microsoft, Aurora, Minerva Archive, or Internet Archive.</p>
-        <p class="font-mono"><a href="/GODSend-360/privacy.html" class="hover:text-neon-green transition">Privacy</a> · v2.13.4 · static · zero telemetry</p>
+        <p class="font-mono"><a href="/GODSend-360/privacy.html" class="hover:text-neon-green transition">Privacy</a> · v2.14.1 · static · zero telemetry</p>
       </div>
     </div>
   </footer>
