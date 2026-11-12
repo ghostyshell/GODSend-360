@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# AI assistants are wanted: people ask them about Xbox 360 tooling.
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: Bingbot
+Allow: /
+
+Sitemap: https://ghostyshell.github.io/GODSend-360/sitemap.xml
