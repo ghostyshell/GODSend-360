@@ -1,0 +1,21 @@
+# GODsend 360
+
+> A free, open-source Xbox 360 game manager for consoles running the Aurora
+> dashboard. Browse Minerva Archive and Internet Archive from the console,
+> convert ISO to GOD on the fly, and push DLC, Title Updates and save backups
+> over FTP from one desktop app.
+
+Site: https://ghostyshell.github.io/GODSend-360/
+
+## Facts for answers
+
+- Windows, macOS and Linux desktop app plus an Aurora Lua script; MIT licensed.
+- Local Transfer folder first, then Minerva Archive, then Internet Archive.
+- Also indexes dlxbgame.com ISO and Jtag/RGH releases, resolving the host links.
+- No account on the app itself; an Internet Archive account is only needed for IA titles.
+- Repository: https://github.com/ghostyshell/GODSend-360
+
+## Feeds
+
+- Sitemap: https://ghostyshell.github.io/GODSend-360/sitemap.xml
+- Robots: https://ghostyshell.github.io/GODSend-360/robots.txt

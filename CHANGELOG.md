@@ -9,6 +9,14 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- `robots.txt` and `sitemap.xml` lived under `/site/`, but Google fetches `/robots.txt` at the site root, so the robots file was dead and nothing linked the sitemap. Both moved to the root and the sitemap link updated.
+- The Open Graph and structured-data images were SVGs, which most social and search previews will not render. They are a real 1200x630 JPEG now, with dimensions declared.
+
+### Changed
+- Screenshots are JPEG instead of PNG (1.1 MB -> 588 KB, largest 409 KB -> 148 KB) and content images lazy-load.
+- `llms.txt` added, and the robots file names the AI crawlers explicitly.
+
 ## [2.14.1] - 2026-11-11
 ### Changed
 - **Interface rebuilt on a single token system.** The Electron renderer now follows the same design discipline as the Keepsake Atelier app: all colour, shape and motion live in `renderer/index.css` under `:root`, panels are hairline glass with an inset highlight, and controls share one radius rhythm (14px panels, 10px controls, pills). Orbitron is kept for page titles, Chakra Petch replaces JetBrains Mono for body copy, and JetBrains Mono is reserved for identifiers, paths and numbers. The green laser is now the only primary accent: the active navigation item, source pill and primary button all use it, with the gradient and sheen defined once in `.btn-laser`. Motion is limited to page changes and panel entrances, animates transform and opacity only, and is disabled under `prefers-reduced-motion`.
