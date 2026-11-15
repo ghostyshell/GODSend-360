@@ -56,7 +56,10 @@
   <noscript><style>
     @media (max-width: 1023px) {
       #nav-toggle { display: none; }
-      #primary-nav { display: flex; position: static; flex-direction: row; flex-wrap: wrap; gap: 14px; padding: 8px 0 12px; width: 100%; }
+      /* The header row is pinned at 64px; let it grow when the links wrap.
+         !important because Tailwind's h-16 and flex utilities out-specify this. */
+      header nav { height: auto !important; flex-wrap: wrap !important; row-gap: 4px; padding-top: 12px; padding-bottom: 12px; }
+      #primary-nav { display: flex; position: static; flex-direction: row; flex-wrap: wrap; gap: 14px; padding: 8px 0 0; width: 100%; }
     }
   </style></noscript>
 
@@ -198,6 +201,7 @@
 
     /* Reduce motion */
     @media (prefers-reduced-motion: reduce) {
+      html, html.scroll-smooth { scroll-behavior: auto !important; }
       .sweep { animation: none; background-position: 0 0; }
       * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
     }
@@ -721,13 +725,16 @@
       var btn = document.getElementById('nav-toggle');
       var nav = document.getElementById('primary-nav');
       if (!btn || !nav) return;
-      var set = function (open) {
+      var set = function (open, focusToggle) {
         btn.setAttribute('aria-expanded', String(open));
         nav.classList.toggle('open', open);
+        if (!open && focusToggle) btn.focus();
       };
       btn.addEventListener('click', function () { set(btn.getAttribute('aria-expanded') !== 'true'); });
       nav.addEventListener('click', function (e) { if (e.target.closest('a')) set(false); });
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') { e.preventDefault(); set(false, true); }
+      });
       var wide = window.matchMedia('(min-width: 1024px)');
       wide.addEventListener('change', function (e) { if (e.matches) set(false); });
     })();
