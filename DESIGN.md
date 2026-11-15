@@ -128,20 +128,9 @@ Before shipping a UI change:
 4. Keep copy short and specific. No dashes used as punctuation, no promises the
    code does not keep.
 
-## Skills
+## Review passes
 
-The design work follows the repo skill set installed under `~/.claude/skills`
-(OpenCode symlinks under `~/.config/opencode/skills`). The routing that matters
-for this app:
-
-| Task | Skill |
-| --- | --- |
-| Direction, palette, type, product guidance | `ui-ux-pro-max` |
-| Distinctive interface, anti-slop | `frontend-design` |
-| Motion timing and choreography | `motion-design`, `emil-design-eng` |
-| Component polish | `make-interfaces-feel-better`, `better-ui` |
-| Accessibility audit | `accesslint-audit`, `better-accessibility` |
-| Whole-interface review | `better-interface`, `ui-review` |
-| Copy | `better-writing`, `humanizer` |
-
-See `docs/design-skills.md` for the install and refresh commands.
+A UI change gets four passes before it ships: direction (palette, type,
+layout), motion (timing, easing, restraint), polish (radius, shadows,
+alignment, states), and a final read of keyboard order, focus rings, the
+reduced-motion path and the copy.
