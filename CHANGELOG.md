@@ -9,6 +9,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Video guides: `docs/video-guides.html` lists five short recordings (library, browse and download, toolbox, console, settings) with a walkthrough and steps each. Videos are on R2; the page is linked from the site nav, the sitemap and the README. Recorded from the renderer's `?mock=1` bridge with the demo-reels skill.
+
 ### Fixed
 - `robots.txt` and `sitemap.xml` lived under `/site/`, but Google fetches `/robots.txt` at the site root, so the robots file was dead and nothing linked the sitemap. Both moved to the root and the sitemap link updated.
 - The Open Graph and structured-data images were SVGs, which most social and search previews will not render. They are a real 1200x630 JPEG now, with dimensions declared.

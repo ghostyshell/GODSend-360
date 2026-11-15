@@ -20,6 +20,8 @@ Download priority for online libraries: **Local Transfer folder → Minerva Arch
 
 [Download or play the overview video (`.mov`)](docs/site/assets/GODsend-360-2.9.2.mov)
 
+[Watch the video guides](https://ghostyshell.github.io/GODSend-360/video-guides.html) - one short recording per feature.
+
 ---
 
 ## Table of Contents
