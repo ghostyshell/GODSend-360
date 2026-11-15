@@ -29,8 +29,6 @@
   <meta property="og:image:alt" content="GODsend 360 hero - neon green Xbox 360 game manager on a synthwave grid" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
   <meta property="og:locale" content="en_US" />
 
   <!-- Twitter Card -->
@@ -51,34 +49,16 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
 
-  <!-- Tailwind Play CDN, then the theme. The CDN defines `tailwind` and
-       compiles after DOMContentLoaded, so the config has to be assigned to
-       `tailwind.config` after the script loads. Assigning before it loads is
-       overwritten and the whole ink/neon palette silently falls back. -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            ink:  { 950: '#020617', 900: '#0B1120', 800: '#0F172A', 700: '#1E293B' },
-            line: '#1F2937',
-            neon: { green: '#22C55E', magenta: '#A855F7', cyan: '#22D3EE', red: '#F43F5E' },
-          },
-          fontFamily: {
-            display: ['"Russo One"', 'system-ui', 'sans-serif'],
-            body:    ['"Chakra Petch"', 'system-ui', 'sans-serif'],
-            mono:    ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-          },
-          boxShadow: {
-            'neon-green':   '0 0 0 1px rgba(34,197,94,0.35), 0 0 24px rgba(34,197,94,0.25)',
-            'neon-magenta': '0 0 0 1px rgba(168,85,247,0.35), 0 0 28px rgba(168,85,247,0.25)',
-          },
-        },
-      },
-    };
-  </script>
+  <!-- Compiled Tailwind, built from this file by scripts/build-site-css.sh.
+       A prebuilt stylesheet instead of the Play CDN: no in-browser compiler,
+       no third-party runtime dependency, no flash of unstyled content. -->
+  <link rel="stylesheet" href="/GODSend-360/site/tailwind.css" />
+  <noscript><style>
+    @media (max-width: 1023px) {
+      #nav-toggle { display: none; }
+      #primary-nav { display: flex; position: static; flex-direction: row; flex-wrap: wrap; gap: 14px; padding: 8px 0 12px; width: 100%; }
+    }
+  </style></noscript>
 
   <!-- JSON-LD: SoftwareApplication -->
   <script type="application/ld+json">
@@ -196,6 +176,26 @@
     .mock-frame { background: linear-gradient(180deg, #0B1120 0%, #050912 100%); }
     .mock-dot   { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
 
+    /* Mobile navigation: a disclosure panel under the header. */
+    @media (max-width: 1023px) {
+      #primary-nav.open {
+        display: flex; flex-direction: column; align-items: stretch; gap: 0;
+        position: absolute; top: 100%; left: 0; right: 0; z-index: 30;
+        background: #020617; border-bottom: 1px solid rgba(255,255,255,.08);
+        padding: 8px 20px 14px; box-shadow: 0 24px 48px -24px #000;
+      }
+      #primary-nav.open li a { display: block; padding: 11px 2px; font-size: 15px; border-top: 1px solid rgba(255,255,255,.06); }
+      #primary-nav.open li:first-child a { border-top: 0; }
+    }
+    #nav-toggle span { transition: transform .18s ease, opacity .18s ease; }
+    #nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    #nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+    #nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* Keyboard focus and sticky-header anchor offset. */
+    :focus-visible { outline: 2px solid #22C55E; outline-offset: 3px; border-radius: 4px; }
+    section[id], main [id] { scroll-margin-top: 80px; }
+
     /* Reduce motion */
     @media (prefers-reduced-motion: reduce) {
       .sweep { animation: none; background-position: 0 0; }
@@ -215,16 +215,23 @@
         <img src="/GODSend-360/site/icon.png" alt="" width="36" height="36" class="w-9 h-9" decoding="async" />
         <span class="font-display tracking-wider text-lg">GODsend <span class="neon-green">360</span></span>
       </a>
-      <ul class="hidden md:flex items-center gap-7 text-sm">
+      <ul id="primary-nav" class="hidden lg:flex items-center gap-7 text-sm">
         <li><a href="#features" class="hover:text-neon-green transition">Features</a></li>
         <li><a href="#how" class="hover:text-neon-green transition">How it works</a></li>
         <li><a href="#screenshots" class="hover:text-neon-green transition">Screenshots</a></li>
         <li><a href="#downloads" class="hover:text-neon-green transition">Downloads</a></li>
         <li><a href="#faq" class="hover:text-neon-green transition">FAQ</a></li>
         <li><a href="video-guides.html" class="hover:text-neon-green transition">Video guides</a></li>
+        <li class="lg:hidden"><a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="hover:text-neon-green transition">Source on GitHub</a></li>
       </ul>
       <div class="flex items-center gap-3">
-        <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="hidden md:inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white transition">
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" aria-label="Menu"
+          class="lg:hidden inline-flex flex-col justify-center gap-[5px] w-10 h-10 px-[10px] rounded-md border border-white/10 bg-white/5">
+          <span class="block h-0.5 w-full rounded bg-slate-100"></span>
+          <span class="block h-0.5 w-full rounded bg-slate-100"></span>
+          <span class="block h-0.5 w-full rounded bg-slate-100"></span>
+        </button>
+        <a href="https://github.com/ghostyshell/GODSend-360" rel="noopener" class="hidden lg:inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white transition">
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2.9-.3 1.9-.4 2.9-.4s2 .1 2.9.4c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
           <span>Source</span>
         </a>
@@ -247,7 +254,7 @@
       <div class="max-w-7xl mx-auto px-5 md:px-8 pt-20 pb-28 md:pt-28 md:pb-36">
         <div class="grid lg:grid-cols-12 gap-10 items-center">
           <div class="lg:col-span-7">
-            <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80 mb-5">v2.14.1 · Windows · macOS · Linux</p>
+            <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green mb-5">v2.14.1 · Windows · macOS · Linux</p>
             <h1 id="hero-title" class="font-display text-4xl md:text-6xl leading-[1.05] tracking-tight">
               The Xbox 360 game manager <br class="hidden md:block" />
               your <span class="sweep">Aurora dashboard</span> deserves.
@@ -330,7 +337,7 @@
     <!-- FEATURES -->
     <section id="features" aria-labelledby="features-title" class="max-w-7xl mx-auto px-5 md:px-8 py-24">
       <header class="max-w-3xl">
-        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-magenta/80">Features</p>
+        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-magenta">Features</p>
         <h2 id="features-title" class="font-display text-3xl md:text-5xl mt-3">Everything an Aurora console needs, in one window.</h2>
         <p class="mt-4 text-slate-300">No dual-booting between iso2god, FTP clients, asset editors, and save tools. GODsend 360 bundles the entire flow - download → convert → install → patch → back up - and runs the same way on Windows, macOS, and Linux.</p>
       </header>
@@ -447,7 +454,7 @@
     <!-- SCREENSHOTS -->
     <section id="screenshots" aria-labelledby="shots-title" class="max-w-7xl mx-auto px-5 md:px-8 py-24">
       <header class="max-w-3xl">
-        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80">Inside the app</p>
+        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green">Inside the app</p>
         <h2 id="shots-title" class="font-display text-3xl md:text-5xl mt-3">Built for people who already know what FTP is.</h2>
         <p class="mt-4 text-slate-300">Captured straight out of the app with Playwright. The Library view runs on the app's built-in fixture library, a sample Aurora collection, so it can be shown without a console attached.</p>
         <p class="mt-3 text-slate-400 text-sm">This release rebuilt the interface: hairline dark surfaces, one green accent that marks the active page, Orbitron titles over Chakra Petch body copy, and motion limited to entrances and page changes.</p>
@@ -539,14 +546,14 @@
         </figure>
       </div>
 
-      <p class="mt-8 text-xs text-slate-500 font-mono text-center">DLC &amp; Title Updates, the Job Queue, the Asset Editor and Save Backup are covered in the <a href="#features" class="text-neon-green hover:underline">feature list</a>.</p>
+      <p class="mt-8 text-xs text-slate-400 font-mono text-center">DLC &amp; Title Updates, the Job Queue, the Asset Editor and Save Backup are covered in the <a href="#features" class="text-neon-green hover:underline">feature list</a>.</p>
     </section>
 
     <!-- DOWNLOADS -->
     <section id="downloads" aria-labelledby="dl-title" class="relative bg-ink-900/60 border-y border-white/5">
       <div class="max-w-7xl mx-auto px-5 md:px-8 py-24">
         <header class="max-w-3xl">
-          <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-magenta/80">Downloads</p>
+          <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-magenta">Downloads</p>
           <h2 id="dl-title" class="font-display text-3xl md:text-5xl mt-3">Pick your platform.</h2>
           <p class="mt-4 text-slate-300">All builds carry the same Go backend. Need a headless server? See the README for backend-only binaries.</p>
         </header>
@@ -561,7 +568,7 @@
               <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-Setup-2.14.1.exe</span><span class="font-mono text-xs text-slate-400">installer</span></a></li>
               <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-Portable-2.14.1.exe</span><span class="font-mono text-xs text-slate-400">portable</span></a></li>
             </ul>
-            <p class="mt-4 text-xs text-slate-500">Includes BadAvatar USB large-volume FAT32 formatter (Ridgecrop fat32format).</p>
+            <p class="mt-4 text-xs text-slate-400">Includes BadAvatar USB large-volume FAT32 formatter (Ridgecrop fat32format).</p>
           </article>
           <article class="lift bg-ink-800/70 border border-white/10 rounded-xl p-6">
             <div class="flex items-center gap-3">
@@ -572,7 +579,7 @@
               <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.14.1-arm64.dmg</span><span class="font-mono text-xs text-slate-400">Apple Silicon</span></a></li>
               <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.14.1-x64.dmg</span><span class="font-mono text-xs text-slate-400">Intel</span></a></li>
             </ul>
-            <p class="mt-4 text-xs text-slate-500">First-launch Gatekeeper override required - see README.</p>
+            <p class="mt-4 text-xs text-slate-400">First-launch Gatekeeper override required - see README.</p>
           </article>
           <article class="lift bg-ink-800/70 border border-white/10 rounded-xl p-6">
             <div class="flex items-center gap-3">
@@ -583,7 +590,7 @@
               <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.14.1-x86_64.AppImage</span><span class="font-mono text-xs text-slate-400">x64</span></a></li>
               <li><a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" class="flex justify-between hover:text-neon-green transition"><span>godsend-2.14.1-arm64.AppImage</span><span class="font-mono text-xs text-slate-400">arm64</span></a></li>
             </ul>
-            <p class="mt-4 text-xs text-slate-500"><code class="font-mono">chmod +x</code> then run; may need <code class="font-mono">libfuse2</code>.</p>
+            <p class="mt-4 text-xs text-slate-400"><code class="font-mono">chmod +x</code> then run; may need <code class="font-mono">libfuse2</code>.</p>
           </article>
         </div>
 
@@ -598,7 +605,7 @@
     <!-- FAQ -->
     <section id="faq" aria-labelledby="faq-title" class="max-w-5xl mx-auto px-5 md:px-8 py-24">
       <header class="max-w-3xl">
-        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green/80">FAQ</p>
+        <p class="font-mono text-xs uppercase tracking-[0.3em] text-neon-green">FAQ</p>
         <h2 id="faq-title" class="font-display text-3xl md:text-5xl mt-3">Quick answers.</h2>
       </header>
 
@@ -699,13 +706,31 @@
       </div>
     </div>
     <div class="border-t border-white/5">
-      <div class="max-w-7xl mx-auto px-5 md:px-8 py-6 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
+      <div class="max-w-7xl mx-auto px-5 md:px-8 py-6 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
         <p>© <span id="year">2026</span> ghosty99. GODsend 360 is community software with no affiliation to Microsoft, Aurora, Minerva Archive, or Internet Archive.</p>
         <p class="font-mono"><a href="/GODSend-360/privacy.html" class="hover:text-neon-green transition">Privacy</a> · v2.14.1 · static · zero telemetry</p>
       </div>
     </div>
   </footer>
 
-  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Mobile nav: a disclosure panel instead of hiding the links.
+    (function () {
+      var btn = document.getElementById('nav-toggle');
+      var nav = document.getElementById('primary-nav');
+      if (!btn || !nav) return;
+      var set = function (open) {
+        btn.setAttribute('aria-expanded', String(open));
+        nav.classList.toggle('open', open);
+      };
+      btn.addEventListener('click', function () { set(btn.getAttribute('aria-expanded') !== 'true'); });
+      nav.addEventListener('click', function (e) { if (e.target.closest('a')) set(false); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
+      var wide = window.matchMedia('(min-width: 1024px)');
+      wide.addEventListener('change', function (e) { if (e.matches) set(false); });
+    })();
+  </script>
 </body>
 </html>
