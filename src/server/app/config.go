@@ -262,6 +262,16 @@ var ROMSystems = map[string]models.ROMSystem{
 
 // ── Setup helpers (methods on App) ────────────────────────────────────
 
+// MCPEnabledFromEnv reports whether the MCP bridge should be served. It is on by
+// default; only GODSEND_MCP_ENABLED=0/false/off/no turns it off.
+func MCPEnabledFromEnv() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GODSEND_MCP_ENABLED"))) {
+	case "0", "false", "off", "no":
+		return false
+	}
+	return true
+}
+
 // SetupPaths resolves filesystem paths and environment config into App fields.
 func (a *App) SetupPaths() error {
 	ex, err := os.Executable()
@@ -350,10 +360,11 @@ func (a *App) SetupPaths() error {
 	a.DefaultXboxDrive = strings.TrimSpace(os.Getenv("GODSEND_DEFAULT_DRIVE"))
 	a.CustomGodPath = strings.TrimSpace(os.Getenv("GODSEND_CUSTOM_GOD_PATH"))
 	a.CustomXexPath = strings.TrimSpace(os.Getenv("GODSEND_CUSTOM_XEX_PATH"))
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("GODSEND_MCP_ENABLED"))) {
-	case "1", "true", "yes", "on":
-		a.MCPEnabled = true
+	a.MCPEnabled = MCPEnabledFromEnv()
+	if a.MCPEnabled {
 		a.Logf("[INFO] MCP server enabled at /mcp (loopback clients only)")
+	} else {
+		a.Logf("[INFO] MCP server disabled (GODSEND_MCP_ENABLED)")
 	}
 	a.Aria2ListenPort = strings.TrimSpace(os.Getenv("GODSEND_ARIA2_LISTEN_PORT"))
 	a.Aria2DhtPort = strings.TrimSpace(os.Getenv("GODSEND_ARIA2_DHT_PORT"))

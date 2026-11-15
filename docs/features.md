@@ -174,11 +174,11 @@ Each item is a **high-level capability**, **how you use it**, and **how it works
 - **How:** Click any of those buttons - the panel slides in over the current view. Close with the X button. No back-navigation required; the page underneath is preserved.
 - **How it works:** React overlay components mount on top of the existing route, keeping Library or Home state intact while tools are used.
 
-## MCP server for AI assistants (optional, off by default)
+## MCP server for AI assistants (on by default)
 
 - **What:** Every backend operation (browse and install games, queue, cache, DLC and Title Updates, saves, ISO tools, FTP manager) exposed as MCP tools for Claude, Cursor and other MCP clients.
-- **How:** Settings, **MCP server (AI assistants)**, tick **Enable MCP server**, then add `http://127.0.0.1:<port>/mcp` to your client (for Claude Code: `claude mcp add --transport http godsend http://127.0.0.1:8080/mcp`). Headless: `GODSEND_MCP_ENABLED=1`.
-- **How it works:** `interfaces/http/mcp.go` answers JSON-RPC on `/mcp` and replays each tool call in-process against the matching HTTP route. The route only exists when enabled, and only loopback clients with no foreign `Origin` are served, because the backend listens on the LAN with no auth.
+- **How:** It is already running at `http://127.0.0.1:8080/mcp`; add that to your client (for Claude Code: `claude mcp add --transport http godsend http://127.0.0.1:8080/mcp`). Turn it off with the **MCP server (AI assistants)** checkbox in Settings, or set `GODSEND_MCP_ENABLED=0`.
+- **How it works:** `interfaces/http/mcp.go` answers JSON-RPC on `/mcp` and replays each tool call in-process against the matching HTTP route. Only loopback clients with no foreign `Origin` are served, because the backend listens on the LAN with no auth.
 
 ## Developer / diagnostics
 

@@ -43,7 +43,7 @@ import {
   getConfiguredTorboxKey,
   readConfig,
   writeConfig,
-  getConfiguredMcpEnabled,
+  getEffectiveMcpEnabled,
   getConfiguredScrapeNetwork,
   setConfiguredScrapeNetwork,
   getConfiguredCFSolverUrl,
@@ -315,11 +315,11 @@ export function register(ipcMain: IpcMain): void {
     return true;
   });
 
-  // ── MCP server (off by default) ─────────────────────────────────────────────
+  // ── MCP server (on by default) ──────────────────────────────────────────────
   // Exposes every backend operation to local AI clients at /mcp. The backend
   // only serves it to loopback callers; toggling restarts the backend.
   ipcMain.handle("config:get-mcp", () => ({
-    enabled: getConfiguredMcpEnabled(),
+    enabled: getEffectiveMcpEnabled(),
     port: getConfiguredServerPort(),
   }));
 
@@ -327,7 +327,7 @@ export function register(ipcMain: IpcMain): void {
     writeConfig({ mcpEnabled: enabled === true });
     appendAppEvent("MCP", `enabled=${enabled === true}`);
     restartGodsendIfRunning();
-    return { enabled: getConfiguredMcpEnabled(), port: getConfiguredServerPort() };
+    return { enabled: getEffectiveMcpEnabled(), port: getConfiguredServerPort() };
   });
 
   // ── Debrid (Real-Debrid / TorBox) ───────────────────────────────────────────
