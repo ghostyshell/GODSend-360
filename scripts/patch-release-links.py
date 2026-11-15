@@ -90,6 +90,30 @@ def patch_prose(text, new_version):
     return text, count
 
 
+# Version mentions on the download page: the hero's status line and the
+# structured-data softwareVersion. Both are stamped from the manifest's version.
+SITE_VERSION_RES = (
+    re.compile(r"(>v)(\d+\.\d+\.\d+)( · )"),
+    re.compile(r'("softwareVersion":\s*")(\d+\.\d+\.\d+)(")'),
+)
+
+
+def patch_site_version(text, version):
+    """Point the page's visible and structured version at the released one."""
+    count = 0
+
+    def sub(m):
+        nonlocal count
+        if m.group(2) == version:
+            return m.group(0)
+        count += 1
+        return f"{m.group(1)}{version}{m.group(3)}"
+
+    for rx in SITE_VERSION_RES:
+        text = rx.sub(sub, text)
+    return text, count
+
+
 def patch_site_rows(text, table):
     """Rewrite the download page's platform rows, keeping every other attribute.
 
@@ -121,8 +145,11 @@ def patch_site_rows(text, table):
 def patch_file(text, table, version):
     """Dispatch on the row shape the file uses. Returns (text, rows, prose)."""
     if SITE_ROW_RE.search(text):
-        rows, hits = patch_site_rows(text, table)
-        return rows, hits, 0
+        text, hits = patch_site_rows(text, table)
+        prose = 0
+        if version:
+            text, prose = patch_site_version(text, version)
+        return text, hits, prose
     text, hits = patch_links(text, table)
     prose = 0
     if version:
@@ -240,8 +267,17 @@ def demo():
     # patch_file routes each shape: markdown through links + prose, HTML through rows.
     _, _, prose = patch_file("Run **`godsend-Setup-2.13.3.exe`**\n", table, "2.14.0")
     assert prose == 1, prose
-    _, rows, prose2 = patch_file(site, table, "2.14.0")
-    assert rows and prose2 == 0, (rows, prose2)
+    _, rows, site_prose = patch_file(site, table, "2.14.0")
+    assert rows and site_prose == 0, (rows, site_prose)
+
+    # The page's version stamps follow the manifest version too.
+    stamps = '<p>v2.13.3 · Windows</p><script>{"softwareVersion": "2.13.3"}</script>\n'
+    stamped, n = patch_site_version(stamps, "2.14.0")
+    assert stamped == '<p>v2.14.0 · Windows</p><script>{"softwareVersion": "2.14.0"}</script>\n', stamped
+    assert n == 2, n
+    # A page with no version stamps is untouched and reports nothing.
+    plain, zero = patch_site_version("<p>hello</p>\n", "2.14.0")
+    assert plain == "<p>hello</p>\n" and zero == 0
 
     # The committed page must keep the contract the weekly refresh depends on:
     # each card's data-artifact is the filename its span shows. A hand-edited row
