@@ -285,14 +285,17 @@ GoFile expires free-tier files, so the published links rot even when no code cha
 1. clears `dist/`, so a failed build can never fall through to uploading stale binaries
 2. rebuilds every platform for the version in `package.json`
 3. re-uploads all 12 artifacts to GoFile + file.kiwi, getting fresh links
-4. repoints both download tables through `scripts/patch-release-links.py`
+4. repoints both download tables and the site's platform cards (`docs/index.html`)
+   through `scripts/patch-release-links.py`
 5. commits and pushes to `github main`
 
 Because the job exists to replace expired links, it re-uploads **every** platform each
 run. That deliberately overrides the "only rebuild what changed" rule above, which
 applies to hand-cut releases where the previous links are still alive. `patch-release-links.py`
 matches rows by artifact identity with the version stripped out, so the job also survives
-a version bump: the row is found and both its label and URL are rewritten.
+a version bump: the row is found and both its label and URL are rewritten. The site's
+platform cards are matched the same way, through the anchor's `data-artifact` attribute,
+so a new row on `docs/index.html` needs that attribute (or the weekly run will skip it).
 
 Both scripts are safe to run by hand. Re-running the same day resumes that day's uploads
 instead of starting over, and a single run is guarded by `.release-refresh.lock`. If an
