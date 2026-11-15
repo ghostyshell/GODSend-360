@@ -3,7 +3,8 @@
 #
 # Rebuilds the version currently in package.json, re-uploads all 12 release
 # artifacts to GoFile (primary) and file.kiwi (backup), repoints the download
-# links in readme.md + docs/headless-setup.md, and pushes the result.
+# links in readme.md + docs/headless-setup.md + docs/index.html (the site's
+# platform cards), and pushes the result.
 #
 # Why this exists: GoFile expires free-tier files, so the primary download
 # links rot within weeks even when the code has not changed.
@@ -159,10 +160,10 @@ for f in "${FILES[@]}"; do
 done
 
 # --- 4. Repoint the download links -----------------------------------------------
-python3 -I scripts/patch-release-links.py "$LINKS" readme.md docs/headless-setup.md
+python3 -I scripts/patch-release-links.py "$LINKS" readme.md docs/headless-setup.md docs/index.html
 
 # --- 5. Commit + push ------------------------------------------------------------
-if git diff --quiet -- readme.md docs/headless-setup.md; then
+if git diff --quiet -- readme.md docs/headless-setup.md docs/index.html; then
   log "download links already current - nothing to commit"
 else
   git commit -q -m "docs: refresh ${V} download links (GoFile + file.kiwi)
@@ -171,7 +172,7 @@ Automated weekly refresh: all artifacts rebuilt and re-uploaded to GoFile
 (primary) and file.kiwi (backup). GoFile expires free-tier files, so the
 previous links had gone stale.
 
-Co-Authored-By: Claude Code <noreply@anthropic.com>" -- readme.md docs/headless-setup.md
+Co-Authored-By: Claude Code <noreply@anthropic.com>" -- readme.md docs/headless-setup.md docs/index.html
   git push -q github main || die "git push failed - links are committed locally but not published"
   log "pushed refreshed ${V} links"
 fi

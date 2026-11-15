@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """Repoint GODsend-360 download links at a freshly uploaded link manifest.
 
-Usage: python3 -I scripts/patch-release-links.py <links.txt> <file.md> [file.md ...]
+Usage: python3 -I scripts/patch-release-links.py <links.txt> <file> [file ...]
 
 `links.txt` rows are `name | gofile-url | kiwi-url`. Every download row in the
-docs is a markdown link whose display text is the artifact filename, so the two
-are matched by artifact *identity* with the version stripped out. That keeps the
-job working across a version bump: the row is found, and both its display text
-and its URL are rewritten to the new artifact.
+docs is matched by artifact *identity* with the version stripped out, so the job
+survives a version bump: the row is found, and both its label and its URL are
+rewritten to the new artifact.
+
+Two row shapes are handled, chosen by file extension:
+
+- `.md` - a markdown link whose display text is a code span,
+  ``[`godsend.exe`](https://gofile.io/...)``.
+- `.html` - the site's platform cards, whose anchor carries the artifact name in
+  `data-artifact`: `<a href="..." data-artifact="godsend-Setup-2.14.1.exe">`.
 
 A row whose fresh URL is missing or EMPTY is left completely alone - a failed
 upload must never blank out a link that still works.
@@ -20,6 +26,11 @@ from pathlib import Path
 
 # Markdown link whose display text is a single code span, e.g. [`godsend.exe`](https://...)
 LINK_RE = re.compile(r"\[`([^`]+)`\]\((https?://[^)\s]+)\)")
+# HTML row on the download page. The artifact name is the anchor's data-artifact,
+# and its first span carries the same name, so the regex needs no class names.
+SITE_ROW_RE = re.compile(
+    r'<a href="([^"]+)"([^>]*?)data-artifact="([^"]+)"([^>]*)><span>([^<]+)</span>'
+)
 VERSION_RE = re.compile(r"\d+\.\d+\.\d+")
 # The two artifact names that also get spelled out in prose, not just in tables.
 # The negative lookahead skips `...exe`] so this pass never rewrites the display
@@ -79,6 +90,46 @@ def patch_prose(text, new_version):
     return text, count
 
 
+def patch_site_rows(text, table):
+    """Rewrite the download page's platform rows, keeping every other attribute.
+
+    The site row is explicitly marked with data-artifact, so the fresh GoFile URL
+    is applied whatever the previous href was (the first run points the rows away
+    from the README anchor). GoFile primary, file.kiwi as the fallback when the
+    GoFile upload for that artifact failed.
+    """
+    hits = []
+
+    def sub(m):
+        href, before, artifact, after, label = m.groups()
+        entry = table.get(key(artifact))
+        if not entry:
+            return m.group(0)
+        fresh = entry["urls"]["gofile.io"]
+        if not fresh.startswith("http"):
+            fresh = entry["urls"]["file.kiwi"]
+            if not fresh.startswith("http"):
+                return m.group(0)
+        name = entry["name"]
+        if fresh != href or name != artifact or name != label:
+            hits.append(name)
+        return f'<a href="{fresh}"{before}data-artifact="{name}"{after}><span>{name}</span>'
+
+    return SITE_ROW_RE.sub(sub, text), hits
+
+
+def patch_file(text, table, version):
+    """Dispatch on the row shape the file uses. Returns (text, rows, prose)."""
+    if SITE_ROW_RE.search(text):
+        rows, hits = patch_site_rows(text, table)
+        return rows, hits, 0
+    text, hits = patch_links(text, table)
+    prose = 0
+    if version:
+        text, prose = patch_prose(text, version)
+    return text, hits, prose
+
+
 def detect_version(table):
     """The version in the manifest's artifact names, or None if none carry one."""
     for entry in table.values():
@@ -98,8 +149,7 @@ def main(argv):
     total = 0
     for rel in argv[2:]:
         path = Path(rel)
-        text, hits = patch_links(path.read_text(), table)
-        text, prose = patch_prose(text, version) if version else (text, 0)
+        text, hits, prose = patch_file(path.read_text(), table, version)
         if hits or prose:
             path.write_text(text)
         total += len(hits) + prose
@@ -159,6 +209,48 @@ def demo():
     # An EMPTY kiwi URL must leave that half of the row alone.
     kept, _ = patch_links("| [`godsend-linux-x64`](https://file.kiwi/old) |\n", loaded)
     assert kept == "| [`godsend-linux-x64`](https://file.kiwi/old) |\n", kept
+
+    # The site's platform rows: href and label both follow the manifest, every
+    # other attribute is preserved, and an artifact the manifest lacks is untouched.
+    site = (
+        '<a href="https://github.com/ghostyshell/GODSend-360#quick-installation" rel="noopener" '
+        'data-artifact="godsend-Setup-2.13.3.exe" class="flex justify-between"><span>godsend-Setup-2.13.3.exe</span>'
+        '<span class="text-xs">installer</span></a>\n'
+        '<a href="https://gofile.io/d/KEEP" data-artifact="godsend-unknown.exe"><span>godsend-unknown.exe</span></a>\n'
+    )
+    patched, site_hits = patch_site_rows(site, table)
+    assert patched == (
+        '<a href="https://gofile.io/d/N2" rel="noopener" '
+        'data-artifact="godsend-Setup-2.14.0.exe" class="flex justify-between"><span>godsend-Setup-2.14.0.exe</span>'
+        '<span class="text-xs">installer</span></a>\n'
+        '<a href="https://gofile.io/d/KEEP" data-artifact="godsend-unknown.exe"><span>godsend-unknown.exe</span></a>\n'
+    ), patched
+    assert site_hits == ["godsend-Setup-2.14.0.exe"], site_hits
+
+    # No fresh GoFile link: the row keeps the href it had rather than going blank.
+    site_empty = '<a href="https://gofile.io/d/OLD" data-artifact="godsend-unknown.exe"><span>godsend-unknown.exe</span></a>\n'
+    same, none = patch_site_rows(site_empty, table)
+    assert same == site_empty and none == [], (same, none)
+
+    # GoFile failed but file.kiwi landed: fall back to the mirror.
+    kiwi_only = {"godsend.exe": {"urls": {"gofile.io": "EMPTY", "file.kiwi": "https://file.kiwi/z"}, "name": "godsend.exe"}}
+    out, _ = patch_site_rows('<a href="https://x" data-artifact="godsend.exe"><span>godsend.exe</span></a>\n', kiwi_only)
+    assert out == '<a href="https://file.kiwi/z" data-artifact="godsend.exe"><span>godsend.exe</span></a>\n', out
+
+    # patch_file routes each shape: markdown through links + prose, HTML through rows.
+    _, _, prose = patch_file("Run **`godsend-Setup-2.13.3.exe`**\n", table, "2.14.0")
+    assert prose == 1, prose
+    _, rows, prose2 = patch_file(site, table, "2.14.0")
+    assert rows and prose2 == 0, (rows, prose2)
+
+    # The committed page must keep the contract the weekly refresh depends on:
+    # each card's data-artifact is the filename its span shows. A hand-edited row
+    # that breaks this would be skipped silently, so fail here instead.
+    page = Path(__file__).resolve().parent.parent / "docs" / "index.html"
+    if page.exists():
+        for _href, _pre, artifact, _post, label in SITE_ROW_RE.findall(page.read_text()):
+            assert artifact == label, f"docs/index.html: data-artifact {artifact!r} != label {label!r}"
+
     print("demo OK")
 
 
