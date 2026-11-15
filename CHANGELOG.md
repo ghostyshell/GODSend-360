@@ -17,6 +17,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The Open Graph and structured-data images were SVGs, which most social and search previews will not render. They are a real 1200x630 JPEG now, with dimensions declared.
 
 ### Changed
+- **The site no longer compiles Tailwind in the browser.** `docs/index.html` linked the Play CDN and configured the theme at runtime, which meant a 100 KB third-party compiler on every visit, a dependency on an external host for the page's entire look, and unstyled content until it finished. The stylesheet is now built ahead of time into `docs/site/tailwind.css` (15 KB) by `scripts/build-site-css.sh`, with the theme in `docs/site/tailwind.config.cjs`. Measured locally: largest contentful paint 656 ms to 284 ms, no third-party script.
+- The header gains a real menu below 1024px instead of dropping its links, and the panel is opaque so menu items never sit over hero copy. Keyboard focus rings are visible, and in-page anchors clear the sticky header.
+- Low-contrast text fixed: section eyebrows dropped their 80% opacity (3.5:1 to 8.5:1 on green, 4.9:1 on magenta) and body-level slate-500 at 12px became slate-400 (3.9:1 to 7.5:1). `video-guides.html` gets a canonical URL, social cards and the SVG favicon.
 - **MCP server is on by default.** The loopback-only `/mcp` endpoint now starts with the backend instead of waiting for an opt-in. `GODSEND_MCP_ENABLED` still controls it: unset means enabled, and only `0`, `false`, `off` or `no` (case-insensitive) turn it off. The Settings toggle stores the same setting, shows the endpoint and now defaults to on, and an explicit `GODSEND_MCP_ENABLED=0` overrides it (headless and desktop alike).
 - Screenshots are JPEG instead of PNG (1.1 MB -> 588 KB, largest 409 KB -> 148 KB) and content images lazy-load.
 - `llms.txt` added, and the robots file names the AI crawlers explicitly.
