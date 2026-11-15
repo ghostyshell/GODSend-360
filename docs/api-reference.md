@@ -54,7 +54,7 @@ The backend listens on port `8080` by default (configurable via Electron `Backen
 | POST | `/ftp/upload-scripts` | Queue a tracked async Aurora scripts upload |
 | GET | `/ftp/jobs` | List all active and completed FTP Manager jobs |
 | POST | `/ftp/jobs/remove` | Remove an FTP Manager job from the list |
-| POST | `/mcp` | MCP (Streamable HTTP, JSON responses). Only registered when `GODSEND_MCP_ENABLED` is set, and only answers loopback clients with no foreign `Origin` and no `X-Forwarded-For`/`Forwarded` header. One tool per route above, except `/files/`, `/debug` and `/rxea/*` (binary or HTML responses) |
+| POST | `/mcp` | MCP (Streamable HTTP, JSON responses). Registered by default; `GODSEND_MCP_ENABLED=0` turns it off. Only answers loopback clients with no foreign `Origin` and no `X-Forwarded-For`/`Forwarded` header. One tool per route above, except `/files/`, `/debug` and `/rxea/*` (binary or HTML responses) |
 
 ## Runtime folders
 
@@ -93,7 +93,7 @@ The backend creates these under its working directory (or `GODSEND_HOME` if set)
 | `GODSEND_SAVE_BACKUP` | `$GODSEND_HOME/Transfer` | Override the local save-backup folder (defaults to the Transfer folder) |
 | `GODSEND_CUSTOM_GOD_PATH` | (none) | Override the Xbox FTP subfolder for GOD-format installs (default `GOD`) |
 | `GODSEND_CUSTOM_XEX_PATH` | (none) | Override the Xbox FTP subfolder for XEX-format installs (default `XEX`) |
-| `GODSEND_MCP_ENABLED` | (unset, off) | `1`/`true` serves the MCP endpoint at `/mcp` to loopback clients. Set by the desktop app's **MCP server** setting |
+| `GODSEND_MCP_ENABLED` | (unset, on) | MCP endpoint at `/mcp` is on by default; `0`/`false`/`off`/`no` turns it off. Loopback only; requests through a reverse proxy or tunnel are refused. The desktop app passes the **MCP server** setting as `1`/`0` and an explicit `0` in its environment wins |
 | `GODSEND_CF_SOLVER_URL` | (unset) | FlareSolverr-compatible solver base URL (e.g. `http://192.168.1.184:8191`, Byparr works). Used to clear Cloudflare on dlxbgame.com ad-gate and container pages. The desktop app starts a bundled solver when one is present and passes this automatically. |
 | `GODSEND_SCRAPE_PROXIES` | (unset) | Comma list of `socks5://[user:pass@]host:port` or `http://host:port` proxies for the dlxbgame scrape and host resolution. Plain `host:port` means SOCKS5. Requests rotate round-robin. |
 | `GODSEND_TOR_CONTROL` | (unset) | Tor control port (e.g. `127.0.0.1:9051`). When set, the scraper sends `SIGNAL NEWNYM` to rotate the Tor exit before batches and after a rate limit. |

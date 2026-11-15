@@ -2,7 +2,7 @@
 //
 // Every MCP tool is a thin bridge onto an existing HTTP route: the call is
 // replayed against the same mux, so MCP can never drift from the real API.
-// Off unless GODSEND_MCP_ENABLED is set, and loopback-only even then, because
+// On by default (GODSEND_MCP_ENABLED=0 turns it off), and loopback-only, because
 // the backend listens on the LAN for the Xbox and the API has no auth.
 package http
 

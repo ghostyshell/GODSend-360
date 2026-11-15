@@ -24,7 +24,7 @@ func mcpPost(t *testing.T, mux *stdhttp.ServeMux, remote, origin, body string) *
 	return w
 }
 
-func TestMCPOffByDefault(t *testing.T) {
+func TestMCPDisabled(t *testing.T) {
 	mux := (&Deps{App: &app.App{}}).NewRouter()
 	if w := mcpPost(t, mux, "127.0.0.1:5000", "", `{"jsonrpc":"2.0","id":1,"method":"ping"}`); w.Code != 404 {
 		t.Fatalf("disabled MCP answered %d, want 404", w.Code)

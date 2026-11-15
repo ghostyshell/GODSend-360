@@ -122,7 +122,7 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
   const [debridSaving, setDebridSaving]               = useState(false);
   const [debridTesting, setDebridTesting]             = useState(false);
   const [debridStatus, setDebridStatus]               = useState("");
-  const [mcpEnabled, setMcpEnabled]                   = useState(false);
+  const [mcpEnabled, setMcpEnabled]                   = useState(true);
   const [mcpPort, setMcpPort]                         = useState(8080);
   const [ftpScanLoading, setFtpScanLoading]     = useState(false);
   const [cacheLoading, setCacheLoading]         = useState(false);
@@ -1374,17 +1374,20 @@ export default function SettingsPage({ onAppendLine }: SettingsPageProps) {
               <Checkbox checked={mcpEnabled} onCheckedChange={handleMcpChange} />
               Enable MCP server
             </label>
-            {mcpEnabled && (
+            {mcpEnabled ? (
               <p className="mt-2 font-mono text-[11px] text-[#8b9aab] break-all">
                 http://127.0.0.1:{mcpPort}/mcp
               </p>
+            ) : (
+              <p className="mt-2 text-[11px] text-[#8b9aab]">Disabled</p>
             )}
             <Hint>
               Lets an AI assistant on this computer (Claude, Cursor and other MCP
               clients) browse and install games, manage DLC, Title Updates and saves,
-              convert ISOs and manage files on your Xbox. Only apps on this computer
-              can connect; other devices on your network are refused. Off by default.
-              Changing this restarts the backend.
+              convert ISOs and manage files on your Xbox. On by default, and only apps
+              on this computer can connect; other devices on your network are refused.
+              GODSEND_MCP_ENABLED=0 turns it off and overrides this checkbox. Changing
+              this restarts the backend.
             </Hint>
           </Section>
 

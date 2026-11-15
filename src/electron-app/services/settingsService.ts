@@ -194,7 +194,16 @@ export function getConfiguredCustomXexPath(): string {
 }
 
 export function getConfiguredMcpEnabled(): boolean {
-  return readConfig().mcpEnabled === true;
+  // On by default: only an explicit false stored by the Settings toggle disables it.
+  return readConfig().mcpEnabled !== false;
+}
+
+// An explicitly set GODSEND_MCP_ENABLED wins over the stored toggle, so the
+// documented GODSEND_MCP_ENABLED=0 kill switch also works for the desktop app.
+export function getEffectiveMcpEnabled(): boolean {
+  const raw = String(process.env.GODSEND_MCP_ENABLED ?? "").trim().toLowerCase();
+  if (raw === "0" || raw === "false" || raw === "off" || raw === "no") return false;
+  return getConfiguredMcpEnabled();
 }
 
 // Runtime solver URL from the bundled FlareSolverr process (set at startup).
@@ -275,8 +284,7 @@ export function buildGodsendEnv(writableRoot: string): NodeJS.ProcessEnv {
   if (customGodPath) env.GODSEND_CUSTOM_GOD_PATH = customGodPath;
   const customXexPath = getConfiguredCustomXexPath();
   if (customXexPath) env.GODSEND_CUSTOM_XEX_PATH = customXexPath;
-  // The toggle is authoritative: never inherit GODSEND_MCP_ENABLED from the launching shell.
-  delete env.GODSEND_MCP_ENABLED;
-  if (getConfiguredMcpEnabled()) env.GODSEND_MCP_ENABLED = "1";
+  // The endpoint rides the backend port (/mcp), so there is no separate MCP port to pass.
+  env.GODSEND_MCP_ENABLED = getEffectiveMcpEnabled() ? "1" : "0";
   return env;
 }

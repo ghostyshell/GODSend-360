@@ -17,6 +17,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The Open Graph and structured-data images were SVGs, which most social and search previews will not render. They are a real 1200x630 JPEG now, with dimensions declared.
 
 ### Changed
+- **MCP server is on by default.** The loopback-only `/mcp` endpoint now starts with the backend instead of waiting for an opt-in. `GODSEND_MCP_ENABLED` still controls it: unset means enabled, and only `0`, `false`, `off` or `no` (case-insensitive) turn it off. The Settings toggle stores the same setting, shows the endpoint and now defaults to on, and an explicit `GODSEND_MCP_ENABLED=0` overrides it (headless and desktop alike).
 - Screenshots are JPEG instead of PNG (1.1 MB -> 588 KB, largest 409 KB -> 148 KB) and content images lazy-load.
 - `llms.txt` added, and the robots file names the AI crawlers explicitly.
 
