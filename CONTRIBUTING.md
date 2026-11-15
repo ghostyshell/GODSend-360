@@ -2,7 +2,7 @@
 
 ## Before you start
 
-Read [`AGENTS.md`](AGENTS.md) - it covers the architecture, module boundaries, build commands, and code-style rules for all three components (Go backend, Electron app, Aurora Lua scripts). Changes that violate those constraints will be asked to be revised.
+Read [`README.md`](README.md) and the [`docs/`](docs/) reference first. They cover the architecture, module boundaries, build commands, and the code-style rules for all three components (Go backend, Electron app, Aurora Lua scripts). Changes that violate those constraints will be asked to be revised.
 
 ---
 
@@ -38,18 +38,17 @@ go build -C src/server -o ../../dist/godsend.exe .
 1. Work on a feature branch off `main`.
 2. Keep commits focused - one logical change per commit, written in the imperative (`fix:`, `feat:`, `chore:`, `docs:`).
 3. **Update `CHANGELOG.md`** under the `[Unreleased]` section (create it if it doesn't exist at the top of the file) with a short bullet describing what changed and why. Use the existing categories: `Added`, `Fixed`, `Changed`, `Removed`.
-4. If your change affects architecture, build commands, or code conventions, **update `AGENTS.md`** in the same PR.
 
 ### Go backend (`src/server/`)
 
 - Run `gofmt` before committing.
 - Keep handlers thin - parse input, call a service, return JSON. No business logic in handlers.
-- New HTTP endpoints must be documented in the `README.md` API table and in `AGENTS.md` if they affect the Lua↔backend contract.
+- New HTTP endpoints must be documented in the `README.md` API table.
 
 ### Electron app (`src/electron-app/`)
 
 - The Electron main process is written in **TypeScript** (compiled in-place via `tsconfig.json`; `strict: false`). All source files are `.ts`.
-- New IPC channels must be added to `preload.ts` and documented in `AGENTS.md`.
+- New IPC channels must be added to `preload.ts` and listed in `README.md`.
 - Settings that persist to `config.json` must go through `settingsService.ts` getters/setters - do not read/write `config.json` directly from `bootstrap.ts`.
 - FTP operations must go through the Go backend's `ftp.Manager` endpoints (`/ftp/*`) - do not use `basic-ftp` or any npm FTP client directly from Electron.
 - UI changes go in the React/Vite renderer (`renderer/`). Pages: `HomePage`, `SettingsPage`, `LibraryPage`, `QueuePage`.
