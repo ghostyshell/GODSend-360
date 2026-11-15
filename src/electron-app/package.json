@@ -161,7 +161,25 @@
       ]
     },
     "dmg": {
-      "artifactName": "godsend-${version}-${arch}.${ext}"
+      "artifactName": "godsend-${version}-${arch}.${ext}",
+      "background": "build/dmg-background.png",
+      "window": {
+        "width": 640,
+        "height": 400
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 215,
+          "type": "file"
+        },
+        {
+          "x": 470,
+          "y": 215,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "linux": {
       "target": [
