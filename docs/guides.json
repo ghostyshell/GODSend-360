@@ -1,0 +1,89 @@
+{
+  "addon": "godsend360",
+  "title": "GODsend 360 video guides",
+  "intro": "Short screen recordings of the GODsend 360 desktop app: your Xbox library, the four download sources, the toolbox and settings. The demo data shown is fixture data, no real Xbox is involved.",
+  "version": "2026-11-15",
+  "sections": [
+    {
+      "id": "library",
+      "title": "Your library",
+      "summary": "See what is on the console.",
+      "videos": [
+        {
+          "id": "01-xbox-library",
+          "title": "Xbox Library",
+          "description": "Every game found on your Xbox through Aurora, with cover art and title ID. Search, sort, filter, refresh from the console and fetch missing covers.",
+          "steps": [
+            "Open Xbox Library",
+            "Search or sort the list",
+            "Refresh the library cache",
+            "Download missing covers"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/01-xbox-library.6f7fe5d7.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/01-xbox-library.6f7fe5d7.jpg"
+        }
+      ]
+    },
+    {
+      "id": "downloading",
+      "title": "Getting games",
+      "summary": "Find a game and send it to the console.",
+      "videos": [
+        {
+          "id": "02-browse-and-download",
+          "title": "Browse and Download",
+          "description": "One list over four sources: Minerva Archive over BitTorrent, Internet Archive, your own Transfer folder and dlxbgame releases. Filter by title and switch between Xbox 360, Original Xbox, XBLA, Digital, DLC and Indie.",
+          "steps": [
+            "Pick a source",
+            "Pick a category",
+            "Filter the list by title"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/02-browse-and-download.7bf0ab56.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/02-browse-and-download.7bf0ab56.jpg"
+        },
+        {
+          "id": "03-toolbox",
+          "title": "Toolbox",
+          "description": "Convert and move files: ISO to GOD, ISO to XEX, BadAvatar USB and an FTP manager for the console.",
+          "steps": [
+            "Open Toolbox",
+            "Choose a tool"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/03-toolbox.39751bab.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/03-toolbox.39751bab.jpg"
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "title": "The app",
+      "summary": "Logs and settings.",
+      "videos": [
+        {
+          "id": "04-console",
+          "title": "Console",
+          "description": "The live terminal of the backend. Downloads, conversions and FTP transfers log here, and you can open the logs folder to share a log.",
+          "steps": [
+            "Open Console",
+            "Press Open logs folder"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/04-console.8b94d97a.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/04-console.8b94d97a.jpg"
+        },
+        {
+          "id": "05-settings",
+          "title": "Settings",
+          "description": "Choose folders, set the Xbox FTP connection, send the Aurora script to the console, export Aurora databases and refresh the dlxbgame list and caches.",
+          "steps": [
+            "Set folders",
+            "Save the Xbox connection",
+            "Send Aurora scripts",
+            "Refresh caches"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/05-settings.d70a08c8.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/05-settings.d70a08c8.jpg"
+        }
+      ]
+    }
+  ]
+}

@@ -591,3 +591,7 @@ A large library of specialized subagents is installed for each tool - `~/.claude
 - **Stack specialists** (match the repo): e.g. `golang-pro`, `typescript-pro`, `javascript-pro`, `node-specialist`, `react-specialist`, `nextjs-developer`, `python-pro`.
 
 Before treating a change as done, run at least `code-reviewer` (plus `security-auditor` for sensitive changes). Browse the agent dirs above for the full set (154 agents).
+
+## Demo videos and guides - demo-reels
+
+Skill: `docs/agents/skills/demo-reels.md` (global copy `~/.claude/skills/demo-reels/SKILL.md`, tooling `~/Code/demo-reels`). Desktop app, recorded from the renderer's `?mock=1` bridge. Guides data `docs/guides.json`, page `docs/video-guides.html`. Any user-visible change (new, changed or removed feature) updates its video and guides entry in the same change: new = new reel plus a guides entry, changed = re-record, removed = delete both. Then `node publish.mjs godsend360` and `node ~/Code/demo-reels/build-site.mjs godsend360` and add a CHANGELOG line.
