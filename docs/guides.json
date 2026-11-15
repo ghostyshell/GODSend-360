@@ -12,15 +12,29 @@
         {
           "id": "01-xbox-library",
           "title": "Xbox Library",
-          "description": "Every game found on your Xbox through Aurora, with cover art and title ID. Search, sort, filter, refresh from the console and fetch missing covers.",
+          "description": "Every game found on your Xbox through Aurora, as real box art you can flip: hover a cover and the case turns in 3D. Search, sort, filter, refresh from the console and fetch missing covers.",
           "steps": [
             "Open Xbox Library",
+            "Hover a cover to flip the case",
             "Search or sort the list",
             "Refresh the library cache",
             "Download missing covers"
           ],
-          "video": "https://covers.debrid.in/guides/godsend360/01-xbox-library.6f7fe5d7.mp4",
-          "poster": "https://covers.debrid.in/guides/godsend360/01-xbox-library.6f7fe5d7.jpg"
+          "video": "https://covers.debrid.in/guides/godsend360/01-xbox-library.21ab0766.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/01-xbox-library.21ab0766.jpg"
+        },
+        {
+          "id": "06-game-page",
+          "title": "The game page",
+          "description": "Click a cover to open its page: publisher, developer and release date, the Aurora library entry, the Aurora assets (background, banner, icon, cover and screenshots, searched online or loaded from a file), DLC and title updates, and save games.",
+          "steps": [
+            "Click a cover",
+            "Open Aurora assets",
+            "Find DLC and title updates",
+            "Manage save games"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/06-game-page.aceb3cbb.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/06-game-page.aceb3cbb.jpg"
         }
       ]
     },
@@ -38,8 +52,8 @@
             "Pick a category",
             "Filter the list by title"
           ],
-          "video": "https://covers.debrid.in/guides/godsend360/02-browse-and-download.7bf0ab56.mp4",
-          "poster": "https://covers.debrid.in/guides/godsend360/02-browse-and-download.7bf0ab56.jpg"
+          "video": "https://covers.debrid.in/guides/godsend360/02-browse-and-download.813114a0.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/02-browse-and-download.813114a0.jpg"
         },
         {
           "id": "03-toolbox",
@@ -49,8 +63,70 @@
             "Open Toolbox",
             "Choose a tool"
           ],
-          "video": "https://covers.debrid.in/guides/godsend360/03-toolbox.39751bab.mp4",
-          "poster": "https://covers.debrid.in/guides/godsend360/03-toolbox.39751bab.jpg"
+          "video": "https://covers.debrid.in/guides/godsend360/03-toolbox.f2f74ccc.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/03-toolbox.f2f74ccc.jpg"
+        },
+        {
+          "id": "07-iso-to-god",
+          "title": "ISO to GOD",
+          "description": "Convert Xbox 360 disc images to the Games on Demand format Aurora installs. Add ISOs, choose an output folder and convert; output is named Title Name - TitleID.",
+          "steps": [
+            "Add ISOs",
+            "Choose the output folder",
+            "Convert"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/07-iso-to-god.2dc25c3f.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/07-iso-to-god.2dc25c3f.jpg"
+        },
+        {
+          "id": "08-iso-to-xex",
+          "title": "ISO to XEX",
+          "description": "Extract a disc image to a folder with a default.xex so the game runs straight from that folder.",
+          "steps": [
+            "Add the image",
+            "Pick an output folder",
+            "Convert"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/08-iso-to-xex.9f953dc6.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/08-iso-to-xex.9f953dc6.jpg"
+        },
+        {
+          "id": "09-badavatar-usb",
+          "title": "BadAvatar USB",
+          "description": "Prepare a USB stick for the BadUpdate exploit: pick the drive, format it to FAT32, and add optional packages such as Proto, FreestyleDash and the Aurora XeUnshackle build.",
+          "steps": [
+            "Pick the USB drive",
+            "Set the options",
+            "Choose packages",
+            "Create the stick"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/09-badavatar-usb.fc98f643.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/09-badavatar-usb.fc98f643.jpg"
+        },
+        {
+          "id": "10-ftp-manager",
+          "title": "FTP Manager",
+          "description": "Browse the console drive over FTP: upload files or folders, make folders, cut, copy and paste, with transfer progress on the right.",
+          "steps": [
+            "Open FTP Manager",
+            "Browse folders",
+            "Upload files",
+            "Watch Transfers"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/10-ftp-manager.30fbaed1.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/10-ftp-manager.30fbaed1.jpg"
+        },
+        {
+          "id": "11-job-queue",
+          "title": "Job Queue",
+          "description": "Every download, conversion and FTP transfer in one list, with live status, progress and speed, and a cancel button for each job.",
+          "steps": [
+            "Open the queue",
+            "Read status and speed",
+            "Cancel a job"
+          ],
+          "video": "https://covers.debrid.in/guides/godsend360/11-job-queue.70f88377.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/11-job-queue.70f88377.jpg"
         }
       ]
     },
@@ -67,8 +143,8 @@
             "Open Console",
             "Press Open logs folder"
           ],
-          "video": "https://covers.debrid.in/guides/godsend360/04-console.8b94d97a.mp4",
-          "poster": "https://covers.debrid.in/guides/godsend360/04-console.8b94d97a.jpg"
+          "video": "https://covers.debrid.in/guides/godsend360/04-console.daa4c9ce.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/04-console.daa4c9ce.jpg"
         },
         {
           "id": "05-settings",
@@ -80,8 +156,8 @@
             "Send Aurora scripts",
             "Refresh caches"
           ],
-          "video": "https://covers.debrid.in/guides/godsend360/05-settings.d70a08c8.mp4",
-          "poster": "https://covers.debrid.in/guides/godsend360/05-settings.d70a08c8.jpg"
+          "video": "https://covers.debrid.in/guides/godsend360/05-settings.9f73764f.mp4",
+          "poster": "https://covers.debrid.in/guides/godsend360/05-settings.9f73764f.jpg"
         }
       ]
     }

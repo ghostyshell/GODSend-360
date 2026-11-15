@@ -16,11 +16,11 @@ Download priority for online libraries: **Local Transfer folder → Minerva Arch
 
 **dlxbgame.com** is an additional, separate source for Xbox 360 **ISOs** and **Jtag/RGH** releases. The app scrapes the whole site once, stores every release's download links and archive password in `cache/dlxb_games.json`, and ships that list with each build. Downloads are resolved from the host the site links to (1fichier, MediaFire, Google Drive, gofile, and others) and fetched with `aria2c`; ads and container pages are followed until the file link appears. Links are checked after each scrape, dead ones are skipped, and titles whose links are all dead are hidden, so the app never offers a download that cannot start. Filecrypt containers expand through Real-Debrid or TorBox. Cloudflare-protected ad gates are cleared by a FlareSolverr-compatible solver bundled with every desktop build (official on Linux/Windows x64, source-built for macOS arm64/x64, workflow-built for Linux arm64), with a LAN solver URL as an override. Rotating SOCKS5/HTTP proxies and Tor exits (`GODSEND_SCRAPE_PROXIES`, `GODSEND_TOR_CONTROL`) are available for rate limits. GODsend 360 is **not affiliated with dlxbgame.com** - please visit [dlxbgame.com](https://dlxbgame.com/) directly to support the original owners of the content you download.
 
-[![GODsend 360 v2.9.2 overview video preview](docs/site/assets/GODsend-360-2.9.2-preview.png)](docs/site/assets/GODsend-360-2.9.2.mov)
+[![GODsend 360 Xbox Library: real box art that flips in 3D on hover](docs/site/assets/GODsend-360-preview.png)](https://covers.debrid.in/guides/godsend360/01-xbox-library.21ab0766.mp4)
 
-[Download or play the overview video (`.mov`)](docs/site/assets/GODsend-360-2.9.2.mov)
+[Play the Xbox Library video](https://covers.debrid.in/guides/godsend360/01-xbox-library.21ab0766.mp4) - real box art, flipped in 3D on hover.
 
-[Watch the video guides](https://ghostyshell.github.io/GODSend-360/video-guides.html) - one short recording per feature.
+[Watch the video guides](https://ghostyshell.github.io/GODSend-360/video-guides.html) - eleven short recordings, one per feature.
 
 ---
 
