@@ -278,7 +278,8 @@ const handlers: Record<string, Handler> = {
         emit("cover", {
           titleId: entry.titleId,
           gameDataDir: entry.gameDataDir,
-          src: coverArt(game?.name || entry.titleId, game?.__tone ?? 150),
+          // `window.__realCovers` (titleId -> image URL) is injected by the demo-reels recorder so videos show real box art.
+          src: (window as any).__realCovers?.[entry.titleId] || coverArt(game?.name || entry.titleId, game?.__tone ?? 150),
           dataUrl: null,
         });
       }, 40 + i * 25);
