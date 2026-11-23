@@ -1,13 +1,14 @@
 #!/bin/bash
 # Weekly GODsend-360 release refresh.
 #
-# Rebuilds the version currently in package.json, re-uploads all 12 release
-# artifacts to GoFile (primary) and file.kiwi (backup), repoints the download
-# links in readme.md + docs/headless-setup.md + docs/index.html (the site's
-# platform cards), and pushes the result.
+# Rebuilds the version currently in package.json, uploads all 12 release
+# artifacts to Cloudflare R2, repoints the download links in readme.md +
+# docs/headless-setup.md + docs/index.html (the site's platform cards), pushes,
+# and deletes the older R2 versions and the local dist/.
 #
-# Why this exists: GoFile expires free-tier files, so the primary download
-# links rot within weeks even when the code has not changed.
+# R2 keys are versioned and immutable: a link stays valid until the next
+# version bump, so nothing needs a timed refresh any more. The launchd job
+# remains as a cheap version check.
 #
 # Why dist/ is cleared first: a failed build must not be able to fall through
 # to uploading last week's binaries. Empty dist/ means the upload stage has
@@ -35,24 +36,23 @@ for tool in node npm go python3 jq curl git; do
   command -v "$tool" >/dev/null 2>&1 || die "$tool not found on PATH ($PATH)"
 done
 
-# Manifest bookkeeping: one row per artifact, `name | gofile | kiwi`. Reads are
-# keyed on the exact name so `godsend.exe` cannot match `godsend-Setup-X.exe`.
+# Manifest bookkeeping: one row per artifact, `name | url`. Reads are keyed on
+# the exact name so `godsend.exe` cannot match `godsend-Setup-X.exe`.
 field() { grep -F "$1 |" "$LINKS" 2>/dev/null | tail -1 | cut -d'|' -f"$2" | tr -d ' ' || true; }
 row() {
   grep -v -F "$1 |" "$LINKS" > "$LINKS.tmp" 2>/dev/null || true
   mv "$LINKS.tmp" "$LINKS"
-  printf '%s | %s | %s\n' "$1" "$2" "$3" >> "$LINKS"
+  printf '%s | %s\n' "$1" "$2" >> "$LINKS"
 }
 
 if [ "${1:-}" = "--selftest" ]; then
   LINKS=$(mktemp)
   touch "$LINKS"
-  row godsend.exe https://gofile.io/d/A https://file.kiwi/a
-  row godsend-Setup-9.9.9.exe EMPTY https://file.kiwi/b
-  row godsend.exe https://gofile.io/d/A2 https://file.kiwi/a2
-  [ "$(field godsend.exe 2)" = "https://gofile.io/d/A2" ] || die "selftest: gofile field wrong"
-  [ "$(field godsend.exe 3)" = "https://file.kiwi/a2" ] || die "selftest: kiwi field wrong"
-  [ "$(field godsend-Setup-9.9.9.exe 2)" = "EMPTY" ] || die "selftest: EMPTY row not read back"
+  row godsend.exe https://covers.debrid.in/godsend-360/releases/9.9.9/godsend.exe
+  row godsend-Setup-9.9.9.exe https://covers.debrid.in/godsend-360/releases/9.9.9/godsend-Setup-9.9.9.exe
+  row godsend.exe https://covers.debrid.in/godsend-360/releases/9.9.9/godsend.exe
+  [ "$(field godsend.exe 2)" = "https://covers.debrid.in/godsend-360/releases/9.9.9/godsend.exe" ] || die "selftest: url field wrong"
+  [ "$(field godsend-Setup-9.9.9.exe 2)" = "https://covers.debrid.in/godsend-360/releases/9.9.9/godsend-Setup-9.9.9.exe" ] || die "selftest: second row wrong"
   [ "$(wc -l < "$LINKS" | tr -d ' ')" = "2" ] || die "selftest: row() appended a duplicate instead of replacing"
   rm -f "$LINKS"
   echo "selftest OK"
@@ -60,6 +60,17 @@ if [ "${1:-}" = "--selftest" ]; then
 fi
 
 [ "$V" = "$EV" ] || die "version drift: package.json=$V but src/electron-app/package.json=$EV"
+
+# R2 links never expire, so there is nothing to renew on a timer. Publish only
+# when the repo version is ahead of the live feed; FORCE=1 overrides.
+LIVE=$(curl -fsS "https://ghostyshell.github.io/GODSend-360/downloads.json?v=$(date +%s)" 2>/dev/null \
+  | python3 -c 'import json,sys
+try: print(json.load(sys.stdin).get("version",""))
+except Exception: print("")' 2>/dev/null || true)
+if [ "${FORCE:-0}" != 1 ] && [ "$LIVE" = "$V" ]; then
+  log "$V is already live; nothing to publish"
+  exit 0
+fi
 
 RUN=".release-${V}-$(date +%Y%m%d)"
 LINKS="$RUN/links.txt"
@@ -111,52 +122,58 @@ for f in "${FILES[@]}"; do
 done
 log "all 12 artifacts built"
 
-# --- 3. Upload -------------------------------------------------------------------
-TOKEN=$(cat .gofile-io-token)
-touch "$LINKS"
+# --- 3. Upload to Cloudflare R2 --------------------------------------------------
+R2_ENV=${R2_ENV:-$HOME/.r2.env}
+R2_BUCKET=${R2_BUCKET:-torrent-search-covers-eu}
+R2_PREFIX=${R2_PREFIX:-godsend-360/releases}
+R2_PUBLIC=${R2_PUBLIC:-https://covers.debrid.in}
+[ -f "$R2_ENV" ] || die "missing $R2_ENV (R2 S3 keys)"
+set -a; . "$R2_ENV"; set +a
+for v in R2_S3_ENDPOINT R2_S3_ACCESS_KEY_ID R2_S3_SECRET_ACCESS_KEY; do
+  eval "val=\${$v:-}"
+  [ -n "$val" ] || die "$v missing from $R2_ENV"
+done
+command -v aws >/dev/null 2>&1 || die "aws CLI not found on PATH ($PATH)"
+# R2 rejects the extra CRC headers modern aws-cli injects on some builds.
+export AWS_REQUEST_CHECKSUM_CALCULATION=when_required AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
 
-# GoFile needs the long timeout: a 130-160MB artifact runs ~20min, and the old
-# --max-time 600 truncated those into silent EMPTY rows. Non-JSON bodies also
-# happen on large files, hence the retries.
-put_gofile() {
-  local f=$1 url=""
-  for attempt in 1 2 3; do
-    url=$(curl -sS --max-time 3600 -X POST "https://upload.gofile.io/contents/uploadfile" \
-      -H "Authorization: Bearer $TOKEN" -F "file=@dist/$f" 2>/dev/null \
-      | jq -r '.data.downloadPage // empty' 2>/dev/null) || url=""
-    if [ -n "$url" ]; then
-      printf '%s\n' "$url"
-      return 0
-    fi
-    log "  gofile attempt $attempt/3 failed for $f; retrying in 30s"
-    sleep 30
+r2_aws() {
+  AWS_ACCESS_KEY_ID="$R2_S3_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_S3_SECRET_ACCESS_KEY" \
+  AWS_DEFAULT_REGION=auto AWS_EC2_METADATA_DISABLED=true \
+    aws "$@" --endpoint-url "$R2_S3_ENDPOINT"
+}
+
+r2_put() {  # $1=local file -> prints the public URL
+  local key="$R2_PREFIX/$V/$(basename "$1")"
+  log "  R2 -> s3://$R2_BUCKET/$key"
+  r2_aws s3 cp "$1" "s3://$R2_BUCKET/$key" \
+    --content-type application/octet-stream \
+    --cache-control 'public, max-age=31536000, immutable' \
+    --only-show-errors || return 1
+  printf '%s\n' "$R2_PUBLIC/$key"
+}
+
+r2_prune() {  # keep the newest $1 versions under the prefix (default 2)
+  local keep=${1:-2} versions total
+  versions=$(r2_aws s3api list-objects-v2 --bucket "$R2_BUCKET" \
+      --prefix "$R2_PREFIX/" --delimiter / \
+      --query 'CommonPrefixes[].Prefix' --output text 2>/dev/null \
+    | tr '\t' '\n' | sed 's#/$##' | awk -F/ '{print $NF}' \
+    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n -k3,3n) || true
+  total=$(printf '%s\n' "$versions" | grep -c . || true)
+  [ "${total:-0}" -gt "$keep" ] || return 0
+  printf '%s\n' "$versions" | sed -n "1,$((total-keep))p" | while IFS= read -r old; do
+    log "R2: pruning $R2_PREFIX/$old/"
+    r2_aws s3 rm "s3://$R2_BUCKET/$R2_PREFIX/$old/" --recursive --only-show-errors \
+      || log "WARNING: R2 prune failed for $old (old objects left in place)"
   done
-  return 1
 }
 
-put_kiwi() {
-  FORCE_COLOR=0 npx -y @file-kiwi/node "dist/$1" --title "$1" 2>&1 \
-    | grep -Eo 'https://file\.kiwi/[A-Za-z0-9][A-Za-z0-9#_+/=-]*' | tail -1 || true
-}
-
-incomplete=0
+: > "$LINKS"
 for f in "${FILES[@]}"; do
-  gf=$(field "$f" 2)
-  kw=$(field "$f" 3)
-  if [ -n "$gf" ] && [ "$gf" != "EMPTY" ] && [ -n "$kw" ] && [ "$kw" != "EMPTY" ]; then
-    log "[skip] $f already uploaded today"
-    continue
-  fi
-  log "[start] $f ($(du -h "dist/$f" | cut -f1))"
-  if [ -z "$gf" ] || [ "$gf" = "EMPTY" ]; then
-    gf=$(put_gofile "$f") || gf="EMPTY"
-  fi
-  if [ -z "$kw" ] || [ "$kw" = "EMPTY" ]; then
-    kw=$(put_kiwi "$f")
-  fi
-  [ -n "$gf" ] && [ "$gf" != "EMPTY" ] || incomplete=1
-  log "[done] $f | ${gf:-EMPTY} | ${kw:-EMPTY}"
-  row "$f" "${gf:-EMPTY}" "${kw:-EMPTY}"
+  log "[upload] $f ($(du -h "dist/$f" | cut -f1))"
+  url=$(r2_put "dist/$f") || die "R2 upload failed for $f"
+  row "$f" "$url"
 done
 
 # --- 4. Repoint the download links -----------------------------------------------
@@ -166,21 +183,20 @@ python3 -I scripts/patch-release-links.py "$LINKS" readme.md docs/headless-setup
 if git diff --quiet -- readme.md docs/headless-setup.md docs/index.html; then
   log "download links already current - nothing to commit"
 else
-  git commit -q -m "docs: refresh ${V} download links (GoFile + file.kiwi)
+  git commit -q -m "docs: publish ${V} downloads to Cloudflare R2
 
-Automated weekly refresh: all artifacts rebuilt and re-uploaded to GoFile
-(primary) and file.kiwi (backup). GoFile expires free-tier files, so the
-previous links had gone stale.
+One host, versioned keys: the links stay valid until the next version, so no
+weekly mirror refresh is needed any more.
 
 Co-Authored-By: Claude Code <noreply@anthropic.com>" -- readme.md docs/headless-setup.md docs/index.html
   git push -q github main || die "git push failed - links are committed locally but not published"
   log "pushed refreshed ${V} links"
 fi
 
-if [ "$incomplete" -ne 0 ]; then
-  log "WARNING: at least one artifact got no fresh GoFile link - dist/ left in place, re-run to fill"
-  notify "GODsend ${V} refresh finished with gaps - re-run to fill"
-else
-  notify "GODsend ${V} download links refreshed"
-fi
+log "pruning old R2 versions (keeping the current and previous)"
+r2_prune 2
+
+log "removing local build artifacts"
+rm -rf dist
+notify "GODsend ${V} downloads published"
 log "done"
