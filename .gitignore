@@ -64,3 +64,4 @@ vendor/flaresolverr/*
 # release scratch
 .release-run.log
 .release-*/
+scripts/__pycache__/
