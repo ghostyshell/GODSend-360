@@ -145,7 +145,9 @@ r2_aws() {
 
 r2_put() {  # $1=local file -> prints the public URL
   local key="$R2_PREFIX/$V/$(basename "$1")"
-  log "  R2 -> s3://$R2_BUCKET/$key"
+  # stderr: the URL is captured with $(...), a log line on stdout would be
+  # captured with it and corrupt the manifest row.
+  log "  R2 -> s3://$R2_BUCKET/$key" >&2
   r2_aws s3 cp "$1" "s3://$R2_BUCKET/$key" \
     --content-type application/octet-stream \
     --cache-control 'public, max-age=31536000, immutable' \

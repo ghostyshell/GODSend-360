@@ -72,11 +72,13 @@ def patch_links(text, table):
     hits = []
 
     def collapse(m):
-        cell, name = m.group(1), m.group(2)
+        cell, name, url = m.group(1), m.group(2), m.group(3)
         entry = table.get(key(name))
         if not entry or not entry["url"].startswith("http"):
             return m.group(0)
-        if entry["name"] != name:
+        # A version-less filename keeps its name across releases; the URL still
+        # has to count as a change or patch_file would not write the file back.
+        if entry["name"] != name or entry["url"] != url:
             hits.append(entry["name"])
         return f"{cell} [`{entry['name']}`]({entry['url']}) |"
 
@@ -213,6 +215,12 @@ def demo():
     # Idempotent: a second pass changes nothing and reports nothing.
     again, none = patch_links(out, table)
     assert again == out and none == [], (again, none)
+
+    # Version-less rows (headless binaries) change URL only; that still counts.
+    _, url_hits = patch_links(
+        "| Platform | Download |\n| --- | --- |\n| **Windows** | [`godsend.exe`](https://old) |\n",
+        {"godsend.exe": {"url": "https://covers.debrid.in/godsend-360/releases/2.14.0/godsend.exe", "name": "godsend.exe"}})
+    assert "godsend.exe" in url_hits, url_hits
 
     # A failed upload leaves the row alone, header rewrite or not.
     fresh, _ = patch_links("| Platform | Download |\n| --- | --- |\n| **X** | [`godsend.exe`](https://old) |\n",

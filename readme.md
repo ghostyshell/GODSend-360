@@ -48,12 +48,12 @@ Download the build for your platform:
 
 | Platform | Download |
 | --- | --- |
-| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.14.1.exe`](https://gofile.io/d/2U31iCmP) | [`godsend-Setup-2.14.1.exe`](https://file.kiwi/3db60d2f#k7jBQB9jIX5OsmyWQeur-A) |
-| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.14.1.exe`](https://gofile.io/d/a4PObXCq) | [`godsend-Portable-2.14.1.exe`](https://file.kiwi/b2232fdd#qR77kbBZ12iru4Ob3Cmt-g) |
-| **macOS (Apple Silicon)** | [`godsend-2.14.1-arm64.dmg`](https://gofile.io/d/jtvLWEnE) | [`godsend-2.14.1-arm64.dmg`](https://file.kiwi/94570374#vYDbNuQ5SKNKF23beYqJ4Q) |
-| **macOS (Intel)** | [`godsend-2.14.1-x64.dmg`](https://gofile.io/d/akHt8D39) | [`godsend-2.14.1-x64.dmg`](https://file.kiwi/916aef07#ThNliuInbKlaRbEN9TqTAw) |
-| **Linux (x64 / amd64)** | [`godsend-2.14.1-x86_64.AppImage`](https://gofile.io/d/4IY4N7qd) | [`godsend-2.14.1-x86_64.AppImage`](https://file.kiwi/afb4ba0c#KNCVehXgGpYxhrPvaWh3QA) |
-| **Linux (arm64)** | [`godsend-2.14.1-arm64.AppImage`](https://gofile.io/d/YXJOMGJG) | [`godsend-2.14.1-arm64.AppImage`](https://file.kiwi/1cea69ec#X2TyxUk1_corOWL_OUzayg) |
+| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.14.4.exe`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-Setup-2.14.4.exe) |
+| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.14.4.exe`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-Portable-2.14.4.exe) |
+| **macOS (Apple Silicon)** | [`godsend-2.14.4-arm64.dmg`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-2.14.4-arm64.dmg) |
+| **macOS (Intel)** | [`godsend-2.14.4-x64.dmg`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-2.14.4-x64.dmg) |
+| **Linux (x64 / amd64)** | [`godsend-2.14.4-x86_64.AppImage`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-2.14.4-x86_64.AppImage) |
+| **Linux (arm64)** | [`godsend-2.14.4-arm64.AppImage`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-2.14.4-arm64.AppImage) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
@@ -112,12 +112,12 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 | Platform | Download |
 | --- | --- |
-| **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/qr5Fno9w) | [`godsend.exe`](https://file.kiwi/38d0e742#va_VAFmlrBL9ndSzcCDw7Q) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://gofile.io/d/e2EjVx0f) | [`godsend-darwin-arm64`](https://file.kiwi/ab4d6373#kodRcvRCWfiQ9bziQFt6oA) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://gofile.io/d/sBYzgWg3) | [`godsend-darwin-amd64`](https://file.kiwi/b4d785a5#7KpaRVZtb-wA8G5Npsb2Dg) |
-| **macOS (universal, Electron helper)** | [`godsend-mac`](https://gofile.io/d/d7neQRSS) | [`godsend-mac`](https://file.kiwi/206dc648#3M2UbLIiuKZ3gzwIFdrQhw) |
-| **Linux (x64)** | [`godsend-linux-x64`](https://gofile.io/d/klC0FqBD) | [`godsend-linux-x64`](https://file.kiwi/46b9d170#WYNc_9VMQU67NSX0gDkNLA) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://gofile.io/d/kdr7eWjT) | [`godsend-linux-arm64`](https://file.kiwi/1e19f58c#DPcgcGXtX5-X0gbmoPim9w) |
+| **Windows (x64)** | [`godsend.exe`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend.exe) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-darwin-arm64) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-darwin-amd64) |
+| **macOS (universal, Electron helper)** | [`godsend-mac`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-mac) |
+| **Linux (x64)** | [`godsend-linux-x64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-linux-x64) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-linux-arm64) |
 
 **[Full headless setup guide (build, configure, Docker, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 

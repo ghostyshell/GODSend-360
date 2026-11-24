@@ -10,6 +10,14 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+- Downloads are hosted on Cloudflare R2 under versioned, immutable keys, so a
+  link stays valid until the next version. The weekly GoFile/file.kiwi re-upload
+  is gone: the scheduled job now only checks the live feed for a version bump,
+  and each publish prunes R2 versions older than the previous one.
+
 - Video guides: `docs/video-guides.html` lists eleven short recordings (library with flipping box art, game page, browse and download, toolbox, ISO to GOD, ISO to XEX, BadAvatar USB, FTP manager, job queue, console, settings) with a walkthrough and steps each. Videos are on R2; the page is linked from the site nav, the sitemap and the README. Recorded from the renderer's `?mock=1` bridge with the demo-reels skill; the dev-only mock now reads `window.__realCovers` so the recordings and the README screenshots show real box art instead of placeholder tiles. The whole site gallery (`docs/site/screens/01` and `03` to `08`) and the README preview were regenerated at 1400x875 from the same setup (`node ~/Code/demo-reels/shots-360.mjs`), and the README video link now points at the new Xbox Library recording.
 
 ### Fixed

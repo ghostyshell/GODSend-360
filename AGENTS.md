@@ -201,39 +201,41 @@ Build-script map (run from repo root):
 
 > **macOS Intel DMG gotcha:** on an Apple Silicon host, `build:electron:mac` with no arch flag defaults to arm64 and **overwrites** `dist/godsend-X.Y.Z-arm64.dmg` instead of producing the Intel build. To get the x64 DMG, run `npm run build:mac:dmg:x64` (or `build:electron:mac:arm` for arm64) explicitly. A plain `build:electron:mac && build:electron:mac:arm` on an arm64 host produces two identical arm64 DMGs and silently drops the Intel one.
 
-### Release assets (GoFile + file.kiwi upload + README links)
+### Release assets (Cloudflare R2 + README links)
 
-**Do NOT create git tags or GitHub releases.** All build assets are uploaded to **GoFile.io** (primary) and **file.kiwi** (backup mirror) and linked directly from `README.md` - the download table has one column per host.
+**Do NOT create git tags or GitHub releases.** All build assets are uploaded to
+**Cloudflare R2** (bucket `torrent-search-covers-eu`, prefix
+`godsend-360/releases/<version>/`, public at `https://covers.debrid.in`) and
+linked directly from `README.md` - the download table has one Download column.
 
-#### GoFile upload workflow
+#### Upload workflow
 
-Each file must be uploaded **individually** (no `folderId`) so every file gets its own unique download page URL. Use the persistent account token in `.gofile-io-token` so uploads survive (anonymous uploads expire).
+`scripts/refresh-release-links.sh` is the single entry point. It builds every
+platform, uploads each file to `godsend-360/releases/<version>/<filename>` with a
+one-year immutable cache, rewrites both download tables and the site's platform
+cards through `scripts/patch-release-links.py`, commits and pushes, then prunes
+every R2 version except the current and the previous one. `links.txt` rows are
+`name | url`.
 
-Upload steps (per file):
-
-```bash
-TOKEN=$(cat .gofile-io-token)
-RESPONSE=$(curl -s -X POST "https://upload.gofile.io/contents/uploadfile" \
-  -H "Authorization: Bearer $TOKEN" -F "file=@dist/FILENAME")
-echo "$RESPONSE" | jq -r '.data.downloadPage'
-```
-
-The `downloadPage` value (e.g. `https://gofile.io/d/AbC123`) is the per-file public link to use in the README.
-
-#### file.kiwi upload workflow
-
-Mirror each file to file.kiwi (anonymous, E2E-encrypted) with the official CLI:
+Credentials live in `~/.r2.env` (`R2_S3_ENDPOINT`, `R2_S3_ACCESS_KEY_ID`,
+`R2_S3_SECRET_ACCESS_KEY`); the machine also needs the `aws` CLI. A one-off
+upload of a single file:
 
 ```bash
-FORCE_COLOR=0 npx -y @file-kiwi/node dist/FILENAME --title "FILENAME" 2>&1 \
-  | grep -Eo 'https://file\.kiwi/[A-Za-z0-9][A-Za-z0-9#_+/=-]*' | tail -1
+set -a; . ~/.r2.env; set +a
+AWS_ACCESS_KEY_ID=$R2_S3_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$R2_S3_SECRET_ACCESS_KEY \
+AWS_DEFAULT_REGION=auto aws s3 cp dist/FILENAME \
+  "s3://torrent-search-covers-eu/godsend-360/releases/X.Y.Z/FILENAME" \
+  --endpoint-url "$R2_S3_ENDPOINT" --content-type application/octet-stream \
+  --cache-control 'public, max-age=31536000, immutable'
 ```
 
-The full URL **including the `#<key>` fragment** is the link to use in the README - without the fragment the file cannot be decrypted.
+The public URL is
+`https://covers.debrid.in/godsend-360/releases/X.Y.Z/FILENAME`.
 
 ##### Files to upload
 
-After building on macOS, the following files in `dist/` must be uploaded (to both hosts):
+After building on macOS, the following files in `dist/` are uploaded:
 
 | File | Description |
 |---|---|
@@ -252,56 +254,34 @@ After building on macOS, the following files in `dist/` must be uploaded (to bot
 
 #### Updating README download links
 
-After uploading, update **both** download tables in `README.md` (and `docs/headless-setup.md`). Each table has a **GoFile column** and a **file.kiwi column** - update both per row:
+The script updates both tables in `README.md` and `docs/headless-setup.md`.
+Each row collapses to a single Download cell:
 
-1. **Quick Installation table** (desktop installers):
-   ```markdown
-   | **macOS (Apple Silicon)** | [`godsend-X.Y.Z-arm64.dmg`](https://gofile.io/d/CODE) | [`godsend-X.Y.Z-arm64.dmg`](https://file.kiwi/ID#KEY) |
-   ```
+```markdown
+| **macOS (Apple Silicon)** | [`godsend-X.Y.Z-arm64.dmg`](https://covers.debrid.in/godsend-360/releases/X.Y.Z/godsend-X.Y.Z-arm64.dmg) |
+```
 
-2. **Running Without the Desktop App table** (headless backend binaries):
-   ```markdown
-   | **Windows (x64)** | [`godsend.exe`](https://gofile.io/d/CODE) | [`godsend.exe`](https://file.kiwi/ID#KEY) |
-   ```
-
-Each cell gets its own unique link - do **not** point multiple files at the same folder page.
-
-Also update all inline version references in `README.md` (filenames in prose, installer names in instructions).
+It also updates inline version references in `README.md` (filenames in prose,
+installer names in instructions).
 
 #### Rules
 
 - **Never** create git tags, GitHub releases, or push tags to the remote.
 - Upload each platform build as a **separate file** - do not zip multiple builds together.
-- Each file must have its **own unique GoFile download page** (upload without `folderId`) and its own file.kiwi link (with the `#<key>` fragment).
 - When bumping versions, update `README.md` download links **in the same commit** as the version bump.
-- You only need to rebuild + re-upload the platforms that actually changed; leave links for platforms already published at the current version alone.
+- R2 keys are versioned and immutable. Never re-upload different bytes at an
+  existing version (the edge caches for a year); bump the version instead.
 
-#### Automated weekly link refresh
+#### Scheduled publish
 
-GoFile expires free-tier files, so the published links rot even when no code changes.
-`scripts/refresh-release-links.sh` handles that on a schedule (launchd agent
-`com.ghost.godsend-weekly-refresh`, Sunday 03:47, under `caffeinate -i`):
+R2 links do not expire, so nothing needs a weekly re-upload. The launchd job
+still exists as a cheap check: `refresh-release-links.sh` compares the repo
+version with the live `downloads.json` and exits unless the repo is ahead
+(`FORCE=1` overrides). A run builds every platform, uploads, rewrites the
+tables, commits, pushes, prunes older R2 versions, and removes `dist/`.
 
-1. clears `dist/`, so a failed build can never fall through to uploading stale binaries
-2. rebuilds every platform for the version in `package.json`
-3. re-uploads all 12 artifacts to GoFile + file.kiwi, getting fresh links
-4. repoints both download tables and the site's platform cards (`docs/index.html`)
-   through `scripts/patch-release-links.py`
-5. commits and pushes to `github main`
-
-Because the job exists to replace expired links, it re-uploads **every** platform each
-run. That deliberately overrides the "only rebuild what changed" rule above, which
-applies to hand-cut releases where the previous links are still alive. `patch-release-links.py`
-matches rows by artifact identity with the version stripped out, so the job also survives
-a version bump: the row is found and both its label and URL are rewritten. The site's
-platform cards are matched the same way, through the anchor's `data-artifact` attribute,
-so a new row on `docs/index.html` needs that attribute (or the weekly run will skip it).
-
-Both scripts are safe to run by hand. Re-running the same day resumes that day's uploads
-instead of starting over, and a single run is guarded by `.release-refresh.lock`. If an
-artifact cannot get a fresh GoFile link, that row keeps its existing URL (never a broken
-link), the run warns in its log and posts a desktop notification. `refresh-release-links.sh --selftest`
-and `patch-release-links.py --demo` exercise the manifest bookkeeping and link rewriting.
+`refresh-release-links.sh --selftest` and `patch-release-links.py --demo`
+exercise the manifest bookkeeping and link rewriting.
 
 ---
 
@@ -348,28 +328,16 @@ npm run build:electron:linux
 
 You only need to rebuild the platforms that changed since the last release.
 
-#### 5. Upload all dist files to GoFile + file.kiwi
+#### 5. Upload all dist files to Cloudflare R2
 
-Upload each changed file individually (no `folderId`) to **both** hosts and collect the per-file links:
-
-```bash
-TOKEN=$(cat .gofile-io-token)
-for f in godsend.exe godsend-darwin-arm64 godsend-darwin-amd64 godsend-linux-arm64 \
-         godsend-linux-x64 godsend-mac \
-         godsend-Setup-X.Y.Z.exe godsend-Portable-X.Y.Z.exe \
-         godsend-X.Y.Z-arm64.dmg godsend-X.Y.Z-x64.dmg \
-         godsend-X.Y.Z-arm64.AppImage godsend-X.Y.Z-x86_64.AppImage; do
-  gofile=$(curl -s -X POST "https://upload.gofile.io/contents/uploadfile" \
-    -H "Authorization: Bearer $TOKEN" -F "file=@dist/$f" | jq -r '.data.downloadPage')
-  kiwi=$(FORCE_COLOR=0 npx -y @file-kiwi/node "dist/$f" --title "$f" 2>&1 \
-    | grep -Eo 'https://file\.kiwi/[A-Za-z0-9][A-Za-z0-9#_+/=-]*' | tail -1)
-  echo "$f | $gofile | $kiwi"
-done
-```
+Run `scripts/refresh-release-links.sh` (it builds, uploads every artifact under
+`godsend-360/releases/<version>/`, rewrites the tables, commits, pushes and
+prunes older versions), or upload the changed files by hand with the `aws s3 cp`
+command above.
 
 #### 6. Update README.md download links
 
-Replace the GoFile and file.kiwi URLs in both download tables with the fresh per-file links from step 5 (only for the platforms you rebuilt).
+Replace the `covers.debrid.in` URLs in both download tables with the fresh per-file links from step 5 (only for the platforms you rebuilt).
 
 #### 7. Commit and push
 
