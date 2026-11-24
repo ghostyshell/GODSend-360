@@ -60,3 +60,7 @@ graphify-out/
 # FlareSolverr bundle (fetched by scripts/download-flaresolverr.js, not committed)
 vendor/flaresolverr/*
 !vendor/flaresolverr/README.md
+
+# release scratch
+.release-run.log
+.release-*/
