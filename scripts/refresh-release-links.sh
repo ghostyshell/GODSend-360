@@ -61,35 +61,27 @@ fi
 
 [ "$V" = "$EV" ] || die "version drift: package.json=$V but src/electron-app/package.json=$EV"
 
-# R2 links never expire, so there is nothing to renew on a timer. Publish only
-# when the repo version is ahead of the live feed; FORCE=1 overrides.
-LIVE=$(curl -fsS "https://ghostyshell.github.io/GODSend-360/downloads.json?v=$(date +%s)" 2>/dev/null \
-  | python3 -c 'import json,sys
-try: print(json.load(sys.stdin).get("version",""))
-except Exception: print("")' 2>/dev/null || true)
-if [ "${FORCE:-0}" != 1 ] && [ "$LIVE" = "$V" ]; then
-  log "$V is already live; nothing to publish"
-  exit 0
-fi
-
-RUN=".release-${V}-$(date +%Y%m%d)"
-LINKS="$RUN/links.txt"
-mkdir -p "$RUN"
-
-# One run at a time: a slept-through slot can hand us two starts on the same day.
-LOCK=.release-refresh.lock
-if ! mkdir "$LOCK" 2>/dev/null; then
-  pid=$(cat "$LOCK/pid" 2>/dev/null || true)
-  if [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null; then
-    log "another refresh is already running (pid $pid) - exiting"
+# R2 links never expire, so the only thing to check is whether the newest
+# published version already matches this checkout. FORCE=1 publishes anyway.
+# There is no downloads.json for this app (its tables are static), so the
+# bucket is the source of truth for what is live.
+if [ -f "$HOME/.r2.env" ] && command -v aws >/dev/null 2>&1; then
+  # shellcheck disable=SC1090
+  set -a; . "$HOME/.r2.env"; set +a
+  LATEST=$(AWS_ACCESS_KEY_ID="$R2_S3_ACCESS_KEY_ID" \
+           AWS_SECRET_ACCESS_KEY="$R2_S3_SECRET_ACCESS_KEY" \
+           AWS_DEFAULT_REGION=auto aws --endpoint-url "$R2_S3_ENDPOINT" \
+             s3api list-objects-v2 --bucket torrent-search-covers-eu \
+             --prefix godsend-360/releases/ --delimiter / \
+             --query 'CommonPrefixes[].Prefix' --output text 2>/dev/null \
+           | tr '\t' '\n' | sed 's#/$##' | awk -F/ '{print $NF}' \
+           | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+           | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+  if [ "${FORCE:-0}" != 1 ] && [ -n "$LATEST" ] && [ "$LATEST" = "$V" ]; then
+    log "$V is already the newest published version; nothing to publish"
     exit 0
   fi
-  log "clearing stale lock (pid ${pid:-unknown} is not running)"
-  rm -rf "$LOCK"
-  mkdir "$LOCK"
 fi
-printf '%s\n' "$$" > "$LOCK/pid"
-trap 'rm -rf "$LOCK"' EXIT
 
 log "refreshing GODsend-360 $V into $RUN"
 
