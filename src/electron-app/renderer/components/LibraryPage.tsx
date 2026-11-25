@@ -2214,7 +2214,7 @@ function GameDetail({
                             size="sm"
                             variant={isSelected ? "default" : "outline"}
                             className={cn(
-                              "h-7 text-[11px] px-2.5 transition-[background-color,border-color,color,opacity,box-shadow] duration-200",
+                              "h-7 text-[11px] px-2.5 transition-[background-color,border-color,color,opacity,box-shadow,transform] duration-200",
                               isSelected && "ring-1 ring-accent"
                             )}
                             onClick={() => {
@@ -2258,7 +2258,7 @@ function GameDetail({
                         size="sm"
                         onClick={handleMoveGame}
                         disabled={moveStatus === "moving" || moveStatus === "done"}
-                        className="gap-1 transition-[background-color,border-color,color,opacity,box-shadow] duration-200"
+                        className="gap-1 transition-[background-color,border-color,color,opacity,box-shadow,transform] duration-200"
                       >
                         {moveStatus === "moving" ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
