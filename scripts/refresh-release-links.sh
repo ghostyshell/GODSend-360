@@ -83,6 +83,25 @@ if [ -f "$HOME/.r2.env" ] && command -v aws >/dev/null 2>&1; then
   fi
 fi
 
+RUN=".release-${V}-$(date +%Y%m%d)"
+LINKS="$RUN/links.txt"
+mkdir -p "$RUN"
+
+# One run at a time: a slept-through slot can hand us two starts on the same day.
+LOCK=.release-refresh.lock
+if ! mkdir "$LOCK" 2>/dev/null; then
+  pid=$(cat "$LOCK/pid" 2>/dev/null || true)
+  if [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null; then
+    log "another refresh is already running (pid $pid) - exiting"
+    exit 0
+  fi
+  log "clearing stale lock (pid ${pid:-unknown} is not running)"
+  rm -rf "$LOCK"
+  mkdir "$LOCK"
+fi
+printf '%s\n' "$$" > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
+
 log "refreshing GODsend-360 $V into $RUN"
 
 # --- 1. Clear old local artifacts -------------------------------------------------
