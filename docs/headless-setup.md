@@ -8,11 +8,11 @@ The Go backend works as a standalone headless server - no Electron, no GUI, no d
 
 | Platform | Download |
 | --- | --- |
-| **Windows (x64)** | [`godsend.exe`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend.exe) |
-| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-linux-x64) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-linux-arm64) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-darwin-arm64) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-darwin-amd64) |
+| **Windows (x64)** | [`godsend.exe`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend.exe) |
+| **Linux (x64 / amd64)** | [`godsend-linux-x64`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-linux-x64) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-linux-arm64) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-darwin-arm64) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-darwin-amd64) |
 
 For the **full desktop app** (tray UI + bundled backend), see the download table in the main [README](../readme.md#quick-installation).
 

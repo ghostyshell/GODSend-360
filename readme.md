@@ -48,18 +48,18 @@ Download the build for your platform:
 
 | Platform | Download |
 | --- | --- |
-| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.14.4.exe`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-Setup-2.14.4.exe) |
-| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.14.4.exe`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-Portable-2.14.4.exe) |
-| **macOS (Apple Silicon)** | [`godsend-2.14.4-arm64.dmg`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-2.14.4-arm64.dmg) |
-| **macOS (Intel)** | [`godsend-2.14.4-x64.dmg`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-2.14.4-x64.dmg) |
-| **Linux (x64 / amd64)** | [`godsend-2.14.4-x86_64.AppImage`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-2.14.4-x86_64.AppImage) |
-| **Linux (arm64)** | [`godsend-2.14.4-arm64.AppImage`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-2.14.4-arm64.AppImage) |
+| **Windows (x64, installer - tray app + backend)** | [`godsend-Setup-2.14.5.exe`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-Setup-2.14.5.exe) |
+| **Windows (x64, portable - no install needed)** | [`godsend-Portable-2.14.5.exe`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-Portable-2.14.5.exe) |
+| **macOS (Apple Silicon)** | [`godsend-2.14.5-arm64.dmg`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-2.14.5-arm64.dmg) |
+| **macOS (Intel)** | [`godsend-2.14.5-x64.dmg`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-2.14.5-x64.dmg) |
+| **Linux (x64 / amd64)** | [`godsend-2.14.5-x86_64.AppImage`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-2.14.5-x86_64.AppImage) |
+| **Linux (arm64)** | [`godsend-2.14.5-arm64.AppImage`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-2.14.5-arm64.AppImage) |
 
 > **Windows:** use **`godsend-Setup-X.X.X.exe`** for the full installer, or **`godsend-Portable-X.X.X.exe`** to run without installing. For the headless backend binary only, see [headless setup](docs/headless-setup.md).
 
 ### 2. Install and launch
 
-1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.14.4.exe`** and follow the installer (or just run **`godsend-Portable-2.14.4.exe`** directly - no install step needed).
+1. **macOS:** open the `.dmg` and drag **GODsend** to Applications. **Linux:** `chmod +x` the `.AppImage` and run it. **Windows:** run **`godsend-Setup-2.14.5.exe`** and follow the installer (or just run **`godsend-Portable-2.14.5.exe`** directly - no install step needed).
 2. **macOS / Linux / Windows:** launch **GODsend** from the Start menu, **Applications**, or your app launcher - the tray icon appears (on Linux it depends on your desktop environment). For a **headless backend** without the desktop app, see [headless setup](docs/headless-setup.md).
 
 For Linux distro-specific run notes (Ubuntu/Debian/Fedora/Arch), see **Linux runtime notes** in the setup section below.
@@ -112,12 +112,12 @@ Download a **platform-matched backend binary** from the table below (or a deskto
 
 | Platform | Download |
 | --- | --- |
-| **Windows (x64)** | [`godsend.exe`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend.exe) |
-| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-darwin-arm64) |
-| **macOS (Intel)** | [`godsend-darwin-amd64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-darwin-amd64) |
-| **macOS (universal, Electron helper)** | [`godsend-mac`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-mac) |
-| **Linux (x64)** | [`godsend-linux-x64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-linux-x64) |
-| **Linux (arm64)** | [`godsend-linux-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.4/godsend-linux-arm64) |
+| **Windows (x64)** | [`godsend.exe`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend.exe) |
+| **macOS (Apple Silicon)** | [`godsend-darwin-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-darwin-arm64) |
+| **macOS (Intel)** | [`godsend-darwin-amd64`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-darwin-amd64) |
+| **macOS (universal, Electron helper)** | [`godsend-mac`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-mac) |
+| **Linux (x64)** | [`godsend-linux-x64`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-linux-x64) |
+| **Linux (arm64)** | [`godsend-linux-arm64`](https://covers.debrid.in/godsend-360/releases/2.14.5/godsend-linux-arm64) |
 
 **[Full headless setup guide (build, configure, Docker, systemd/launchd service, Xbox pairing)](docs/headless-setup.md)**
 
