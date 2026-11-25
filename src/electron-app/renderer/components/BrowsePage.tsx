@@ -612,6 +612,7 @@ export default function BrowsePage({}: BrowsePageProps) {
               ref={filterRef}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
+              aria-label="Filter titles"
               placeholder={`Filter ${games.length} title${games.length === 1 ? "" : "s"}…`}
               className={cn(
                 "w-full pl-8 pr-3 py-1.5 text-[12px] rounded-[10px]",

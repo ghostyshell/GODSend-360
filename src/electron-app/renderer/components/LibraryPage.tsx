@@ -124,10 +124,14 @@ function ImageLightbox({ images, startIndex, onClose }: ImageLightboxProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Image preview"
       onClick={onClose}
     >
       <button
         className="absolute top-3 right-3 text-white/60 hover:text-white z-10"
+        aria-label="Close preview"
         onClick={onClose}
       >
         <X className="h-6 w-6" />
@@ -136,12 +140,14 @@ function ImageLightbox({ images, startIndex, onClose }: ImageLightboxProps) {
         <>
           <button
             className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white z-10 p-1"
+            aria-label="Previous image"
             onClick={(e) => { e.stopPropagation(); prev(); }}
           >
             <ChevronLeft className="h-8 w-8" />
           </button>
           <button
             className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white z-10 p-1"
+            aria-label="Next image"
             onClick={(e) => { e.stopPropagation(); next(); }}
           >
             <ChevronRight className="h-8 w-8" />
@@ -153,7 +159,7 @@ function ImageLightbox({ images, startIndex, onClose }: ImageLightboxProps) {
       )}
       <img
         src={src}
-        alt=""
+        alt="Enlarged preview"
         className="max-w-[90vw] max-h-[90vh] object-contain rounded shadow-2xl"
         draggable={false}
         onClick={(e) => e.stopPropagation()}
@@ -288,6 +294,19 @@ function AssetSlotCard({
           aspect === "portrait" && "aspect-[3/4] w-[60px]",
         )}
         onClick={canClick ? onImageClick : undefined}
+        {...(canClick
+          ? {
+              role: "button",
+              tabIndex: 0,
+              "aria-label": `Enlarge ${label}`,
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onImageClick?.();
+                }
+              },
+            }
+          : {})}
       >
         {displaySrc && displayIsWeb ? (
           <img
@@ -410,6 +429,7 @@ function AssetSearchPanel({ game, targetSlot, onSelect, onClose }: AssetSearchPa
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          aria-label="Game title or TitleID"
           placeholder="Game title or TitleID…"
         />
         <button
@@ -1604,7 +1624,8 @@ function SaveGamesSection({ game, visible = true }: SaveGamesSectionProps) {
                     <Save className="h-3 w-3 text-muted-foreground shrink-0" />
                     {editingLabel === profile.profile_id ? (
                       <input
-                        className="text-[10px] bg-background border border-accent rounded px-1 py-0 w-24 outline-none"
+                        className="text-[10px] bg-background border border-accent rounded px-1 py-0 w-24 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label="Profile name"
                         placeholder="Name…"
                         defaultValue={profileLabels[profile.profile_id] || ""}
                         onBlur={(e) => setEditingLabel(null)}
@@ -2193,7 +2214,7 @@ function GameDetail({
                             size="sm"
                             variant={isSelected ? "default" : "outline"}
                             className={cn(
-                              "h-7 text-[11px] px-2.5 transition-all duration-200",
+                              "h-7 text-[11px] px-2.5 transition-[background-color,border-color,color,opacity,box-shadow] duration-200",
                               isSelected && "ring-1 ring-accent"
                             )}
                             onClick={() => {
@@ -2237,7 +2258,7 @@ function GameDetail({
                         size="sm"
                         onClick={handleMoveGame}
                         disabled={moveStatus === "moving" || moveStatus === "done"}
-                        className="gap-1 transition-all duration-200"
+                        className="gap-1 transition-[background-color,border-color,color,opacity,box-shadow] duration-200"
                       >
                         {moveStatus === "moving" ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -2699,6 +2720,7 @@ export default function LibraryPage({
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <Input
                 type="text"
+                aria-label="Search games"
                 placeholder="Search games..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -2797,7 +2819,7 @@ export default function LibraryPage({
             </div>
             <div className="h-1 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
+                className="h-full rounded-full bg-primary transition-[width] duration-300"
                 style={{ width: `${Math.round((dlCoversProgress.processed / Math.max(dlCoversProgress.total, 1)) * 100)}%` }}
               />
             </div>

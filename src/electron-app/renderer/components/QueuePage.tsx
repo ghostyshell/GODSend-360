@@ -94,7 +94,7 @@ function JobRow({ job, onRemove, removing }: JobRowProps) {
         {!isFinished && pct !== null && pct > 0 && (
           <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden max-w-[300px]">
             <div
-              className="h-full bg-primary rounded-full transition-all duration-300"
+              className="h-full bg-primary rounded-full transition-[width] duration-300"
               style={{ width: `${Math.min(100, pct)}%` }}
             />
           </div>

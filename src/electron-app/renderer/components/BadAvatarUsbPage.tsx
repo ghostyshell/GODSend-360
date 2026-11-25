@@ -252,7 +252,7 @@ export default function BadAvatarUsbPage() {
         <section className="border border-border rounded-lg p-3 flex flex-col gap-2 shrink-0">
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary transition-all duration-300"
+              className="h-full bg-primary transition-[width] duration-300"
               style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
             />
           </div>

@@ -13,6 +13,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Accessibility pass: unlabeled inputs named, keyboard access for asset previews, FTP rows and the image lightbox, progress bars transition width only, and the privacy list drops decorative emoji.
 - Downloads are hosted on Cloudflare R2 under versioned, immutable keys, so a
   link stays valid until the next version. The weekly GoFile/file.kiwi re-upload
   is gone: the scheduled job now only checks the live feed for a version bump,

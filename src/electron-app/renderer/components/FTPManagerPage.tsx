@@ -81,7 +81,7 @@ function UploadJobRow({ job, onRemove }: UploadJobRowProps) {
         {job.state === "Processing" && job.progress !== undefined && job.progress > 0 && (
           <div className="mt-0.5 h-1 bg-muted rounded-full overflow-hidden max-w-[200px]">
             <div
-              className="h-full bg-primary rounded-full transition-all duration-300"
+              className="h-full bg-primary rounded-full transition-[width] duration-300"
               style={{ width: `${Math.min(100, job.progress)}%` }}
             />
           </div>
@@ -218,7 +218,7 @@ export default function FTPManagerPage({}: FTPManagerPageProps) {
   }
 
   // ── Selection helpers ───────────────────────────────────────────────────
-  function toggleSelect(name: string, e: React.MouseEvent) {
+  function toggleSelect(name: string, e: React.MouseEvent | React.KeyboardEvent) {
     setSelected(prev => {
       const next = new Set(prev);
       if (e && e.shiftKey && prev.size > 0) {
@@ -375,6 +375,7 @@ export default function FTPManagerPage({}: FTPManagerPageProps) {
             <input
               type="text"
               className="h-7 px-2 text-[12px] bg-surface border border-border rounded-md text-foreground w-32 outline-none focus:border-primary"
+              aria-label="Folder name"
               placeholder="Folder name"
               value={mkdirName}
               onChange={e => setMkdirName(e.target.value)}
@@ -541,6 +542,13 @@ export default function FTPManagerPage({}: FTPManagerPageProps) {
                       isCut && "opacity-50",
                     )}
                     onClick={(e) => toggleSelect(entry.name, e)}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.target === e.currentTarget && (e.key === " " || e.key === "Enter")) {
+                        e.preventDefault();
+                        toggleSelect(entry.name, e);
+                      }
+                    }}
                     onContextMenu={(e) => handleContextMenu(e, entry)}
                   >
                     {entry.type === "dir" ? (
